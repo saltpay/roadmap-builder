@@ -1,0 +1,1912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Cross-team search</title>
+    
+    <!-- Link to external CSS file -->
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./roadmap-styles.css">
+    
+    <!-- Import Utilities -->
+    <script src="./utilities/date-utility.js"></script>
+    <script src="./utilities/ui-utility.js"></script>
+    <script src="./utilities/config-utility.js"></script>
+    <script src="./utilities/imo-utility.js"></script>
+    <script src="./utilities/imo-view-generator.js"></script>
+    <script src="./roadmap-generator.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: #f8f9fa;
+        }
+        
+        /* Header Container */
+        .header-container {
+            background: white;
+            padding: 60px 20px 15px 20px;
+            border-bottom: 2px solid #007cba;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-top: 50px;
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header-left h1 {
+            margin: 0;
+            color: #007cba;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            margin: 5px 0 0 0;
+            color: #666;
+            font-size: 16px;
+        }
+        
+        /* Main Container */
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .title-and-controls {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .search-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .search-title h1 {
+            margin: 0;
+            color: #007cba;
+            font-size: 28px;
+        }
+        
+        /* Directory Selection */
+        .directory-selection {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border-left: 4px solid #28a745;
+        }
+        
+        .directory-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        /* Search Sections */
+        .search-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border-left: 4px solid #007cba;
+        }
+        
+        .search-section-title {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .directory-button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            border: 2px solid #007cba;
+        }
+        
+        .directory-button:hover {
+            background: #005a87;
+            border-color: #005a87;
+        }
+        
+        .directory-button.selected {
+            background: #28a745;
+            border-color: #28a745;
+        }
+        
+        .directory-status {
+            font-size: 14px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .search-input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .search-input-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 5px 12px !important;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        
+        .search-input.date-input {
+            flex: none;
+            width: 145px;
+        }
+        
+        .search-input.range-select {
+            flex: none;
+            width: 110px;
+        }
+        
+        .search-input.wide-dropdown {
+            flex: none;
+            width: 120px;
+        }
+        
+        .search-input.imo-input {
+            flex: none;
+            width: 300px;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #007cba;
+        }
+        
+        .search-button {
+            background: #007cba;
+            color: white;
+            border: 2px solid transparent;
+            padding: 4px 12px !important;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            white-space: nowrap;
+            min-width: 120px;
+            transform: translateY(5px);
+        }
+        
+        .search-button:hover:not(:disabled) {
+            background: #005a87;
+        }
+        
+        .search-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .search-title {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        /* Blank State */
+        .blank-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .blank-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
+        .blank-state h2 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 24px;
+        }
+        
+        .blank-state p {
+            margin: 0 0 30px 0;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+
+        
+        /* Loading State */
+        .loading-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007cba;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Results Area */
+        .results-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        /* Reset any list styling that might interfere */
+        .results-container ul, 
+        .results-container li {
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Override any page styles for bullets specifically */
+        .results-container .task-bullets {
+            font-size: 9pt !important;
+            margin: 0 !important;
+            padding-left: 12px !important;
+            list-style-type: square !important;
+        }
+        
+        .results-container .task-bullets li {
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1.2 !important;
+        }
+        
+        /* Modal Base Styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px 0 24px;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+        }
+
+        .close {
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #999;
+            line-height: 1;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .modal-body {
+            padding: 0 24px 20px 24px;
+            max-height: calc(90vh - 140px);
+            overflow-y: auto;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-top: 1px solid #eee;
+            background-color: #f8f9fa;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .modal-footer button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .modal-footer .secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .modal-footer .secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .modal-footer .primary {
+            background-color: #007cba;
+            color: white;
+        }
+
+        .modal-footer .primary:hover {
+            background-color: #006ba1;
+        }
+
+        /* Read-Only Field Styles */
+        .readonly-field {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 8px 12px;
+            min-height: 20px;
+            font-size: 14px;
+            line-height: 1.4;
+            color: #333;
+        }
+        
+        .readonly-bullets {
+            white-space: pre-line;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        
+        /* Form group styling */
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .inline-group {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .inline-group .form-group {
+            flex: 1;
+        }
+        
+        .border-card {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #fafafa;
+        }
+        
+        .border-card h5 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .border-section {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            background-color: #fafafa;
+        }
+        
+        .border-section h4 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 18px;
+        }
+        
+        /* Checkbox group styling */
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        
+        /* Target specific modal checkboxes by ID */
+        #viewNewStory, #viewDone, #viewCancelled, #viewInfo, 
+        #viewTimelineChanges, #viewAtRisk, #viewProposed, 
+        #viewTransferredIn, #viewTransferredOut {
+            accent-color: red !important;
+            background-color: red !important;
+            border: 2px solid red !important;
+            opacity: 1 !important;
+            cursor: default;
+        }
+        
+        .checkbox-group input[type="checkbox"] + label {
+            margin-left: -8px;
+        }
+        
+
+        
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            font-weight: normal;
+            margin-bottom: 0;
+            cursor: default;
+                }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .search-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .search-input-group {
+                min-width: auto;
+            }
+            
+            .search-title {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .inline-group {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="search-container">
+        <!-- Search Header -->
+        <div class="search-header">
+            <div class="title-and-controls">
+                <div class="search-title">
+                    <h1>🔍 Cross-Team Search</h1>
+                    <button class="search-button" onclick="clearAllSearchFields()" style="min-width: 160px;">
+                        🧹 Clear All
+                    </button>
+                </div>
+                
+                <!-- Directory Selection - Top Priority -->
+                <div class="directory-selection">
+                    <div class="directory-row">
+                        <button class="directory-button" id="selectDirBtn" onclick="selectDirectory()">
+                            📁 Select Directory
+                        </button>
+                        <span class="directory-status" id="directoryStatus">No directory selected</span>
+                    </div>
+                </div>
+
+                <!-- Director/VP/EM/PM Search -->
+                <div class="search-section">
+                    <h3 class="search-section-title">👤 Leadership Search</h3>
+                    <div class="search-input-group">
+                        <input type="text"
+                               class="search-input imo-input"
+                               id="directorSearchInput"
+                               placeholder="Enter Director/VP, EM, or PM name (partial match)"
+                               onkeypress="handleDirectorSearchKeyPress(event)">
+                        <button class="search-button" id="directorSearchBtn" onclick="performDirectorSearch()" disabled>
+                            👤 Search Leadership
+                        </button>
+                    </div>
+                </div>
+
+                <!-- IMO Search -->
+                <div class="search-section">
+                    <h3 class="search-section-title">🔍 IMO Search</h3>
+                    <div class="search-input-group">
+                            <input type="text" 
+                               class="search-input imo-input" 
+                                   id="searchInput" 
+                               placeholder="Enter IMO number (0043)" 
+                                   onkeypress="handleSearchKeyPress(event)">
+                        <button class="search-button" id="imoSearchBtn" onclick="performIMOSearch()" disabled>
+                            🔍 Search
+                            </button>
+                    </div>
+                </div>
+                
+                <!-- Story Title Search -->
+                <div class="search-section">
+                    <h3 class="search-section-title">📝 Story Title Search</h3>
+                    <div class="search-input-group">
+                        <input type="text" 
+                               class="search-input imo-input" 
+                               id="titleSearchInput" 
+                               placeholder="Enter text to search in story titles" 
+                               onkeypress="handleTitleSearchKeyPress(event)">
+                        <button class="search-button" id="titleSearchBtn" onclick="performTitleSearch()" disabled>
+                            📝 Search Titles
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Date Range Search -->
+                <div class="search-section">
+                    <h3 class="search-section-title">📅 Date Search</h3>
+                    <div class="search-input-group">
+                        <input type="date" 
+                               class="search-input date-input" 
+                               id="startDateInput" 
+                               placeholder="Start Date (optional)"
+                               onchange="handleDateRangeChange(event)">
+                        <input type="date" 
+                               class="search-input date-input" 
+                               id="endDateInput" 
+                               placeholder="End Date (optional)"
+                               onchange="handleDateRangeChange(event)">
+                        <select class="search-input range-select wide-dropdown" id="searchModeSelect" onchange="updateSearchModeHelp()">
+                            <option value="exact">Exact</option>
+                            <option value="exact-7days">Exact +/- 7 Days</option>
+                            <option value="range">Range</option>
+                        </select>
+                        <button class="search-button" id="dateRangeSearchBtn" onclick="performDateRangeSearch()" disabled>
+                            📅 Search Dates
+                        </button>
+                    </div>
+                    <div id="searchModeHelp" style="font-size: 12px; color: #666; margin-top: 5px;">
+                        Exact: Stories must start/end exactly on the specified dates.
+                    </div>
+                </div>
+
+                
+            </div>
+        
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div id="contentArea">
+                <!-- Blank State -->
+                <div class="blank-state" id="blankState">
+                    <div class="blank-state-icon">🔍</div>
+                    <h2>Cross-Team IMO & Timeline Search</h2>
+                    <p>Search across multiple team roadmaps to find stories by IMO number or timeline</p>
+                    
+                    <p style="font-size: 14px; color: #999;">
+                        First select a directory containing roadmap JSON files, then enter your search query
+                    </p>
+                            </div>
+                            </div>
+                            </div>
+                        </div>
+
+    <!-- Story Details Modal (Read-Only) -->
+    <div id="storyDetailsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="storyDetailsTitle">Story Details</h3>
+                <span class="close" onclick="closeStoryDetailsModal()">&times;</span>
+                </div>
+            <div class="modal-body">
+                <form id="viewStoryForm">
+                    <div class="form-group">
+                        <label>Story Title:</label>
+                        <div class="readonly-field" id="viewTitle"></div>
+            </div>
+                    
+                    <div class="form-group">
+                        <label>Team:</label>
+                        <div class="readonly-field" id="viewTeam"></div>
+        </div>
+                    
+                    <div class="form-group">
+                        <label>Epic:</label>
+                        <div class="readonly-field" id="viewEpic"></div>
+                    </div>
+                    
+                    <!-- KTLO Position Toggle (only shown for KTLO) -->
+                    <div class="form-group" id="viewKTLOPositionGroup" style="display: none;">
+                        <label>KTLO Position:</label>
+                        <div class="readonly-field" id="viewKTLOPosition"></div>
+                    </div>
+                    
+                    <div class="inline-group">
+                        <div class="form-group">
+                            <label>Start Date/Month:</label>
+                            <div class="readonly-field" id="viewStart"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>End Date/Month:</label>
+                            <div class="readonly-field" id="viewEnd"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Bullet Points:</label>
+                        <div class="readonly-field readonly-bullets" id="viewBullets"></div>
+                    </div>
+                    
+                    <!-- BTL Date Added field (only shown for BTL) -->
+                    <div id="viewBTLDateAddedGroup" class="form-group" style="display: none;">
+                        <label>Date Added:</label>
+                        <div class="readonly-field" id="viewBTLDateAdded"></div>
+                    </div>
+                    
+                    <div id="viewBTLDescriptionGroup" class="form-group" style="display: none;">
+                        <label>Description:</label>
+                        <div class="readonly-field" id="viewBTLDescription"></div>
+                    </div>
+                    
+                    <!-- Monthly KTLO Data (only shown for KTLO) -->
+                    <div id="viewKTLOMonthlySection" style="display: none; margin-top: 15px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
+                        <h4 style="margin: 0 0 15px 0;">Monthly KTLO Data</h4>
+                        <div id="viewKTLOMonthsContainer"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>IMO <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                        <div class="readonly-field" id="viewIMO"></div>
+                    </div>
+                    
+                    <!-- Row 1: New, Done, Cancelled, Info, Timeline -->
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="viewNewStory" disabled>
+                        <label for="viewNewStory">New</label>
+                        
+                        <input type="checkbox" id="viewDone" disabled>
+                        <label for="viewDone">Done</label>
+                        
+                        <input type="checkbox" id="viewCancelled" disabled>
+                        <label for="viewCancelled">Cancelled</label>
+                        
+                        <input type="checkbox" id="viewInfo" disabled>
+                        <label for="viewInfo">Info</label>
+                        
+                        <input type="checkbox" id="viewTimelineChanges" disabled>
+                        <label for="viewTimelineChanges">Timeline</label>
+                    </div>
+                    
+                    <!-- Row 2: At Risk, Proposed, Transferred: In, Out -->
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="viewAtRisk" disabled>
+                        <label for="viewAtRisk">At Risk</label>
+                        
+                        <input type="checkbox" id="viewProposed" disabled>
+                        <label for="viewProposed">Proposed</label>
+                        
+                        <label style="margin-left: 8px; margin-right: 2px;">Transferred:</label>
+                        <input type="checkbox" id="viewTransferredIn" disabled>
+                        <label for="viewTransferredIn" style="margin-right: 5px;">In</label>
+                        
+                        <input type="checkbox" id="viewTransferredOut" disabled>
+                        <label for="viewTransferredOut">Out</label>
+                    </div>
+                    
+                    <div id="viewStatusFields" style="margin-top: 10px;">
+                        
+                        <div id="viewDoneFields" class="border-card" style="display: none;">
+                            <h5>Story Complete</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Done Date:</label>
+                                    <div class="readonly-field" id="viewDoneDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Done Notes:</label>
+                                    <div class="readonly-field" id="viewDoneNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="viewCancelFields" class="border-card" style="display: none;">
+                            <h5>Story Cancellation</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Cancel Date:</label>
+                                    <div class="readonly-field" id="viewCancelDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Cancel Notes:</label>
+                                    <div class="readonly-field" id="viewCancelNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="viewAtRiskFields" class="border-card" style="display: none;">
+                            <h5>Story At Risk</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Risk Date:</label>
+                                    <div class="readonly-field" id="viewAtRiskDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Risk Notes:</label>
+                                    <div class="readonly-field" id="viewAtRiskNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="viewNewStoryFields" class="border-card" style="display: none;">
+                            <h5>New Story</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>New Date:</label>
+                                    <div class="readonly-field" id="viewNewStoryDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>New Notes:</label>
+                                    <div class="readonly-field" id="viewNewStoryNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="viewInfoFields" class="border-card" style="display: none;">
+                            <h5>Story Information</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Info Date:</label>
+                                    <div class="readonly-field" id="viewInfoDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Info Notes:</label>
+                                    <div class="readonly-field" id="viewInfoNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="viewTransferredInFields" class="border-card" style="display: none;">
+                            <h5>Story Transferred In Details</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Transfer In Date:</label>
+                                    <div class="readonly-field" id="viewTransferredInDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Transfer In Notes:</label>
+                                    <div class="readonly-field" id="viewTransferredInNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="viewTransferredOutFields" class="border-card" style="display: none;">
+                            <h5>Story Transferred Out Details</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Transfer Out Date:</label>
+                                    <div class="readonly-field" id="viewTransferredOutDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Transfer Out Notes:</label>
+                                    <div class="readonly-field" id="viewTransferredOutNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="viewProposedFields" class="border-card" style="display: none;">
+                            <h5>Proposed Story</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Proposed Date:</label>
+                                    <div class="readonly-field" id="viewProposedDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Proposed Notes:</label>
+                                    <div class="readonly-field" id="viewProposedNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Story Timeline Section -->
+                    <div id="viewTimelineChangesSection" class="border-section" style="display: none; margin-top: 20px;">
+                        <h4>Story Timeline</h4>
+                        <div id="viewChangesContainer">
+                            <!-- Story timeline entries will be added here -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="secondary" onclick="closeStoryDetailsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let selectedDirectory = null;
+        let currentResults = [];
+        
+        /**
+         * Open story details modal (read-only)
+         * @param {Object} storyData - Story data object
+         */
+        function openStoryDetailsModal(storyData) {
+            // Check if modal exists
+            const storyModal = document.getElementById('storyDetailsModal');
+            if (!storyModal) {
+                console.error('Modal element not found!');
+                return;
+            }
+            
+            // Set modal title
+            document.getElementById('storyDetailsTitle').textContent = `Story Details: ${storyData.title}`;
+            
+            // Populate basic fields
+            document.getElementById('viewTitle').textContent = storyData.title || '';
+            document.getElementById('viewTeam').textContent = storyData.teamName || '';
+            document.getElementById('viewEpic').textContent = storyData.epicName || '';
+            
+            // Handle start/end dates
+            const startValue = storyData.startDate || storyData.startMonth || storyData.start || '';
+            const endValue = storyData.endDate || storyData.endMonth || storyData.end || '';
+            document.getElementById('viewStart').textContent = startValue || 'Not specified';
+            document.getElementById('viewEnd').textContent = endValue || 'Not specified';
+            
+            // Handle bullets
+            let bulletsText = '';
+            if (storyData.bullets) {
+                if (Array.isArray(storyData.bullets)) {
+                    bulletsText = storyData.bullets.join('\n');
+                } else if (typeof storyData.bullets === 'string') {
+                    bulletsText = storyData.bullets;
+                } else {
+                    bulletsText = String(storyData.bullets);
+                }
+            }
+            document.getElementById('viewBullets').textContent = bulletsText || 'None';
+            
+            // Handle IMO
+            let imoText = '';
+            if (storyData.imo) {
+                imoText = String(storyData.imo);
+            }
+            document.getElementById('viewIMO').textContent = imoText || 'None';
+            
+            // Handle KTLO-specific fields
+            const isKTLO = storyData.epicName === 'KTLO';
+            const ktloPositionGroup = document.getElementById('viewKTLOPositionGroup');
+            const ktloMonthlySection = document.getElementById('viewKTLOMonthlySection');
+            
+            if (isKTLO) {
+                // KTLO Position
+                const position = storyData.position ? 'Top (Before the Epics)' : 'Bottom (After the Epics)';
+                document.getElementById('viewKTLOPosition').textContent = position;
+                ktloPositionGroup.style.display = 'block';
+                
+                // KTLO Monthly Data (if available)
+                if (storyData.monthlyData && Object.keys(storyData.monthlyData).length > 0) {
+                    populateKTLOMonthlyData(storyData.monthlyData);
+                    ktloMonthlySection.style.display = 'block';
+                } else {
+                    ktloMonthlySection.style.display = 'none';
+                }
+            } else {
+                ktloPositionGroup.style.display = 'none';
+                ktloMonthlySection.style.display = 'none';
+            }
+            
+            // Handle BTL-specific fields
+            const isBTL = storyData.sourceType === 'btl';
+            const btlDateAddedGroup = document.getElementById('viewBTLDateAddedGroup');
+            const btlDescriptionGroup = document.getElementById('viewBTLDescriptionGroup');
+            
+            if (isBTL) {
+                if (storyData.dateAdded) {
+                    document.getElementById('viewBTLDateAdded').textContent = storyData.dateAdded;
+                    btlDateAddedGroup.style.display = 'block';
+                } else {
+                    btlDateAddedGroup.style.display = 'none';
+                }
+                
+                if (storyData.description) {
+                    document.getElementById('viewBTLDescription').textContent = String(storyData.description);
+                    btlDescriptionGroup.style.display = 'block';
+                } else {
+                    btlDescriptionGroup.style.display = 'none';
+                }
+            } else {
+                btlDateAddedGroup.style.display = 'none';
+                btlDescriptionGroup.style.display = 'none';
+            }
+            
+            // Handle checkboxes
+            populateCheckboxes(storyData);
+            
+            // Handle status fields
+            populateStatusFields(storyData);
+            
+            // Handle timeline changes
+            populateTimelineChanges(storyData);
+            
+            // Show modal
+            const modalElement = document.getElementById('storyDetailsModal');
+            modalElement.style.display = 'flex';
+            
+            // Style checkboxes for visibility after modal is shown
+            setTimeout(() => {
+                const checkboxIds = ['viewNewStory', 'viewDone', 'viewCancelled', 'viewInfo', 
+                                   'viewTimelineChanges', 'viewAtRisk', 'viewProposed', 
+                                   'viewTransferredIn', 'viewTransferredOut'];
+                checkboxIds.forEach(id => {
+                    const checkbox = document.getElementById(id);
+                    if (checkbox) {
+                        // Remove disabled to allow styling
+                        checkbox.disabled = false;
+                        // Force blue styling with !important to override red !important
+                        checkbox.style.setProperty('accent-color', '#007cba', 'important');
+                        checkbox.style.setProperty('background-color', 'transparent', 'important');
+                        checkbox.style.setProperty('border', '1px solid #ccc', 'important');
+                        checkbox.style.setProperty('outline', 'none', 'important');
+                        console.log('Applied blue styling with !important to:', id);
+                    }
+                });
+            }, 100);
+        }
+        
+        /**
+         * Populate checkboxes based on story data
+         */
+        function populateCheckboxes(storyData) {
+            // Check if timeline changes exist - can be either array or object with changes property
+            const changes = Array.isArray(storyData.roadmapChanges) 
+                ? storyData.roadmapChanges 
+                : storyData.roadmapChanges?.changes;
+            const hasTimelineChanges = !!(changes && changes.length > 0);
+            
+            // Set checkbox states
+            document.getElementById('viewNewStory').checked = storyData.isNewStory || false;
+            document.getElementById('viewDone').checked = storyData.isDone || false;
+            document.getElementById('viewCancelled').checked = storyData.isCancelled || false;
+            document.getElementById('viewInfo').checked = storyData.isInfo || false;
+            document.getElementById('viewTimelineChanges').checked = hasTimelineChanges;
+            document.getElementById('viewAtRisk').checked = storyData.isAtRisk || false;
+            document.getElementById('viewProposed').checked = storyData.isProposed || false;
+            document.getElementById('viewTransferredIn').checked = storyData.isTransferredIn || false;
+            document.getElementById('viewTransferredOut').checked = storyData.isTransferredOut || false;
+        }
+        
+        /**
+         * Populate KTLO monthly data
+         */
+        function populateKTLOMonthlyData(monthlyData) {
+            const container = document.getElementById('viewKTLOMonthsContainer');
+            container.innerHTML = '';
+            
+            const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+            
+            months.forEach(month => {
+                const data = monthlyData[month];
+                if (data && (data.teamSize || data.percentage || data.description)) {
+                    const monthDiv = document.createElement('div');
+                    monthDiv.style.marginBottom = '15px';
+                    monthDiv.style.padding = '10px';
+                    monthDiv.style.border = '1px solid #ddd';
+                    monthDiv.style.borderRadius = '4px';
+                    
+                    monthDiv.innerHTML = `
+                        <h5 style="margin: 0 0 10px 0; text-transform: uppercase;">${month}</h5>
+                        <div class="inline-group">
+                            <div class="form-group">
+                                <label>Team Size:</label>
+                                <div class="readonly-field">${data.teamSize || 'Not specified'}</div>
+                            </div>
+                            <div class="form-group">
+                                <label>KTLO %:</label>
+                                <div class="readonly-field">${data.percentage || 'Not specified'}</div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Description:</label>
+                            <div class="readonly-field">${data.description || 'None'}</div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(monthDiv);
+                }
+            });
+        }
+        
+        /**
+         * Populate status fields
+         */
+        function populateStatusFields(storyData) {
+            // Always show status fields section since checkboxes are always visible
+            // Individual field visibility is controlled by checkbox state
+            
+            // Done status
+            if (storyData.isDone) {
+                const doneInfo = storyData.doneInfo || {};
+                const roadmapDoneInfo = storyData.roadmapChanges?.doneInfo || {};
+                
+                const doneDate = doneInfo.date || roadmapDoneInfo.date || storyData.doneDate || 'Not specified';
+                const doneNotes = doneInfo.notes || roadmapDoneInfo.notes || storyData.doneNotes || 'None';
+                
+                document.getElementById('viewDoneDate').textContent = doneDate;
+                document.getElementById('viewDoneNotes').textContent = doneNotes;
+                document.getElementById('viewDoneFields').style.display = 'block';
+            } else {
+                document.getElementById('viewDoneFields').style.display = 'none';
+            }
+            
+            // Cancelled status
+            if (storyData.isCancelled) {
+                const cancelInfo = storyData.cancelInfo || {};
+                const roadmapCancelInfo = storyData.roadmapChanges?.cancelInfo || {};
+                
+                const cancelDate = cancelInfo.date || roadmapCancelInfo.date || storyData.cancelDate || 'Not specified';
+                const cancelNotes = cancelInfo.notes || roadmapCancelInfo.notes || storyData.cancelNotes || 'None';
+                
+                document.getElementById('viewCancelDate').textContent = cancelDate;
+                document.getElementById('viewCancelNotes').textContent = cancelNotes;
+                document.getElementById('viewCancelFields').style.display = 'block';
+            } else {
+                document.getElementById('viewCancelFields').style.display = 'none';
+            }
+            
+            // At Risk status
+            if (storyData.isAtRisk) {
+                // Check multiple possible locations for At Risk data
+                const atRiskInfo = storyData.atRiskInfo || {};
+                const roadmapAtRiskInfo = storyData.roadmapChanges?.atRiskInfo || {};
+                
+                // Try different property names (different data sources use different names)
+                const atRiskDate = atRiskInfo.date || 
+                                 roadmapAtRiskInfo.date || 
+                                 storyData.atRiskDate || 
+                                 storyData.riskDate || 
+                                 'Not specified';
+                                 
+                const atRiskNotes = atRiskInfo.notes || 
+                                  roadmapAtRiskInfo.notes || 
+                                  storyData.atRiskNotes || 
+                                  storyData.riskNotes || 
+                                  'None';
+                
+                document.getElementById('viewAtRiskDate').textContent = atRiskDate;
+                document.getElementById('viewAtRiskNotes').textContent = atRiskNotes;
+                document.getElementById('viewAtRiskFields').style.display = 'block';
+            } else {
+                document.getElementById('viewAtRiskFields').style.display = 'none';
+            }
+            
+            // New Story status
+            if (storyData.isNewStory) {
+                const newStoryInfo = storyData.newStoryInfo || {};
+                const roadmapNewStoryInfo = storyData.roadmapChanges?.newStoryInfo || {};
+                
+                const newStoryDate = newStoryInfo.date || roadmapNewStoryInfo.date || storyData.newDate || 'Not specified';
+                const newStoryNotes = newStoryInfo.notes || roadmapNewStoryInfo.notes || storyData.newNotes || 'None';
+                
+                document.getElementById('viewNewStoryDate').textContent = newStoryDate;
+                document.getElementById('viewNewStoryNotes').textContent = newStoryNotes;
+                document.getElementById('viewNewStoryFields').style.display = 'block';
+            } else {
+                document.getElementById('viewNewStoryFields').style.display = 'none';
+            }
+            
+            // Info status
+            if (storyData.isInfo) {
+                const infoInfo = storyData.infoInfo || {};
+                const roadmapInfoInfo = storyData.roadmapChanges?.infoInfo || {};
+                
+                const infoDate = infoInfo.date || roadmapInfoInfo.date || storyData.infoDate || 'Not specified';
+                const infoNotes = infoInfo.notes || roadmapInfoInfo.notes || storyData.infoNotes || 'None';
+                
+                document.getElementById('viewInfoDate').textContent = infoDate;
+                document.getElementById('viewInfoNotes').textContent = infoNotes;
+                document.getElementById('viewInfoFields').style.display = 'block';
+            } else {
+                document.getElementById('viewInfoFields').style.display = 'none';
+            }
+            
+            // Transferred In status
+            if (storyData.isTransferredIn) {
+                const transferredInInfo = storyData.transferredInInfo || {};
+                const roadmapTransferredInInfo = storyData.roadmapChanges?.transferredInInfo || {};
+                
+                const transferredInDate = transferredInInfo.date || roadmapTransferredInInfo.date || storyData.transferredInDate || 'Not specified';
+                const transferredInNotes = transferredInInfo.notes || roadmapTransferredInInfo.notes || storyData.transferredInNotes || 'None';
+                
+                document.getElementById('viewTransferredInDate').textContent = transferredInDate;
+                document.getElementById('viewTransferredInNotes').textContent = transferredInNotes;
+                document.getElementById('viewTransferredInFields').style.display = 'block';
+            } else {
+                document.getElementById('viewTransferredInFields').style.display = 'none';
+            }
+            
+            // Transferred Out status
+            if (storyData.isTransferredOut) {
+                const transferredOutInfo = storyData.transferredOutInfo || {};
+                const roadmapTransferredOutInfo = storyData.roadmapChanges?.transferredOutInfo || {};
+                
+                const transferredOutDate = transferredOutInfo.date || roadmapTransferredOutInfo.date || storyData.handedOverDate || 'Not specified';
+                const transferredOutNotes = transferredOutInfo.notes || roadmapTransferredOutInfo.notes || storyData.handedOverNotes || 'None';
+                
+                document.getElementById('viewTransferredOutDate').textContent = transferredOutDate;
+                document.getElementById('viewTransferredOutNotes').textContent = transferredOutNotes;
+                document.getElementById('viewTransferredOutFields').style.display = 'block';
+            } else {
+                document.getElementById('viewTransferredOutFields').style.display = 'none';
+            }
+            
+            // Proposed status
+            if (storyData.isProposed) {
+                const proposedInfo = storyData.proposedInfo || {};
+                const roadmapProposedInfo = storyData.roadmapChanges?.proposedInfo || {};
+                
+                const proposedDate = proposedInfo.date || roadmapProposedInfo.date || storyData.proposedDate || 'Not specified';
+                const proposedNotes = proposedInfo.notes || roadmapProposedInfo.notes || storyData.proposedNotes || 'None';
+                
+                document.getElementById('viewProposedDate').textContent = proposedDate;
+                document.getElementById('viewProposedNotes').textContent = proposedNotes;
+                document.getElementById('viewProposedFields').style.display = 'block';
+            } else {
+                document.getElementById('viewProposedFields').style.display = 'none';
+            }
+        }
+        
+        /**
+         * Populate timeline changes
+         */
+        function populateTimelineChanges(storyData) {
+            const timelineSection = document.getElementById('viewTimelineChangesSection');
+            const container = document.getElementById('viewChangesContainer');
+            
+            // Check for timeline changes - can be either array or object with changes property
+            const changes = Array.isArray(storyData.roadmapChanges) 
+                ? storyData.roadmapChanges 
+                : storyData.roadmapChanges?.changes;
+            
+            if (changes && changes.length > 0) {
+                container.innerHTML = '';
+                
+                changes.forEach((change, index) => {
+                    const changeDiv = document.createElement('div');
+                    changeDiv.style.marginBottom = '15px';
+                    changeDiv.style.padding = '15px';
+                    changeDiv.style.border = '1px solid #ddd';
+                    changeDiv.style.borderRadius = '4px';
+                    changeDiv.style.backgroundColor = '#f9f9f9';
+                    
+                    changeDiv.innerHTML = `
+                        <h5 style="margin: 0 0 10px 0;">Timeline Change ${index + 1}</h5>
+                        <div class="inline-group">
+                            <div class="form-group">
+                                <label>Change Date:</label>
+                                <div class="readonly-field">${change.date || change.changeDate || 'Not specified'}</div>
+                            </div>
+                            <div class="form-group">
+                                <label>Previous End Date:</label>
+                                <div class="readonly-field">${change.prevEndDate || change.previousEndDate || 'Not specified'}</div>
+                            </div>
+                            <div class="form-group">
+                                <label>New End Date:</label>
+                                <div class="readonly-field">${change.newEndDate || 'Not specified'}</div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Change Notes:</label>
+                            <div class="readonly-field">${change.description || change.changeNotes || 'None'}</div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(changeDiv);
+                });
+                
+                timelineSection.style.display = 'block';
+            } else {
+                timelineSection.style.display = 'none';
+            }
+        }
+        
+        /**
+         * Close story details modal
+         */
+        function closeStoryDetailsModal() {
+            document.getElementById('storyDetailsModal').style.display = 'none';
+        }
+        
+        /**
+         * Handle clicks outside modal to close it
+         */
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('storyDetailsModal');
+            if (event.target === modal) {
+                closeStoryDetailsModal();
+            }
+        });
+        
+        /**
+         * Handle Escape key to close modal
+         */
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeStoryDetailsModal();
+            }
+        });
+        
+        /**
+         * Add click handlers to story items in search results
+         * @param {Array} storiesData - Array of story data objects
+         */
+        function addStoryClickHandlers(storiesData) {
+            // Find all story items in the rendered roadmap
+            const storyItems = document.querySelectorAll('.story-item, .ktlo-story');
+            
+            storyItems.forEach((storyElement, index) => {
+                // Extract story identification from data attributes
+                const epicName = storyElement.dataset.epicName;
+                const storyTitle = storyElement.dataset.storyTitle;
+                const storyIndex = storyElement.dataset.storyIndex;
+                
+                // Find matching story data
+                const storyData = findStoryData(storiesData, epicName, storyTitle, storyIndex);
+                
+                if (storyData) {
+                    // Add click handler
+                    storyElement.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openStoryDetailsModal(storyData);
+                    });
+                    
+                    // Add visual indicator for clickable stories
+                    storyElement.style.cursor = 'pointer';
+                    storyElement.title = 'Click to view story details';
+                }
+            });
+        }
+        
+        /**
+         * Find story data by epic name, title, and index
+         * @param {Array} storiesData - Array of story data objects
+         * @param {string} epicName - Epic name
+         * @param {string} storyTitle - Story title
+         * @param {string} storyIndex - Story index
+         * @returns {Object|null} - Story data object or null if not found
+         */
+        function findStoryData(storiesData, epicName, storyTitle, storyIndex) {
+            return storiesData.find(story => {
+                // Match by epic name and story title (most reliable)
+                if (story.epicName === epicName && story.title === storyTitle) {
+                    return true;
+                }
+                
+                // Fallback: match by title only for unique titles
+                if (story.title === storyTitle) {
+                    const titleMatches = storiesData.filter(s => s.title === storyTitle);
+                    if (titleMatches.length === 1) {
+                        return true;
+                    }
+                }
+                
+                return false;
+            });
+        }
+        
+        /**
+         * Select directory containing roadmap files
+         */
+        async function selectDirectory() {
+            try {
+                selectedDirectory = await window.showDirectoryPicker();
+                
+                // Update UI
+                const dirBtn = document.getElementById('selectDirBtn');
+                const dirStatus = document.getElementById('directoryStatus');
+                
+                dirBtn.textContent = '✓ ' + selectedDirectory.name;
+                dirBtn.classList.add('selected');
+                dirStatus.textContent = `Selected: ${selectedDirectory.name}`;
+                
+                // Update all search button states
+                updateSearchButtonStates();
+                
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Error selecting directory:', error);
+                    alert('Error selecting directory: ' + error.message);
+                }
+            }
+        }
+        
+        /**
+         * Handle Enter key in search input
+         */
+        function handleSearchKeyPress(event) {
+            if (event.key === 'Enter') {
+                performSearch();
+            }
+        }
+        
+        /**
+         * Handle Enter key in title search input
+         */
+        function handleTitleSearchKeyPress(event) {
+            if (event.key === 'Enter') {
+                performTitleSearch();
+            }
+        }
+        
+        /**
+         * Perform the IMO/Timeline search
+         */
+        async function performSearch() {
+            try {
+                // Validate inputs
+                if (!selectedDirectory) {
+                    alert('Please select a directory first');
+                        return;
+                    }
+                
+                const searchQuery = document.getElementById('searchInput').value.trim();
+                if (!searchQuery) {
+                    alert('Please enter a search query');
+                        return;
+                    }
+                
+                // Show loading state
+                showLoadingState(`Searching for "${searchQuery}"...`);
+                
+                // Scan directory for roadmap files
+                const roadmapFiles = await IMOUtility.scanRoadmapDirectory(selectedDirectory);
+                
+                if (roadmapFiles.length === 0) {
+                    showMessage('No roadmap JSON files found in the selected directory', 'warning');
+                    return;
+                }
+                
+                // Extract and search stories
+                const allStories = IMOUtility.aggregateStoriesAcrossTeams(roadmapFiles);
+                
+                let matchingStories = IMOUtility.searchStories(allStories, searchQuery);
+                matchingStories = applyAdditionalFilters(matchingStories, roadmapFiles, { skipIMO: true });
+                
+                if (matchingStories.length === 0) {
+                    showMessage(`No stories found for "${searchQuery}"`, 'info');
+                    return;
+                }
+                
+                // Store results and display
+                currentResults = matchingStories;
+                displaySearchResults(matchingStories, searchQuery);
+                
+            } catch (error) {
+                console.error('Error performing search:', error);
+                showMessage('Search error: ' + error.message, 'error');
+            }
+        }
+        
+        /**
+         * Display search results using roadmap format
+         */
+        function displaySearchResults(stories, searchQuery, searchRange = null) {
+            try {
+                // Sort stories by dates in ascending order (oldest first)  
+                stories.sort((a, b) => {
+                    // Use consistent year for all stories - roadmap year if available, otherwise current year
+                    const roadmapYear = stories.length > 0 && stories[0].roadmapYear 
+                        ? stories[0].roadmapYear 
+                        : new Date().getFullYear();
+                    
+                    const aStartDate = IMOUtility.parseStoryDate(a.startDate || a.startMonth || '', roadmapYear);
+                    const aEndDate = IMOUtility.parseStoryDate(a.endDate || a.endMonth || '', roadmapYear);
+                    const bStartDate = IMOUtility.parseStoryDate(b.startDate || b.startMonth || '', roadmapYear);
+                    const bEndDate = IMOUtility.parseStoryDate(b.endDate || b.endMonth || '', roadmapYear);
+                    
+                    // If both have start dates, sort by start date first
+                    if (aStartDate && bStartDate) {
+                        const startComparison = aStartDate - bStartDate;
+                        if (startComparison !== 0) {
+                            return startComparison; // Different start dates
+                        }
+                        // Same start dates - sort by end date (ascending)
+                        if (aEndDate && bEndDate) {
+                            return aEndDate - bEndDate;
+                        }
+                        // One has end date, one doesn't
+                        if (aEndDate && !bEndDate) return -1; // a comes first
+                        if (!aEndDate && bEndDate) return 1;  // b comes first
+                        return 0; // Both have same start, no end dates
+                    }
+                    
+                    // Fallback: use primary date (start date or end date)
+                    let aPrimaryDate = aStartDate || aEndDate;
+                    let bPrimaryDate = bStartDate || bEndDate;
+                    
+                    // Handle null dates (put them at the end)
+                    if (!aPrimaryDate && !bPrimaryDate) return 0;
+                    if (!aPrimaryDate) return 1;
+                    if (!bPrimaryDate) return -1;
+                    
+                    return aPrimaryDate - bPrimaryDate; // Ascending order
+                });
+                
+                // Transform stories into roadmap format
+                const crossTeamData = IMOViewGenerator.transformStoriesToRoadmapData(stories, searchQuery, searchRange);
+                
+                // Generate roadmap HTML - use embedded mode but extract content only
+                const generator = new RoadmapGenerator(crossTeamData.roadmapYear);
+                const fullRoadmapHtml = generator.generateRoadmap(crossTeamData, true, false); // embedded=true, enableEditing=false
+                
+                // Extract just the content without the wrapper and embedded CSS
+                const contentMatch = fullRoadmapHtml.match(/<div class="roadmap-wrapper">[^>]*<link[^>]*>(.*)<\/div>/s);
+                const roadmapHtml = contentMatch ? contentMatch[1] : fullRoadmapHtml;
+                
+                // Clean up the HTML (remove BTL sections, etc.)
+                const cleanedHtml = cleanRoadmapHtml(roadmapHtml);
+                
+                // Display in results container
+                const contentArea = document.getElementById('contentArea');
+                contentArea.innerHTML = `
+                    <div class="results-container">
+                        ${cleanedHtml}
+                    </div>
+                `;
+                
+                // Add click handlers to story items after rendering
+                setTimeout(() => {
+                    addStoryClickHandlers(stories);
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error displaying results:', error);
+                showMessage('Error displaying results: ' + error.message, 'error');
+            }
+        }
+        
+        /**
+         * Clean roadmap HTML by removing unwanted sections
+         */
+        function cleanRoadmapHtml(html) {
+            let cleaned = html;
+            
+            // Remove BTL-related content
+            cleaned = cleaned.replace(/<div class="swimlane-separator-dashed"><\/div>/g, '');
+            cleaned = cleaned.replace(/Below the Line/g, '');
+            
+            // Remove ALL BTL-related swimlanes with various patterns
+            cleaned = cleaned.replace(/<div class="swimlane btl-swimlane[^>]*>[\s\S]*?<\/div>/g, '');
+            cleaned = cleaned.replace(/<div class="btl-swimlane[^>]*>[\s\S]*?<\/div>/g, '');
+            
+            // Remove any swimlane with min-height: 172px (BTL specific height)
+            cleaned = cleaned.replace(/min-height:\s*172px;?/g, '');
+            
+            return cleaned;
+        }
+        
+        /**
+         * Show loading state
+         */
+        function showLoadingState(message = 'Loading...') {
+            const contentArea = document.getElementById('contentArea');
+            contentArea.innerHTML = `
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <h3>${message}</h3>
+                </div>
+            `;
+        }
+        
+        /**
+         * Show message (info, warning, error)
+         */
+        function showMessage(message, type = 'info') {
+            const contentArea = document.getElementById('contentArea');
+            
+            let icon = '📝';
+            let color = '#007cba';
+            
+            if (type === 'warning') {
+                icon = '⚠️';
+                color = '#856404';
+            } else if (type === 'error') {
+                icon = '❌';
+                color = '#721c24';
+            }
+            
+            contentArea.innerHTML = `
+                <div class="blank-state">
+                    <div style="font-size: 48px; margin-bottom: 20px;">${icon}</div>
+                    <h2 style="color: ${color};">${message}</h2>
+                    <button onclick="showBlankState()" class="secondary" style="margin-top: 20px;">
+                        Try Another Search
+                    </button>
+                </div>
+            `;
+        }
+        
+        /**
+         * Show blank state
+         */
+        function showBlankState() {
+            const contentArea = document.getElementById('contentArea');
+            contentArea.innerHTML = document.getElementById('blankState').outerHTML;
+        }
+        
+        /**
+         * Clear all results and return to blank state
+         */
+        function clearAllResults() {
+            currentResults = [];
+            showBlankState();
+            
+            // Clear search inputs
+            document.getElementById('searchInput').value = '';
+            document.getElementById('titleSearchInput').value = '';
+            const directorEl = document.getElementById('directorSearchInput');
+            if (directorEl) directorEl.value = '';
+            const startEl = document.getElementById('startDateInput');
+            if (startEl) startEl.value = '';
+            const endEl = document.getElementById('endDateInput');
+            if (endEl) endEl.value = '';
+            const modeEl = document.getElementById('searchModeSelect');
+            if (modeEl) modeEl.value = 'exact';
+            updateSearchButtonStates();
+        }
+
+        // Clear inputs and results from the top button
+        function clearAllSearchFields() {
+            clearAllResults();
+        }
+        
+        /**
+         * Navigate back to roadmap builder
+         */
+        function goToRoadmapBuilder() {
+            window.location.href = 'roadmap-builder.html';
+        }
+
+        // Apply additional filters based on other filled inputs (AND semantics)
+        function applyAdditionalFilters(stories, roadmapFiles, options = {}) {
+            let result = Array.isArray(stories) ? stories.slice() : [];
+            const opts = Object.assign({ skipDirector: false, skipIMO: false, skipTitle: false, skipDate: false }, options);
+
+            try {
+                // Director/VP filter (team-level)
+                const directorQuery = document.getElementById('directorSearchInput')?.value.trim();
+                if (!opts.skipDirector && directorQuery) {
+                    const matchingRoadmaps = IMOUtility.filterRoadmapsByDirector(roadmapFiles, directorQuery);
+                    const allowedTeams = new Set(matchingRoadmaps.map(f => (f.teamData && f.teamData.teamName) || ''));
+                    result = result.filter(story => allowedTeams.has(story.teamName));
+                }
+
+                // IMO/Timeline filter
+                const imoQuery = document.getElementById('searchInput')?.value.trim();
+                if (!opts.skipIMO && imoQuery) {
+                    result = IMOUtility.searchStories(result, imoQuery);
+                }
+
+                // Title filter
+                const titleQuery = document.getElementById('titleSearchInput')?.value.trim();
+                if (!opts.skipTitle && titleQuery) {
+                    result = IMOUtility.searchStoriesByTitle(result, titleQuery);
+                }
+
+                // Date filter
+                const startDate = document.getElementById('startDateInput')?.value;
+                const endDate = document.getElementById('endDateInput')?.value;
+                const searchModeEl = document.getElementById('searchModeSelect');
+                const searchMode = (searchModeEl && searchModeEl.value) ? searchModeEl.value : 'exact';
+                if (!opts.skipDate && (startDate || endDate)) {
+                    result = IMOUtility.searchStoriesByDateRange(result, startDate, endDate, searchMode);
+                }
+            } catch (e) {
+                console.warn('applyAdditionalFilters warning:', e);
+            }
+
+            return result;
+        }
+
+        /**
+         * Handle date range picker change
+         */
+        function handleDateRangeChange(event) {
+            updateSearchButtonStates();
+        }
+
+        /**
+         * Update search button enabled states
+         */
+        function updateSearchButtonStates() {
+            const imoSearchBtn = document.getElementById('imoSearchBtn');
+            const titleSearchBtn = document.getElementById('titleSearchBtn');
+            const dateRangeSearchBtn = document.getElementById('dateRangeSearchBtn');
+            const directorSearchBtn = document.getElementById('directorSearchBtn');
+            
+            const hasDirectory = !!selectedDirectory;
+            const hasImoInput = document.getElementById('searchInput').value.trim().length > 0;
+            const hasTitleInput = document.getElementById('titleSearchInput').value.trim().length > 0;
+            const hasDirectorInput = document.getElementById('directorSearchInput').value.trim().length > 0;
+            const hasStartDate = document.getElementById('startDateInput').value.length > 0;
+            const hasEndDate = document.getElementById('endDateInput').value.length > 0;
+            const hasAnyDate = hasStartDate || hasEndDate;
+            
+            imoSearchBtn.disabled = !hasDirectory || !hasImoInput;
+            titleSearchBtn.disabled = !hasDirectory || !hasTitleInput;
+            dateRangeSearchBtn.disabled = !hasDirectory || !hasAnyDate;
+            directorSearchBtn.disabled = !hasDirectory || !hasDirectorInput;
+        }
+
+        /**
+         * Update search mode help text based on selected mode
+         */
+        function updateSearchModeHelp() {
+            const searchMode = document.getElementById('searchModeSelect').value;
+            const helpElement = document.getElementById('searchModeHelp');
+            
+            if (searchMode === 'exact') {
+                helpElement.textContent = 'Exact: Stories must start/end exactly on the specified dates.';
+            } else if (searchMode === 'exact-7days') {
+                helpElement.textContent = 'Exact +/- 7 Days: Start date to +7 days forward only, end date +/- 7 days buffer.';
+            } else {
+                helpElement.textContent = 'Range: Stories must start on or after start date AND end on or before end date.';
+            }
+        }
+
+        /**
+         * Perform date range search
+         */
+        async function performDateRangeSearch() {
+            try {
+                if (!selectedDirectory) {
+                    showMessage('Please select a directory first', 'warning');
+                    return;
+                }
+                
+                const startDate = document.getElementById('startDateInput').value;
+                const endDate = document.getElementById('endDateInput').value;
+                const searchMode = document.getElementById('searchModeSelect').value;
+                
+                if (!startDate && !endDate) {
+                    showMessage('Please select at least one date', 'warning');
+                    return;
+                }
+                
+                // Build search message
+                let searchMessage = 'Searching for stories ';
+                let queryLabel = '';
+                let modeText;
+                let modeLabel;
+                
+                if (searchMode === 'exact') {
+                    modeText = 'exactly';
+                    modeLabel = 'Exact';
+                } else if (searchMode === 'exact-7days') {
+                    modeText = 'with +/- 7 day buffer';
+                    modeLabel = 'Exact +/- 7 Days';
+                } else {
+                    modeText = 'in range';
+                    modeLabel = 'Range';
+                }
+                
+                if (startDate && endDate) {
+                    searchMessage += `${modeText} between ${startDate} and ${endDate}...`;
+                    queryLabel = `${modeLabel}: ${startDate} to ${endDate}`;
+                } else if (startDate) {
+                    searchMessage += `${modeText} starting ${startDate}...`;
+                    queryLabel = `${modeLabel} Start: ${startDate}`;
+                } else {
+                    searchMessage += `${modeText} ending ${endDate}...`;
+                    queryLabel = `${modeLabel} End: ${endDate}`;
+                }
+                
+                showMessage(searchMessage, 'info');
+                
+                // Scan directory and search
+                const roadmapFiles = await IMOUtility.scanRoadmapDirectory(selectedDirectory);
+                if (roadmapFiles.length === 0) {
+                    showMessage('No roadmap JSON files found in the selected directory', 'warning');
+                    return;
+                }
+                
+                const allStories = IMOUtility.aggregateStoriesAcrossTeams(roadmapFiles);
+                let matchingStories = IMOUtility.searchStoriesByDateRange(allStories, startDate, endDate, searchMode);
+                matchingStories = applyAdditionalFilters(matchingStories, roadmapFiles, { skipDate: true });
+                
+                if (matchingStories.length === 0) {
+                    showMessage(`No stories found for the specified date range`, 'info');
+                    return;
+                }
+                
+                // Store results and display
+                currentResults = matchingStories;
+                displaySearchResults(matchingStories, queryLabel, { startDate, endDate });
+                
+            } catch (error) {
+                console.error('Error performing date range search:', error);
+                showMessage('Search error: ' + error.message, 'error');
+            }
+        }
+
+        /**
+         * Perform IMO search (renamed for clarity)
+         */
+        async function performIMOSearch() {
+            await performSearch();
+        }
+        
+        /**
+         * Perform title search
+         */
+        async function performTitleSearch() {
+            try {
+                // Validate inputs
+                if (!selectedDirectory) {
+                    alert('Please select a directory first');
+                    return;
+                }
+                
+                const searchQuery = document.getElementById('titleSearchInput').value.trim();
+                if (!searchQuery) {
+                    alert('Please enter a search query');
+                    return;
+                }
+                
+                // Show loading state
+                showLoadingState(`Searching for stories with title containing "${searchQuery}"...`);
+                
+                // Scan directory for roadmap files
+                const roadmapFiles = await IMOUtility.scanRoadmapDirectory(selectedDirectory);
+                
+                if (roadmapFiles.length === 0) {
+                    showMessage('No roadmap JSON files found in the selected directory', 'warning');
+                    return;
+                }
+                
+                // Extract and search stories by title
+                const allStories = IMOUtility.aggregateStoriesAcrossTeams(roadmapFiles);
+                
+                let matchingStories = IMOUtility.searchStoriesByTitle(allStories, searchQuery);
+                matchingStories = applyAdditionalFilters(matchingStories, roadmapFiles, { skipTitle: true });
+                
+                if (matchingStories.length === 0) {
+                    showMessage(`No stories found with title containing "${searchQuery}"`, 'info');
+                    return;
+                }
+                
+                // Store results and display
+                currentResults = matchingStories;
+                displaySearchResults(matchingStories, `Title: "${searchQuery}"`);
+                
+            } catch (error) {
+                console.error('Error performing title search:', error);
+                showMessage('Search error: ' + error.message, 'error');
+            }
+        }
+        
+                function handleDirectorSearchKeyPress(event) {
+            if (event.key === 'Enter') {
+                performDirectorSearch();
+            }
+        }
+
+        async function performDirectorSearch() {
+            try {
+                if (!selectedDirectory) {
+                    alert('Please select a directory first');
+                    return;
+                }
+
+                const query = document.getElementById('directorSearchInput').value.trim();
+                if (!query) {
+                    alert('Please enter a leadership name (Director/VP, EM, or PM)');
+                    return;
+                }
+
+                showLoadingState(`Searching roadmaps for leadership containing "${query}"...`);
+
+                const roadmapFiles = await IMOUtility.scanRoadmapDirectory(selectedDirectory);
+                const matchingRoadmaps = IMOUtility.filterRoadmapsByDirector(roadmapFiles, query);
+
+                if (!matchingRoadmaps.length) {
+                    showMessage(`No roadmaps found for leadership containing "${query}"`, 'info');
+                    return;
+                }
+
+                // Get all stories from the matching roadmaps
+                const allStories = IMOUtility.aggregateStoriesAcrossTeams(matchingRoadmaps);
+                
+                // Apply additional filters if other search fields are filled
+                let filteredStories = allStories;
+                filteredStories = applyAdditionalFilters(filteredStories, roadmapFiles, { skipDirector: true });
+
+                if (!filteredStories.length) {
+                    showMessage(`No stories found for leadership "${query}"`, 'info');
+                    return;
+                }
+
+                displaySearchResults(filteredStories, `Leadership: "${query}"`);
+            } catch (error) {
+                console.error('Error performing director search:', error);
+                showMessage('Search error: ' + error.message, 'error');
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if modal exists and is properly structured
+            const modal = document.getElementById('storyDetailsModal');
+            if (!modal) {
+                console.error('❌ Story details modal NOT found!');
+            }
+            
+            // Add input listeners for real-time button state updates
+            document.getElementById('searchInput').addEventListener('input', updateSearchButtonStates);
+            document.getElementById('titleSearchInput').addEventListener('input', updateSearchButtonStates);
+            document.getElementById('directorSearchInput').addEventListener('input', updateSearchButtonStates);
+            if (document.getElementById('dateInput')) {
+                document.getElementById('dateInput').addEventListener('change', updateSearchButtonStates);
+            }
+            if (document.getElementById('startDateInput')) {
+                document.getElementById('startDateInput').addEventListener('change', updateSearchButtonStates);
+            }
+            
+            // Focus on search input if directory is already selected
+            if (selectedDirectory) {
+                document.getElementById('searchInput').focus();
+            }
+        });
+    </script>
+</body>
+</html>

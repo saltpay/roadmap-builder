@@ -1,0 +1,662 @@
+/* Ensure form styling doesn't leak into roadmap iframe - using higher specificity */
+.preview-panel iframe,
+.fullscreen-content iframe {
+    font-family: Arial, sans-serif;
+}
+
+.preview-panel iframe *,
+.fullscreen-content iframe * {
+    box-sizing: border-box;
+}
+
+/* Hide date picker styling in roadmap view - using higher specificity */
+.preview-panel iframe input[data-date-picker-initialized],
+.fullscreen-content iframe input[data-date-picker-initialized] {
+    background-image: none;
+    padding-right: 8px;
+    cursor: default;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Figtree, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f5f5f5;
+}
+
+.builder-container {
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-height: calc(100vh - 40px);
+    width: 100%;
+}
+
+.builder-panel {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    width: 100%;
+}
+
+.preview-panel {
+    background: white;
+    border-radius: 8px;
+    padding: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: visible;
+    position: relative;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.2s ease;
+    min-height: 600px;
+    width: 100%;
+    min-width: 1200px;
+}
+
+.preview-panel:hover {
+    border-color: #007cba;
+}
+
+.fullscreen-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px;
+    cursor: pointer;
+    z-index: 10;
+    transition: background-color 0.2s ease;
+}
+
+.fullscreen-button:hover {
+    background: #007cba;
+    color: white;
+}
+
+.fullscreen-icon {
+    font-size: 16px;
+    display: block;
+    line-height: 1;
+}
+
+.preview-hint {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 124, 186, 0.9);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.fullscreen-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+    display: none;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.fullscreen-content {
+    background: white;
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+    overflow: auto;
+    position: relative;
+}
+
+.fullscreen-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    z-index: 10;
+    font-size: 14px;
+}
+
+.fullscreen-close:hover {
+    background: #c82333;
+}
+
+#fullscreen-preview {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+h1 {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 2px solid #007cba;
+    padding-bottom: 10px;
+}
+
+.header-with-buttons {
+    border-bottom: 2px solid #007cba;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.header-with-buttons .title-and-buttons {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-with-buttons h1 {
+    margin: 0;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.top-action-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.top-action-buttons button {
+    font-size: 12px;
+    padding: 6px 10px;
+    margin: 0;
+}
+
+h2 {
+    color: #007cba;
+    margin-top: 30px;
+    margin-bottom: 15px;
+}
+
+h3 {
+    color: #555;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+    font-size: 16px;
+}
+
+input, textarea, select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* Move description/notes input fields 3px to the right */
+input[id*="done-notes-"], 
+input[id*="cancel-notes-"], 
+input[id*="atrisk-notes-"], 
+input[id*="newstory-notes-"], 
+input[id*="handedover-notes-"], 
+input[id*="change-desc-"],
+input[id*="DoneNotes"],
+input[id*="CancelNotes"], 
+input[id*="AtRiskNotes"], 
+input[id*="NewStoryNotes"],
+input[id*="HandedOverNotes"],
+input[id*="-desc"] {
+    margin-left: 3px;
+}
+
+/* Make status section headings match label font size */
+.story-section h5, 
+.modal-body h5 {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+/* Remove top margin from status field headings in modal */
+#editStatusFields h5 {
+    margin-top: 0;
+}
+
+/* Remove top margin from status section headings in builder tool */
+.story-section div[id*="-section-"] h5 {
+    margin-top: 0;
+}
+
+/* Add spacing after labels in modal checkbox groups */
+.modal-body .checkbox-group label {
+    margin-right: 15px;
+}
+
+/* Story details modal checkbox styling handled by JavaScript */
+
+/* Add spacing after labels in builder checkbox groups */
+.checkbox-group label {
+    margin-right: 12px;
+}
+
+/* Move specific description labels 5px to the right */
+label[for*="atrisk-notes-"],
+label[for*="newstory-notes-"],
+label[for*="handedover-notes-"],
+label[for*="transferredin-notes-"],
+label[for*="done-notes-"],
+label[for*="cancel-notes-"],
+label[for*="change-desc-"],
+label[for="editDoneNotes"],
+label[for="editCancelNotes"],
+label[for="editAtRiskNotes"],
+label[for="editNewStoryNotes"],
+label[for="editHandedOverNotes"],
+label[for="editTransferredInNotes"] {
+    margin-left: 5px;
+}
+
+/* Move status checkboxes up to align with labels */
+input[id*="story-done-"],
+input[id*="story-cancelled-"],
+input[id*="story-atrisk-"],
+input[id*="story-newstory-"],
+input[id*="story-info-"],
+input[id*="story-handedover-"],
+input[id*="story-transferredin-"],
+input[id*="story-transferredout-"],
+input[id*="story-proposed-"],
+input[id*="story-changes-"],
+input[id="editDone"],
+input[id="editCancelled"],
+input[id="editAtRisk"],
+input[id="editNewStory"],
+input[id="editInfo"],
+input[id="editHandedOver"],
+input[id="editTransferredIn"],
+input[id="editTransferredOut"],
+input[id="editProposed"],
+input[id="editTimelineChanges"] {
+    transform: translateY(-3px);
+}
+
+/* Style the Transferred label */
+.checkbox-group label[style*="margin-left: 15px"] {
+    font-weight: bold;
+    color: #333;
+    margin-right: 8px;
+}
+
+textarea {
+    resize: vertical;
+    height: 60px;
+}
+
+/* Reduce bottom margin for the form group containing bullet points */
+.modal-body .form-group:has(#editBullets) {
+    margin-bottom: 5px;
+}
+
+/* Make bullet points textareas shorter and remove top padding */
+.modal-body #editBullets,
+.story-section textarea[id*="story-bullets-"] {
+    height: 47px;
+    padding-top: 5px;
+}
+
+button {
+    background: #007cba;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-right: 10px;
+    margin-bottom: 10px;
+}
+
+button:hover {
+    background: #005a87;
+}
+
+button.secondary {
+    background: #6c757d;
+}
+
+button.secondary:hover {
+    background: #545b62;
+}
+
+button.danger {
+    background: #dc3545;
+}
+
+button.danger:hover {
+    background: #c82333;
+}
+
+.epic-section {
+    border: 2px solid #007cba;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    background: #f8f9fa;
+}
+
+.ktlo-section {
+    border: 2px solid #007cba;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    background: #f8f9fa;
+}
+
+.story-section {
+    border: 1px solid #6c757d;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 15px;
+    background: white;
+}
+
+.inline-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: auto;
+    accent-color: #007cba;
+}
+
+#preview-area {
+    width: 100%;
+    height: 1000px;
+    border: none;
+}
+
+.action-buttons {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 2px solid #ddd;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.action-buttons button {
+    font-size: 12px;
+    padding: 6px 10px;
+    margin: 0;
+}
+
+
+
+/* Utility Classes for Common Patterns */
+.flex-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.flex-center {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.flex-buttons {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.flex-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.flex-modal-footer {
+    display: flex;
+    gap: 10px;
+}
+
+.no-margin {
+    margin: 0;
+}
+
+.border-card {
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+
+.border-section {
+    border: 1px solid #ddd;
+    padding: 15px;
+    border-radius: 4px;
+}
+
+.bg-light {
+    background: #f8f9fa;
+}
+
+.btn-small {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.btn-modal {
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Collapse button styling - using higher specificity instead of !important */
+.builder-container .collapse-btn-collapsed,
+.modal .collapse-btn-collapsed {
+    background: #007cba;
+    color: white;
+    border-color: #007cba;
+}
+
+.builder-container .collapse-btn-collapsed:hover,
+.modal .collapse-btn-collapsed:hover {
+    background: #005a8a;
+    border-color: #005a8a;
+}
+
+/* Fix for all collapse buttons - ensure proper styling */
+button[id*="collapse-btn"], button[id*="collapse"] {
+    background: none;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    padding: 5px 8px;
+    cursor: pointer;
+    font-size: 12px;
+    min-width: 30px;
+    text-align: center;
+    transition: all 0.2s ease;
+    color: #333;
+}
+
+.builder-container button[id*="collapse-btn"]:hover, 
+.builder-container button[id*="collapse"]:hover {
+    background-color: #f5f5f5;
+    border-color: #999;
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px 0 24px;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 20px;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #333;
+}
+
+.close {
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    color: #999;
+    line-height: 1;
+}
+
+.close:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 0 24px 20px 24px;
+    max-height: calc(90vh - 140px);
+    overflow-y: auto;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-top: 1px solid #eee;
+    background-color: #f8f9fa;
+    border-radius: 0 0 8px 8px;
+}
+
+.modal-footer button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.modal-footer .secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.modal-footer .secondary:hover {
+    background-color: #5a6268;
+}
+
+.modal-footer .primary {
+    background-color: #007cba;
+    color: white;
+}
+
+.modal-footer .primary:hover {
+    background-color: #006ba1;
+}
+
+/* KTLO Percentage Validation Styling */
+.ktlo-percentage-error {
+    border: 2px solid #dc3545;
+    background-color: #ffe6e6;
+}
+
+.ktlo-percentage-error-message {
+    color: #dc3545;
+    font-size: 12px;
+    margin-top: 4px;
+    display: block;
+}
+
+.form-group .ktlo-percentage-error-message {
+    margin-bottom: 0;
+} 
+
+.task-bullets {
+  padding: 0;
+  margin: 0;
+  list-style-position: inside;
+}
+.task-bullets li {
+  padding: 0;
+  margin: 0;
+}
+.task-bullets li:not(:last-child) {
+  margin-bottom: 3px;
+} 
+
+div.story-item.story-transferred {
+  background-color: #f5f5f5;
+  color: #888;
+  border-color: #ccc;
+}
+
+div.story-item.story-transferred .task-title {
+  color: #888;
+}
+
+div.story-item.story-transferred .task-bullets {
+  color: #aaa;
+} 

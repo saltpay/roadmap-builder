@@ -1,0 +1,936 @@
+/* Roadmap-specific CSS styles - extracted from generateCSS() function */
+
+/* Base Styles */
+body {
+    font-family: Figtree, sans-serif;
+    margin: 20px;
+    background-color: #f5f5f5;
+}
+
+/* Header Section */
+.header {
+    margin-bottom: 15px;
+    padding: 20px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    position: relative;
+}
+
+.teya-logo {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    height: 60px;
+    width: auto;
+}
+
+.team-name {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 3px;
+}
+
+.team-members {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.team-description {
+    margin-top: 5px;
+    font-size: 14px;
+    font-weight: normal;
+    line-height: 1.4;
+    color: #555;
+}
+
+.team-description-line {
+    margin-bottom: 0;
+}
+
+/* Main Container */
+.roadmap-container {
+    border: 3px solid #333;
+    background-color: white;
+    border-radius: 8px;
+    padding: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-left: 30px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* Right border overlay solution - covers white separator lines that extend beyond roadmap boundaries */
+.roadmap-container::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    right: -10px;
+    bottom: -3px;
+    width: 13px;
+    background-color: #f5f5f5;
+    z-index: 50;
+    pointer-events: none;
+}
+
+.roadmap-container::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    right: 0;
+    bottom: -3px;
+    width: 3px;
+    background-color: #333;
+    z-index: 51;
+    border-radius: 0 8px 8px 0;
+    pointer-events: none;
+}
+
+/* Timeline Header */
+.timeline-header {
+    display: flex;
+    flex-direction: column;
+}
+
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.quarters-row, .months-row {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 2px;
+}
+
+.quarter-header, .month-header {
+    text-align: center;
+    background-color: #f5f5f5;
+    font-weight: bold;
+}
+
+.quarter-header {
+    padding: 8px 10px 5px 10px;
+    font-size: 16px;
+}
+
+.month-header {
+    padding: 5px 10px 8px 10px;
+}
+
+.timeline-separator {
+    height: 3px;
+    background-color: #666;
+    margin: 0;
+}
+
+/* Swimlanes Structure */
+.swimlanes-container {
+    display: flex;
+    flex-direction: column;
+}
+
+.swimlane {
+    display: flex;
+    width: 100%;
+    position: relative;
+    align-items: center;
+}
+
+.swimlane-separator {
+    height: 4px;
+    background-color: white;
+}
+
+.swimlane-separator-dashed {
+    height: 6px;
+    background-color: white;
+    border-top: 3px dashed #666;
+    margin-top: 8px;
+    margin-bottom: -1px;
+    margin-left: 6px;
+    margin-right: 9px;
+}
+
+/* EPIC Labels */
+.epic-label {
+    position: absolute;
+    left: -120px;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(-90deg);
+    transform-origin: center center;
+    font-weight: 900;
+    font-size: 18px;
+    color: #333;
+    white-space: nowrap;
+    width: 200px;
+    text-align: center;
+    z-index: 10;
+}
+
+/* Swimlane Content */
+.swimlane-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    padding: 0;
+}
+
+/* Timeline Grid */
+.timeline-grid {
+    display: grid;
+    grid-template-columns: repeat(120, 1fr);
+    gap: 0;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.grid-cell {
+    position: relative;
+}
+
+.timeline-grid .grid-cell:nth-child(10n)::after {
+    content: '';
+    position: absolute;
+    width: 2px;
+    right: -1px;
+    top: 0;
+    bottom: 0;
+    background-color: #ccc;
+}
+
+.timeline-grid .grid-cell:nth-child(30n)::after {
+    width: 3px;
+    right: -1.5px;
+    background-color: #666;
+}
+
+/* Story Track */
+.story-track {
+    display: grid;
+    grid-template-columns: repeat(120, 1fr);
+    grid-template-rows: auto auto;
+    gap: 0;
+    position: relative;
+    margin-bottom: 18px;
+    padding: 2px 2px 0 2px;
+}
+
+.story-track:last-child {
+    margin-bottom: 18px;
+}
+
+.timeline-grid + .story-track {
+    margin-top: 15px;
+}
+
+/* Story Items */
+.story-item, .ktlo-story {
+    background-color: white;
+    color: #333;
+    padding: 6px 9px 6px 8px;
+    margin: 3px 7px 1px 4px;
+    border-radius: 3px;
+    border: 2px solid #000;
+    cursor: pointer;
+    grid-column: var(--start) / var(--end);
+    position: relative;
+    grid-row: 1;
+    z-index: 1;
+    transition: all 0.2s ease;
+}
+
+.ktlo-story {
+    grid-column: 1 / 121;
+    pointer-events: none;
+    transform: translateX(-4px);
+}
+
+.ktlo-story .task-title,
+.ktlo-story .task-bullets,
+.ktlo-story .edit-icon {
+    pointer-events: auto;
+}
+
+/* Story States */
+.story-zoomable:hover {
+    transform: scale(1.20);
+    z-index: 100;
+}
+
+.story-non-zoomable:hover {
+    box-shadow: none;
+}
+
+.story-positioned-january {
+    transform: translateX(-4px);
+}
+
+.story-positioned-october {
+    transform: translateX(1px);
+}
+
+.story-positioned-january.story-zoomable:hover {
+    transform: translateX(-4px) scale(1.20);
+}
+
+.story-positioned-october.story-zoomable:hover {
+    transform: translateX(1px) scale(1.20);
+}
+
+.story-positioned-january.story-non-zoomable:hover {
+    transform: translateX(-4px);
+}
+
+.story-positioned-october.story-non-zoomable:hover {
+    transform: translateX(1px);
+}
+
+/* Cancelled Stories */
+.story-cancelled {
+    background-color: #f5f5f5;
+    color: #888;
+    border-color: #ccc;
+}
+
+.story-cancelled .task-title {
+    color: #888;
+}
+
+.story-cancelled .task-bullets {
+    color: #aaa;
+}
+
+/* Transferred Stories */
+.story-transferred {
+    background-color: #f5f5f5;
+    color: #888;
+    border-color: #ccc;
+}
+
+.story-transferred .task-title {
+    color: #888;
+}
+
+.story-transferred .task-bullets {
+    color: #aaa;
+}
+
+/* Proposed Stories */
+.story-proposed {
+    background-color: #f8f8f8;
+    color: #888;
+    border-color: #ccc;
+}
+
+.story-proposed .task-title {
+    color: #888;
+    font-style: italic;
+}
+
+.story-proposed .task-bullets {
+    color: #aaa;
+    font-style: italic;
+}
+
+/* Stories that continue to next year - make them taller for continuation indicator */
+.story-with-continuation {
+    min-height: 40px;
+}
+
+/* IMO Tag - background color set inline by JavaScript */
+.imo-tag {
+    position: absolute;
+    top: -13px;
+    right: 11px;
+    font-size: 8px;
+    color: #666;
+    font-weight: normal;
+    z-index: 0;
+    pointer-events: none;
+    padding: 1px 3px;
+    border-radius: 2px;
+    display: inline-block;
+    width: fit-content;
+}
+
+/* Story Content */
+.task-title {
+    font-size: 10pt;
+    font-weight: bold;
+    margin-bottom: 3px;
+}
+
+/* Continuation Indicator Container */
+.continuation-indicator {
+    position: absolute;
+    right: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    background-color: transparent;
+    pointer-events: none;
+    opacity: 0.7;
+    width: 50px;
+    height: 80px;
+    display: block;
+}
+
+/* Continuation Month (Rotated 90 degrees) */
+.continuation-month {
+    position: absolute;
+    top: 50%;
+    right: -15px;
+    font-size: 20pt;
+    font-weight: 700;
+    color: #888888;
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
+    transform: translateY(-50%) rotate(90deg) scaleY(0.6) scaleX(0.7);
+    transform-origin: center center;
+    white-space: nowrap;
+    text-align: center;
+    letter-spacing: 0.5px;
+    width: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Continuation Year (Rotated 90 degrees) */
+.continuation-year {
+    position: absolute;
+    top: 50%;
+    left: -3px;
+    font-size: 23pt;
+    font-weight: 900;
+    color: #888888;
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
+    transform: translateY(calc(-50% + 0.5px)) rotate(90deg) scaleY(0.6) scaleX(0.7);
+    transform-origin: center center;
+    white-space: nowrap;
+    text-align: center;
+    line-height: 1;
+    letter-spacing: 1px;
+}
+
+/* Continuation indicator for stories that start before search range - positioned on left */
+.continuation-start {
+    left: 2px;
+    right: auto;
+}
+
+.continuation-start .continuation-month {
+    left: -15px;
+    right: auto;
+    color: #666666;
+}
+
+.continuation-start .continuation-year {
+    right: -3px;
+    left: auto;
+    color: #666666;
+}
+
+.task-bullets {
+    font-size: 9pt;
+    margin: 0;
+    padding-left: 12px;
+    list-style-type: square;
+}
+
+.task-bullets li {
+    margin: 0;
+}
+
+/* Icons - Base Styles */
+.roadmap-icon, .done-icon, .cancel-icon, .atrisk-icon, .newstory-icon, .transferredout-icon, .transferredin-icon, .proposed-icon {
+    position: absolute;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.roadmap-icon {
+    top: -10px;
+    right: -10px;
+    font-size: 16px;
+    color: #666;
+    width: 20px;
+    height: 20px;
+}
+
+.done-icon {
+    bottom: -8px;
+    right: -8px;
+    font-size: 18px;
+    color: #28a745;
+    background-color: white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+}
+
+.cancel-icon {
+    bottom: -8px;
+    right: -8px;
+    font-size: 11px;
+    font-weight: bold;
+    color: white;
+    background-color: #dc3545;
+    border-radius: 2px;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+}
+
+.atrisk-icon {
+    bottom: -8px;
+    right: -8px;
+    width: 16px;
+    height: 16px;
+    background-color: #dc3545;
+    transform: rotate(45deg);
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.atrisk-icon::after {
+    content: '!';
+    transform: rotate(-45deg);
+    display: block;
+}
+
+.newstory-icon {
+    top: -8px;
+    left: -11px;
+    font-size: 26px;
+    width: 20px;
+    height: 20px;
+}
+
+.transferredout-icon {
+    bottom: -8px;
+    right: -8px;
+    font-size: 18px;
+    width: 16px;
+    height: 16px;
+}
+
+.transferredin-icon {
+    bottom: -8px;
+    left: -9px;
+    font-size: 18px;
+    width: 16px;
+    height: 16px;
+}
+
+/* Info icon specific positioning */
+.story-item .transferredin-icon.info-position {
+    left: -9px;
+}
+
+
+
+.proposed-icon {
+    top: -10px;
+    left: -9px;
+    font-size: 14px;
+    color: #fff;
+    background-color: #005a8b;
+    border-radius: 3px;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 1px;
+    z-index: 9999;
+}
+
+/* Ensure proposed icon is always on top with higher specificity */
+.story-item .proposed-icon {
+    z-index: 10000;
+    position: absolute;
+}
+
+.edit-icon {
+    position: absolute;
+    bottom: 0px;
+    right: 11px;
+    font-size: 12px;
+    color: #888;
+    cursor: pointer;
+    z-index: 15;
+    opacity: 0.7;
+    transform: scaleX(-1);
+    display: none;
+}
+
+.edit-icon:hover {
+    color: #333;
+    opacity: 1;
+    transform: scaleX(-1.20) scaleY(1.20);
+}
+
+/* Story edit icons get darker when story is hovered/zoomed */
+.story-zoomable:hover .edit-icon,
+.story-non-zoomable:hover .edit-icon,
+.story-positioned-january.story-zoomable:hover .edit-icon,
+.story-positioned-october.story-zoomable:hover .edit-icon,
+.story-positioned-january.story-non-zoomable:hover .edit-icon,
+.story-positioned-october.story-non-zoomable:hover .edit-icon,
+.story-hover .edit-icon {
+    color: #333;
+    opacity: 1;
+}
+
+/* Text Boxes */
+.roadmap-text {
+    font-size: 9px;
+    color: #333;
+    background-color: white;
+    padding: 6px 4.5px 5px 9px;
+    border-radius: 10px;
+    border: none;
+    white-space: nowrap;
+    z-index: 15;
+    display: flex;
+    align-items: flex-start;
+    margin: 2px 1px 1px 1px;
+    grid-row: 1;
+    text-align: left;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.roadmap-text:hover {
+    transform: scale(1.3);
+    z-index: 300;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.roadmap-text:hover * {
+    font-weight: bold;
+}
+
+.roadmap-text-simple {
+    white-space: normal;
+    grid-column: var(--start) / var(--end);
+    margin: -7px 0 1px 0;
+    overflow: hidden;
+}
+
+/* Fix spacing for text boxes positioned below stories */
+.roadmap-text-below {
+    margin-top: 5px;
+}
+
+.roadmap-columns {
+    display: flex;
+    width: 100%;
+    gap: 15px;
+    box-sizing: border-box;
+}
+
+.roadmap-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    min-width: 0;
+}
+
+/* Text Box Content - Consolidated Styles */
+.roadmap-date, .roadmap-date-early, .done-date, .cancel-date, .atrisk-date, .newstory-date {
+    font-weight: bold;
+    font-size: 12px;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+}
+
+.roadmap-date { color: red; }
+.roadmap-date-early { color: #28a745; }
+.done-date { color: #28a745; }
+.cancel-date { color: #dc3545; }
+.atrisk-date { color: #dc3545; }
+.newstory-date { color: #333; }
+
+.roadmap-description, .done-notes, .cancel-notes, .atrisk-notes, .newstory-notes {
+    font-size: 10px;
+    font-weight: bold;
+    line-height: 1.2;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    color: #333;
+}
+
+.cancel-notes {
+    color: #333;
+}
+
+.atrisk-notes {
+    margin-left: 4px;
+}
+
+.roadmap-clock {
+    font-size: 16px;
+    margin-right: 3px;
+}
+
+.roadmap-change {
+    font-size: 10px;
+    font-weight: normal;
+    margin: 1px 0 2px 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+}
+
+/* Synchronized hover classes - using higher specificity instead of !important */
+.roadmap-container .story-hover {
+    transform: scale(1.15);
+    z-index: 100;
+}
+
+.roadmap-container .textbox-hover {
+    transform: scale(1.3);
+    z-index: 100;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.roadmap-container .textbox-hover * {
+    font-weight: bold;
+}
+
+/* EPIC Background Colors are now handled dynamically via inline styles */
+
+/* KTLO Monthly Boxes */
+.monthly-boxes-container {
+    display: grid;
+    grid-template-columns: repeat(120, 1fr);
+    gap: 0;
+    margin: 8px 7px 10px 7px;
+    align-items: center;
+}
+
+.monthly-box {
+    margin: 0 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    background: none;
+    border: none;
+}
+
+.monthly-box-content {
+    background-color: #f0f0f0;
+    border: 1px solid #999;
+    border-radius: 3px;
+    padding: 4px;
+    text-align: center;
+    font-size: 8px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    height: 95px;
+    min-height: 95px;
+    width: 100%;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    pointer-events: auto;
+    position: relative;
+}
+
+/* Monthly KTLO Edit Icons */
+.monthly-edit-icon {
+    position: absolute;
+    bottom: 0px;
+    right: 2px;
+    font-size: 12px;
+    color: #888;
+    cursor: pointer;
+    z-index: 5;
+    opacity: 0.7;
+    transform: scaleX(-1);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    display: none;
+}
+
+.monthly-box-content:hover .monthly-edit-icon {
+    opacity: 1;
+    color: #333;
+    transform: scaleX(-1.15) scaleY(1.15);
+}
+
+/* Monthly box hover effects - using higher specificity instead of !important */
+.roadmap-container .monthly-boxes-container .monthly-box:not(.monthly-box-december) .monthly-box-content:hover {
+    transform: scale(1.3);
+    z-index: 100;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Specific hover rule for December only - CRITICAL: !important needed for proper visibility */
+.monthly-box-december .monthly-box-content:hover {
+    transform: translateX(1px) scale(1.3) !important;
+    z-index: 150 !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    position: relative;
+}
+
+/* Ensure December has high z-index in normal state too - CRITICAL: !important needed */
+.monthly-box-december {
+    z-index: 120 !important;
+    position: relative;
+}
+
+.monthly-box-december .monthly-box-content {
+    z-index: 130;
+    position: relative;
+}
+
+/* Monthly box hover effects - using higher specificity to avoid !important */
+.roadmap-container .monthly-boxes-container .monthly-box .monthly-box-content:hover {
+    z-index: 120;
+    position: relative;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transform: scale(1.3);
+}
+
+/* Specific month hover effects with proper transforms - higher specificity */
+.roadmap-container .monthly-boxes-container .monthly-box-january .monthly-box-content:hover {
+    transform: translateX(-2px) scale(1.3);
+}
+
+.roadmap-container .monthly-boxes-container .monthly-box-february .monthly-box-content:hover,
+.roadmap-container .monthly-boxes-container .monthly-box-march .monthly-box-content:hover,
+.roadmap-container .monthly-boxes-container .monthly-box-october .monthly-box-content:hover,
+.roadmap-container .monthly-boxes-container .monthly-box-november .monthly-box-content:hover {
+    transform: scale(1.3);
+}
+
+.roadmap-container .monthly-boxes-container .monthly-box-april .monthly-box-content:hover {
+    transform: translateX(2px) scale(1.3);
+}
+
+.roadmap-container .monthly-boxes-container .monthly-box-may .monthly-box-content:hover,
+.roadmap-container .monthly-boxes-container .monthly-box-june .monthly-box-content:hover {
+    transform: translateX(4px) scale(1.3);
+}
+
+.roadmap-container .monthly-boxes-container .monthly-box-july .monthly-box-content:hover,
+.roadmap-container .monthly-boxes-container .monthly-box-august .monthly-box-content:hover {
+    transform: translateX(6px) scale(1.3);
+}
+
+.roadmap-container .monthly-boxes-container .monthly-box-september .monthly-box-content:hover {
+    transform: translateX(7px) scale(1.3);
+}
+
+.roadmap-container .monthly-boxes-container .monthly-box-december .monthly-box-content:hover {
+    transform: translateX(1px) scale(1.3);
+}
+
+.monthly-box-header {
+    font-weight: bold;
+    font-size: 9px;
+    margin-bottom: 4px;
+    color: #333;
+}
+
+.monthly-box-numbers {
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 2px;
+    color: #333;
+}
+
+.monthly-box-description {
+    font-size: 10px;
+    line-height: 1.3;
+    color: #666;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    text-align: center;
+    max-height: 49px;
+    overflow: hidden;
+    padding-top: 2px;
+}
+
+.monthly-box-description .italic {
+    font-style: italic;
+}
+
+/* Make sure story items show they're interactive */
+.story-item {
+    cursor: pointer;
+}
+
+/* Text Formatting */
+del {
+    text-decoration: line-through;
+}
+
+u {
+    text-decoration: underline;
+    text-decoration-color: #333;
+    text-underline-offset: 2px;
+}
+
+strong {
+    font-weight: bold;
+    color: #222;
+}
+
+em {
+    font-style: italic;
+    color: #444;
+}
+
+/* Ensure no form styling appears in roadmap - using higher specificity */
+.roadmap-container input[data-date-picker-initialized],
+body .roadmap-container input[data-date-picker-initialized] {
+    background-image: none;
+    padding-right: 8px;
+}
+
+/* January specific z-index fix - CRITICAL: !important needed for iframe isolation */
+.monthly-box:first-child {
+    z-index: 110 !important;
+    position: relative;
+}
+
+.monthly-box:first-child .monthly-box-content {
+    z-index: 111 !important;
+    position: relative;
+}
+
+.monthly-box:first-child .monthly-box-content:hover {
+    z-index: 155 !important;
+    position: relative;
+}
+
+ 
