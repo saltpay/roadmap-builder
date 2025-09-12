@@ -8020,7 +8020,7 @@
                 }
                 
                 // Sort files by team name
-                roadmapFiles.sort((a, b) => a.teamName.localeCompare(b.teamName));
+                roadmapFiles.sort((a, b) => a.name.localeCompare(b.name));
                 
                 if (roadmapFiles.length === 0) {
                     fileList.innerHTML = '<div class="no-directory-message">No roadmap (.json or .xlsx) files found in this folder</div>';
