@@ -1486,13 +1486,26 @@ class RoadmapGenerator {
                 // SIMPLIFIED POSITIONING LOGIC
                 let changeStartGrid, changeEndGrid;
                 let shouldPositionBelowFinal = false;
-                
+
+                // Force text box below if story ends between Oct 4 and Dec 31 of the roadmap year
+                let endsBetweenOct4AndDec31 = false;
+                if (effectiveEndIsDate) {
+                    const parsed = this.parseDateSafe(effectiveEndValue);
+                    if (parsed && !isNaN(parsed.getTime()) && parsed.getFullYear() === this.roadmapYear) {
+                        const m = parsed.getMonth(); // 0-based, Oct=9
+                        const d = parsed.getDate();
+                        if (m > 9 || (m === 9 && d >= 4)) {
+                            endsBetweenOct4AndDec31 = true;
+                        }
+                    }
+                }
+
                 // Check if story continues past roadmap year - if so, use December as visual end
                 const continuesNextYear = this.storyContinuesNextYear(story);
                 const visualStoryEndGrid = continuesNextYear ? (this.getGridPosition('DEC') + 10) : storyEndGrid;
-                
-                // For stories that continue past roadmap year, always position text boxes below
-                if (continuesNextYear) {
+
+                // For stories that continue past roadmap year or end in Oct 4–Dec 31, position text boxes below
+                if (continuesNextYear || endsBetweenOct4AndDec31) {
                     shouldPositionBelowFinal = true;
                 } else {
                     // Step 1: Check if story + text box fits on same line (for ALL item counts)
