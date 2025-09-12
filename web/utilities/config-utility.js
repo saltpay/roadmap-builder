@@ -269,17 +269,24 @@ class ConfigUtility {
 
     // Story Sorting Configuration
     static shouldSortStories() {
-        // Check localStorage first, then fall back to default
-        const stored = localStorage.getItem('roadmap-sort-stories');
-        if (stored !== null) {
-            return stored === 'true';
-        }
-        // Default to false (off) when no localStorage value exists
-        return false;
+        // Check localStorage when available (browser); default to false in Node/CLI
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const stored = localStorage.getItem('roadmap-sort-stories');
+                if (stored !== null) {
+                    return stored === 'true';
+                }
+            }
+        } catch (e) {}
+        return false; // Default: sorting off
     }
     
     static setSortStories(enabled) {
-        localStorage.setItem('roadmap-sort-stories', enabled.toString());
+        try {
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('roadmap-sort-stories', enabled.toString());
+            }
+        } catch (e) {}
     }
 }
 
