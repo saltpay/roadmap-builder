@@ -270,7 +270,7 @@
         }
 
         .builder-panel.drag-over::before {
-            content: '📁 Drop roadmap file anywhere on this form (.json, .xlsx, .xls)';
+            content: '📁 Drop roadmap file anywhere on this form (.json)';
             position: absolute;
             top: 50%;
             left: 50%;
@@ -345,8 +345,8 @@
                     <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
                     <button onclick="loadRoadmap()" class="secondary">📂 Load Roadmap</button>
                     <button onclick="saveRoadmap()" class="secondary">💾 Save .json</button>
-                    <button onclick="exportToExcel()" class="secondary"><svg width="14" height="14" viewBox="0 0 16 16" style="margin-right: 3px; vertical-align: middle;"><rect width="16" height="16" rx="2" fill="#217346"/><path d="M4.5 4.5L7.5 8L4.5 11.5H6L8.5 8.5L6 4.5H4.5Z" fill="white"/><path d="M9.5 4.5L6.5 8L9.5 11.5H11L8 8.5L11 4.5H9.5Z" fill="white"/></svg>Export .xls</button>
                     <button onclick="openIMOSearch()" class="secondary">🔍 Search</button>
+                    <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
                     <style>
                         .dropdown-content {
                             display: none;
@@ -694,6 +694,21 @@
                 </div>
             </div>
             
+            <!-- Stats Modal -->
+            <div id="statsModal" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 10000; align-items: center; justify-content: center;">
+                <div style="background: #fff; border-radius: 10px; width: 520px; max-width: 92vw; box-shadow: 0 10px 30px rgba(0,0,0,0.25);">
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
+                        <h3 style="margin:0; font-size: 18px;">Roadmap Statistics</h3>
+                        <button onclick="closeStatsModal()" class="secondary" style="border:none; background:none; font-size: 20px; line-height: 1; cursor:pointer;">×</button>
+                    </div>
+                    <div id="statsModalBody" style="padding: 16px;">
+                        <!-- Stats content injected here -->
+                    </div>
+                    <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb; text-align: right;">
+                        <button onclick="closeStatsModal()" class="secondary">Close</button>
+                    </div>
+                </div>
+            </div>
             <!-- Roadmap Year -->
             <h2>Roadmap Year</h2>
             <div class="form-group">
@@ -832,15 +847,23 @@
                     <input type="checkbox" id="story-sorting-toggle" style="width: auto; flex-shrink: 0;" onchange="handleSortingToggle()">
                     Sort stories by start date within each epic
                 </label>
+                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 6px;">
+                    <input type="checkbox" id="story-sorting-end-toggle" style="width: auto; flex-shrink: 0;" onchange="handleEndSortingToggle()">
+                    Sort stories by end date within each epic
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 6px;">
+                    <input type="checkbox" id="force-text-below-toggle" style="width: auto; flex-shrink: 0;" onchange="handleForceTextBelowToggle()">
+                    Force all text boxes below stories
+                </label>
             </div>
             
             <!-- Action Buttons -->
             <div class="action-buttons">
                 <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
                 <button onclick="loadRoadmap()" class="secondary">📂 Load Roadmap</button>
-                <button onclick="saveRoadmap()" class="secondary">💾 Save .json</button>
-                <button onclick="exportToExcel()" class="secondary"><svg width="14" height="14" viewBox="0 0 16 16" style="margin-right: 3px; vertical-align: middle;"><rect width="16" height="16" rx="2" fill="#217346"/><path d="M4.5 4.5L7.5 8L4.5 11.5H6L8.5 8.5L6 4.5H4.5Z" fill="white"/><path d="M9.5 4.5L6.5 8L9.5 11.5H11L8 8.5L11 4.5H9.5Z" fill="white"/></svg>Export .xls</button>
+                <button onclick="saveRoadmap()" class="secondary">💾 Save Roadmap</button>
                 <button onclick="openIMOSearch()" class="secondary">🔍 Search</button>
+                <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
                 <div class="dropdown" style="display: inline-block; position: relative;">
                     <button id="shareDropdownBtnBottom" class="secondary" onclick="toggleShareDropdownBottom(event)">🌐 Share ▼</button>
                     <div id="shareDropdownMenuBottom" class="dropdown-content">
@@ -851,11 +874,12 @@
                 </div>
             </div>
             
-            <!-- Hidden file input for loading roadmaps (both JSON and Excel) -->
-            <input type="file" id="roadmapLoadInput" accept=".json,.xlsx,.xls" style="display: none;" onchange="handleRoadmapLoad(event)">
+            <!-- Hidden file input for loading roadmaps (JSON only) -->
+            <input type="file" id="roadmapLoadInput" accept=".json" style="display: none;" onchange="handleRoadmapLoad(event)">
             <!-- Legacy inputs kept for compatibility -->
             <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="handleFileLoad(event)">
-            <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display: none;" onchange="handleExcelLoad(event)">
+            <!-- Fallback directory picker for browsers without File System Access API -->
+            <input type="file" id="directoryFileInput" style="display: none;" multiple webkitdirectory>
 
         </div>
         
@@ -1221,7 +1245,6 @@
         </div>
     </div>
 
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="roadmap-generator.js"></script>
     <!-- Native date picker - no external JS needed -->
     <script>
@@ -1392,6 +1415,11 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Add keyboard shortcut listener for KTLO toggle
             document.addEventListener('keydown', handleKTLOToggleShortcut);
+
+            // Close stats modal on Escape
+            document.addEventListener('keydown', function(e){
+                if (e.key === 'Escape') closeStatsModal();
+            });
             
             // Global focus event listener to prevent focus on hidden date inputs
             document.addEventListener('focusin', function(event) {
@@ -1806,6 +1834,17 @@
             if (sortingToggle) {
                 // Save the preference
                 getConfigUtility().setSortStories(sortingToggle.checked);
+                // Ensure mutual exclusivity
+                if (sortingToggle.checked) {
+                    const endToggle = document.getElementById('story-sorting-end-toggle');
+                    if (endToggle) {
+                        endToggle.checked = false;
+                        getConfigUtility().setSortByEnd(false);
+                    }
+                    getConfigUtility().setSortByStart(true);
+                } else {
+                    getConfigUtility().setSortByStart(false);
+                }
                 
                 // Reorder stories in the UI based on sorting preference
                 if (sortingToggle.checked) {
@@ -1823,6 +1862,42 @@
             }
         }
 
+        function handleEndSortingToggle() {
+            const endToggle = document.getElementById('story-sorting-end-toggle');
+            if (endToggle) {
+                // Persist preference and enforce mutual exclusivity
+                getConfigUtility().setSortByEnd(endToggle.checked);
+                if (endToggle.checked) {
+                    const startToggle = document.getElementById('story-sorting-toggle');
+                    if (startToggle) {
+                        startToggle.checked = false;
+                        getConfigUtility().setSortStories(false);
+                        getConfigUtility().setSortByStart(false);
+                    }
+                }
+                
+                // Apply or restore ordering
+                if (endToggle.checked) {
+                    reorderStoriesInUI(true);
+                } else {
+                    restoreOriginalStoryOrder();
+                }
+                
+                // Update preview
+                generatePreview();
+                showSortingNotification(endToggle.checked);
+            }
+        }
+
+        function handleForceTextBelowToggle() {
+            const toggle = document.getElementById('force-text-below-toggle');
+            if (toggle) {
+                getConfigUtility().setForceTextBelow(toggle.checked);
+                // Regenerate the preview to apply placement
+                generatePreview();
+            }
+        }
+
         // Store original story order for each epic
         const originalStoryOrders = new Map();
         
@@ -1835,7 +1910,7 @@
             originalStoryOrders.set(epicId, originalOrder);
         }
         
-        function reorderStoriesInUI() {
+        function reorderStoriesInUI(sortByEnd = false) {
             // Get all epic sections
             const epicElements = document.querySelectorAll('.epic-section');
             epicElements.forEach(epicEl => {
@@ -1862,18 +1937,23 @@
                     }
                 });
                 
-                // Sort stories
+                // Sort stories (start-first or end-first based on flag)
                 stories.sort((a, b) => {
                     const aStart = a.startDate || a.startMonth || 'JAN';
                     const bStart = b.startDate || b.startMonth || 'JAN';
                     const aEnd = a.endDate || a.endMonth || 'MAR';
                     const bEnd = b.endDate || b.endMonth || 'MAR';
-                    
-                    const startComparison = getDateUtility().compareDateOrMonth(aStart, bStart, parseInt(document.getElementById('roadmapYear').value) || 2025);
-                    if (startComparison !== 0) {
-                        return startComparison;
+
+                    const year = parseInt(document.getElementById('roadmapYear').value) || 2025;
+                    if (sortByEnd) {
+                        const endComparison = getDateUtility().compareDateOrMonth(aEnd, bEnd, year);
+                        if (endComparison !== 0) return endComparison;
+                        return getDateUtility().compareDateOrMonth(aStart, bStart, year);
+                    } else {
+                        const startComparison = getDateUtility().compareDateOrMonth(aStart, bStart, year);
+                        if (startComparison !== 0) return startComparison;
+                        return getDateUtility().compareDateOrMonth(aEnd, bEnd, year);
                     }
-                    return getDateUtility().compareDateOrMonth(aEnd, bEnd, parseInt(document.getElementById('roadmapYear').value) || 2025);
                 });
                 
                 // Reorder DOM elements - find the correct container
@@ -3626,10 +3706,10 @@
                 iframe.contentWindow.toggleAlignmentGuide = toggleAlignmentGuide;
                 
                 // Log the keyboard shortcut for user reference
-                console.log('📏 Alignment guide ready! Use Cmd+Shift+L (Mac) or Ctrl+Shift+L (Windows) to toggle visibility.');
+                
                 
             } catch (error) {
-                console.log('Failed to add alignment guide:', error);
+                
             }
         }
         
@@ -3699,24 +3779,24 @@
                 });
                 
                 // Sort stories if the feature is enabled
-                if (getConfigUtility().shouldSortStories()) {
+                const sortByStart = getConfigUtility().shouldSortStories() || getConfigUtility().shouldSortByStart();
+                const sortByEnd = getConfigUtility().shouldSortByEnd();
+                if (sortByStart || sortByEnd) {
                     stories.sort((a, b) => {
-                        // Get start values (date or month)
                         const aStart = a.startDate || a.startMonth || 'JAN';
                         const bStart = b.startDate || b.startMonth || 'JAN';
-                        
-                        // Get end values
                         const aEnd = a.endDate || a.endMonth || 'MAR';
                         const bEnd = b.endDate || b.endMonth || 'MAR';
-                        
-                        // Primary sort: by start date (handles both dates and months)
-                        const startComparison = getDateUtility().compareDateOrMonth(aStart, bStart, parseInt(document.getElementById('roadmapYear').value) || 2025);
-                        if (startComparison !== 0) {
-                            return startComparison;
+                        const year = parseInt(document.getElementById('roadmapYear').value) || 2025;
+                        if (sortByEnd) {
+                            const endComparison = getDateUtility().compareDateOrMonth(aEnd, bEnd, year);
+                            if (endComparison !== 0) return endComparison;
+                            return getDateUtility().compareDateOrMonth(aStart, bStart, year);
+                        } else {
+                            const startComparison = getDateUtility().compareDateOrMonth(aStart, bStart, year);
+                            if (startComparison !== 0) return startComparison;
+                            return getDateUtility().compareDateOrMonth(aEnd, bEnd, year);
                         }
-                        
-                        // Secondary sort: by end date (if start dates are the same)
-                        return getDateUtility().compareDateOrMonth(aEnd, bEnd, parseInt(document.getElementById('roadmapYear').value) || 2025);
                     });
                 }
                 
@@ -4351,12 +4431,12 @@
             URL.revokeObjectURL(url);
         }
         
-        // Unified load roadmap function - auto-detects JSON or Excel
+        // Load roadmap function - JSON only
         function loadRoadmap() {
             document.getElementById('roadmapLoadInput').click();
         }
         
-        // Handle roadmap file load (auto-detect JSON vs Excel)
+        // Handle roadmap file load (JSON only)
         function handleRoadmapLoad(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -4366,11 +4446,8 @@
             if (fileName.endsWith('.json')) {
                 // Handle as JSON roadmap file
                 handleFileLoad(event);
-            } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-                // Handle as Excel file
-                handleExcelLoad(event);
             } else {
-                alert('Unsupported file format. Please select a JSON (.json) or Excel (.xlsx, .xls) file.');
+                alert('Unsupported file format. Please select a JSON (.json) file.');
             }
             
             // Reset the input value so the same file can be loaded again
@@ -4425,448 +4502,266 @@
             event.target.value = '';
         }
         
-        // Excel Import/Export Functions
-        async function exportToExcel() {
-            // Collect current form data
+        // Stats modal controls
+        function openStatsModal() {
+            try {
             const teamData = collectFormData();
-            
-            // Create a new workbook
-            const wb = XLSX.utils.book_new();
-            
-            // Team Info Sheet
-            const teamInfoData = [
-                ['Field', 'Value', 'Description'],
-                ['Team Name', teamData.teamName || '', 'Name of your team'],
-            ['Engineering Director/VP', teamData.directorVP || '', 'Engineering Director or VP'],
-                ['Engineering Manager', teamData.em || '', 'EM name'],
-                ['Product Manager', teamData.pm || '', 'PM name'],
-                ['Team Description', teamData.description || '', 'Team mission, goals, and context'],
-                ['Roadmap Year', document.getElementById('roadmapYear').value || '2025', 'Year for the roadmap']
-            ];
-            const teamInfoSheet = XLSX.utils.aoa_to_sheet(teamInfoData);
-            
-            // Add cell formatting to Team Info sheet - center all except description column and enable auto-sizing
-            if (!teamInfoSheet['!cols']) teamInfoSheet['!cols'] = [];
-            teamInfoSheet['!cols'][0] = { wpx: 120 }; // Field column auto-width
-            teamInfoSheet['!cols'][1] = { wpx: 200 }; // Value column auto-width  
-            teamInfoSheet['!cols'][2] = { wpx: 300 }; // Description column auto-width
-            
-            // Enable auto-filter and auto-sizing
-            teamInfoSheet['!autofilter'] = { ref: teamInfoSheet['!ref'] };
-            
-            // Set rows to auto-height
-            if (!teamInfoSheet['!rows']) teamInfoSheet['!rows'] = [];
-            const teamInfoRowRange = XLSX.utils.decode_range(teamInfoSheet['!ref']);
-            for (let row = teamInfoRowRange.s.r; row <= teamInfoRowRange.e.r; row++) {
-                teamInfoSheet['!rows'][row] = { hpx: undefined }; // Auto height
+                const stats = computeRoadmapStats(teamData);
+                const body = document.getElementById('statsModalBody');
+                body.innerHTML = renderStatsHtml(stats);
+                const modal = document.getElementById('statsModal');
+                modal.style.display = 'flex';
+                // Make stats available for interactive breakdown
+                window.__roadmapStats = stats;
+                
+                // Add tooltip functionality after DOM is updated
+                setTimeout(setupTooltips, 100);
+            } catch (e) {
+                
             }
-            
-
-            
-            XLSX.utils.book_append_sheet(wb, teamInfoSheet, 'Team Info');
-            
-            // Stories Sheet
-            const storiesData = [
-                ['EPIC Name', 'EPIC ID', 'Story Title', 'Story ID', 'Start Date/Month', 'End Date/Month', 'Bullet Points', 'IMO', 'Done', 'Done Date', 'Done Notes', 'Cancelled', 'Cancel Date', 'Cancel Notes', 'At Risk', 'Risk Date', 'Risk Notes', 'New Story', 'New Date', 'New Notes', 'Info', 'Info Date', 'Info Notes', 'Transferred Out', 'Transferred Out Date', 'Transferred Out Notes', 'Transferred In', 'Transferred In Date', 'Transferred In Notes', 'Proposed', 'Proposed Date', 'Proposed Notes', 'Has Story Timeline']
-            ];
-            
-            // Add actual story data
-            if (teamData.epics && teamData.epics.length > 0) {
-                teamData.epics.forEach(epic => {
-                    epic.stories.forEach((story, index) => {
-                        const epicName = index === 0 ? epic.name : ''; // Only show EPIC name for first story
-                        const startValue = story.startDate || story.startMonth || 'JAN';
-                        const endValue = story.endDate || story.endMonth || 'MAR';
-                        const bullets = story.bullets ? story.bullets.join('\n') : '';
-                        
-                        // Get status info from roadmapChanges if available
-                        const doneInfo = story.roadmapChanges?.doneInfo;
-                        const cancelInfo = story.roadmapChanges?.cancelInfo;
-                        const atRiskInfo = story.roadmapChanges?.atRiskInfo;
-                        const newStoryInfo = story.roadmapChanges?.newStoryInfo;
-                        const infoInfo = story.roadmapChanges?.infoInfo;
-                        const transferredOutInfo = story.roadmapChanges?.transferredOutInfo || story.roadmapChanges?.handedOverInfo; // Backward compatibility
-                        const transferredInInfo = story.roadmapChanges?.transferredInInfo;
-                        const proposedInfo = story.roadmapChanges?.proposedInfo;
-                        const hasChanges = story.roadmapChanges?.changes?.length > 0;
-                        
-                        storiesData.push([
-                            epicName,
-                            epic.epicId || '', // EPIC ID
-                            story.title || '',
-                            story.storyId || '', // Story ID
-                            startValue,
-                            endValue,
-                            bullets,
-                            story.imo || '', // IMO field
-                            story.isDone ? 'TRUE' : 'FALSE',
-                            doneInfo?.date || '',
-                            doneInfo?.notes || '',
-                            story.isCancelled ? 'TRUE' : 'FALSE',
-                            cancelInfo?.date || '',
-                            cancelInfo?.notes || '',
-                            story.isAtRisk ? 'TRUE' : 'FALSE',
-                            atRiskInfo?.date || '',
-                            atRiskInfo?.notes || '',
-                            story.isNewStory ? 'TRUE' : 'FALSE',
-                            newStoryInfo?.date || '',
-                            newStoryInfo?.notes || '',
-                            story.isInfo ? 'TRUE' : 'FALSE',
-                            infoInfo?.date || '',
-                            infoInfo?.notes || '',
-                            story.isTransferredOut ? 'TRUE' : 'FALSE',
-                            transferredOutInfo?.date || '',
-                            transferredOutInfo?.notes || '',
-                            story.isTransferredIn ? 'TRUE' : 'FALSE',
-                            transferredInInfo?.date || '',
-                            transferredInInfo?.notes || '',
-                            story.isProposed ? 'TRUE' : 'FALSE',
-                            proposedInfo?.date || '',
-                            proposedInfo?.notes || '',
-                            hasChanges ? 'TRUE' : 'FALSE'
-                        ]);
-                    });
-                });
-            }
-            
-            const storiesSheet = XLSX.utils.aoa_to_sheet(storiesData);
-            
-            // Add cell formatting to Stories sheet with auto-sizing
-            if (!storiesSheet['!cols']) storiesSheet['!cols'] = [];
-            storiesSheet['!cols'][0] = { wpx: 120 }; // EPIC Name
-            storiesSheet['!cols'][1] = { wpx: 100 }; // EPIC ID
-            storiesSheet['!cols'][2] = { wpx: 200 }; // Story Title
-            storiesSheet['!cols'][3] = { wpx: 100 }; // Story ID
-            storiesSheet['!cols'][4] = { wpx: 100 }; // Start Date/Month
-            storiesSheet['!cols'][5] = { wpx: 100 }; // End Date/Month
-            storiesSheet['!cols'][6] = { wpx: 250 }; // Bullet Points (no center)
-            storiesSheet['!cols'][7] = { wpx: 60 };  // Done
-            storiesSheet['!cols'][8] = { wpx: 80 };  // Done Date
-            storiesSheet['!cols'][9] = { wpx: 150 }; // Done Notes (no center)
-            storiesSheet['!cols'][10] = { wpx: 80 };  // Cancelled
-            storiesSheet['!cols'][11] = { wpx: 80 }; // Cancel Date
-            storiesSheet['!cols'][12] = { wpx: 150 }; // Cancel Notes (no center)
-            storiesSheet['!cols'][13] = { wpx: 60 }; // At Risk
-            storiesSheet['!cols'][14] = { wpx: 80 }; // Risk Date
-            storiesSheet['!cols'][15] = { wpx: 150 }; // Risk Notes (no center)
-            storiesSheet['!cols'][16] = { wpx: 80 }; // New Story
-            storiesSheet['!cols'][17] = { wpx: 80 }; // New Date
-            storiesSheet['!cols'][18] = { wpx: 150 }; // New Notes (no center)
-            storiesSheet['!cols'][19] = { wpx: 80 }; // Transferred Out
-            storiesSheet['!cols'][20] = { wpx: 80 }; // Transferred Out Date
-            storiesSheet['!cols'][21] = { wpx: 150 }; // Transferred Out Notes (no center)
-            storiesSheet['!cols'][22] = { wpx: 80 }; // Transferred In
-            storiesSheet['!cols'][23] = { wpx: 80 }; // Transferred In Date
-            storiesSheet['!cols'][24] = { wpx: 150 }; // Transferred In Notes (no center)
-            storiesSheet['!cols'][25] = { wpx: 80 }; // Proposed
-            storiesSheet['!cols'][26] = { wpx: 80 }; // Proposed Date
-            storiesSheet['!cols'][27] = { wpx: 150 }; // Proposed Notes (no center)
-            storiesSheet['!cols'][28] = { wpx: 120 }; // Has Story Timeline
-            
-            // Enable auto-filter and auto-sizing for Stories sheet
-            storiesSheet['!autofilter'] = { ref: storiesSheet['!ref'] };
-            
-            // Set rows to auto-height
-            if (!storiesSheet['!rows']) storiesSheet['!rows'] = [];
-            const storiesRowRange = XLSX.utils.decode_range(storiesSheet['!ref']);
-            for (let row = storiesRowRange.s.r; row <= storiesRowRange.e.r; row++) {
-                storiesSheet['!rows'][row] = { hpx: undefined }; // Auto height
-            }
-            
-
-            
-            XLSX.utils.book_append_sheet(wb, storiesSheet, 'Stories');
-            
-            // KTLO Sheet
-            const ktloData = [
-                ['Field', 'Value', 'Description'],
-                ['KTLO Position', teamData.ktloSwimlane?.position || 'bottom', 'Position in roadmap: top (before EPICs) or bottom (after EPICs)'],
-                ['KTLO Title', teamData.ktloSwimlane?.story?.title || 'KTLO', 'Title for KTLO section'],
-                ['KTLO Bullets', teamData.ktloSwimlane?.story?.bullets ? teamData.ktloSwimlane.story.bullets.join('\n') : '', 'KTLO bullet points (separate with line breaks)'],
-                ['', '', ''],
-                ['Month', 'Number', 'Percentage', 'Description']
-            ];
-            
-            // Add monthly KTLO data
-            if (teamData.ktloSwimlane?.monthlyData) {
-                teamData.ktloSwimlane.monthlyData.forEach(monthData => {
-                    ktloData.push([
-                        monthData.month,
-                        monthData.number || '',
-                        monthData.percentage || '',
-                        monthData.description || ''
-                    ]);
-                });
-            }
-            
-            const ktloSheet = XLSX.utils.aoa_to_sheet(ktloData);
-            
-            // Add cell formatting to KTLO sheet with auto-sizing
-            if (!ktloSheet['!cols']) ktloSheet['!cols'] = [];
-            ktloSheet['!cols'][0] = { wpx: 100 }; // Field/Month
-            ktloSheet['!cols'][1] = { wpx: 180 }; // Value/Number
-            ktloSheet['!cols'][2] = { wpx: 100 }; // Percentage
-            ktloSheet['!cols'][3] = { wpx: 250 }; // Description (no center)
-            
-            // Enable auto-filter and auto-sizing for KTLO sheet
-            ktloSheet['!autofilter'] = { ref: ktloSheet['!ref'] };
-            
-            // Set rows to auto-height
-            if (!ktloSheet['!rows']) ktloSheet['!rows'] = [];
-            const ktloRowRange = XLSX.utils.decode_range(ktloSheet['!ref']);
-            for (let row = ktloRowRange.s.r; row <= ktloRowRange.e.r; row++) {
-                ktloSheet['!rows'][row] = { hpx: undefined }; // Auto height
-            }
-            
-
-            
-            XLSX.utils.book_append_sheet(wb, ktloSheet, 'KTLO');
-            
-            // BTL Sheet
-            const btlData = [
-                ['BTL Story Title', 'Start Date/Month', 'End Date/Month', 'Bullet Points', 'IMO', 'Date Added', 'Description']
-            ];
-            
-            // Add BTL story data
-            if (teamData.btlSwimlane?.stories?.length > 0) {
-                teamData.btlSwimlane.stories.forEach(story => {
-                    const startValue = story.startDate || story.startMonth || 'JAN';
-                    const endValue = story.endDate || story.endMonth || 'MAR';
-                    const bullets = story.bullets ? story.bullets.join('\n') : '';
-                    const dateAdded = story.dateAdded || '';
-                    const description = story.dateAddedDescription || '';
-                    
-                    btlData.push([
-                        story.title || '',
-                        startValue,
-                        endValue,
-                        bullets,
-                        story.imo || '',
-                        dateAdded,
-                        description
-                    ]);
-                });
-            }
-            
-            if (btlData.length === 1) {
-                btlData.push(['No BTL stories in current roadmap', '', '', '']);
-            }
-            
-            const btlSheet = XLSX.utils.aoa_to_sheet(btlData);
-            
-            // Add cell formatting to BTL sheet with auto-sizing
-            if (!btlSheet['!cols']) btlSheet['!cols'] = [];
-            btlSheet['!cols'][0] = { wpx: 200 }; // Story Title
-            btlSheet['!cols'][1] = { wpx: 100 }; // Start Date/Month
-            btlSheet['!cols'][2] = { wpx: 100 }; // End Date/Month
-            btlSheet['!cols'][3] = { wpx: 250 }; // Bullet Points (no center)
-            btlSheet['!cols'][4] = { wpx: 100 }; // Date Added
-            btlSheet['!cols'][5] = { wpx: 200 }; // Description
-            
-            // Enable auto-filter and auto-sizing for BTL sheet
-            btlSheet['!autofilter'] = { ref: btlSheet['!ref'] };
-            
-            // Set rows to auto-height
-            if (!btlSheet['!rows']) btlSheet['!rows'] = [];
-            const btlRowRange = XLSX.utils.decode_range(btlSheet['!ref']);
-            for (let row = btlRowRange.s.r; row <= btlRowRange.e.r; row++) {
-                btlSheet['!rows'][row] = { hpx: undefined }; // Auto height
-            }
-            
-
-            
-            XLSX.utils.book_append_sheet(wb, btlSheet, 'BTL Stories');
-            
-            // Story Timeline Sheet (if any exist) - Now using GUID-based tracking
-            const timelineData = [
-                ['EPIC ID', 'Story ID', 'Story Reference', 'Change Date', 'Previous End Date', 'New End Date', 'Description']
-            ];
-            
-            let hasTimelineChanges = false;
-            if (teamData.epics && teamData.epics.length > 0) {
-                teamData.epics.forEach(epic => {
-                    epic.stories.forEach(story => {
-                        if (story.roadmapChanges?.changes?.length > 0) {
-                            story.roadmapChanges.changes.forEach(change => {
-                                timelineData.push([
-                                    epic.epicId || '', // EPIC ID for precise identification
-                                    story.storyId || '', // Story ID for precise identification
-                                    `${epic.name} - ${story.title}`, // Keep readable reference for backward compatibility
-                                    change.date || '',
-                                    change.prevEndDate || '',
-                                    change.newEndDate || '',
-                                    change.description || ''
-                                ]);
-                                hasTimelineChanges = true;
-                            });
-                        }
-                    });
-                });
-            }
-            
-            if (!hasTimelineChanges) {
-                timelineData.push(['', '', 'No story timeline changes in current roadmap', '', '', '', '']);
-            }
-            
-            const timelineSheet = XLSX.utils.aoa_to_sheet(timelineData);
-            
-            // Add cell formatting to Story Timeline sheet with auto-sizing
-            if (!timelineSheet['!cols']) timelineSheet['!cols'] = [];
-            timelineSheet['!cols'][0] = { wpx: 100 }; // EPIC ID
-            timelineSheet['!cols'][1] = { wpx: 100 }; // Story ID
-            timelineSheet['!cols'][2] = { wpx: 250 }; // Story Reference
-            timelineSheet['!cols'][3] = { wpx: 100 }; // Change Date
-            timelineSheet['!cols'][4] = { wpx: 120 }; // Previous End Date
-            timelineSheet['!cols'][5] = { wpx: 120 }; // New End Date
-            timelineSheet['!cols'][6] = { wpx: 250 }; // Description (no center)
-            
-            // Enable auto-filter and auto-sizing for Story Timeline sheet
-            timelineSheet['!autofilter'] = { ref: timelineSheet['!ref'] };
-            
-            // Set rows to auto-height
-            if (!timelineSheet['!rows']) timelineSheet['!rows'] = [];
-            const timelineRowRange = XLSX.utils.decode_range(timelineSheet['!ref']);
-            for (let row = timelineRowRange.s.r; row <= timelineRowRange.e.r; row++) {
-                timelineSheet['!rows'][row] = { hpx: undefined }; // Auto height
-            }
-            
-
-            
-            XLSX.utils.book_append_sheet(wb, timelineSheet, 'Story Timeline');
-            
-            // Generate and download the file
-            const teamName = teamData.teamName || 'MyTeam';
-            const roadmapYear = teamData.roadmapYear || 2025;
-            const defaultFileName = `${teamName}.Teya-Roadmap.${roadmapYear}.xlsx`;
-            
-            // Try to use the File System Access API for native save dialog
-            if ('showSaveFilePicker' in window) {
-                try {
-                    const fileHandle = await window.showSaveFilePicker({
-                        suggestedName: defaultFileName,
-                        types: [{
-                            description: 'Excel Roadmap files',
-                            accept: {
-                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
-                            }
-                        }]
-                    });
-                    
-                    // Generate the Excel file as a blob
-                    const excelBlob = new Blob([XLSX.write(wb, {bookType: 'xlsx', type: 'array'})], {
-                        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                    });
-                    
-                    const writable = await fileHandle.createWritable();
-                    await writable.write(excelBlob);
-                    await writable.close();
-                    
-                    return;
-                } catch (error) {
-                    if (error.name === 'AbortError') {
-                        // User cancelled the save dialog
-                        return;
-                    }
-                    // File System Access API failed, fall back to download
-                }
-            }
-            
-            // Fallback to download method for browsers that don't support File System Access API
-            XLSX.writeFile(wb, defaultFileName);
-        }
-
-
-        
-        // Legacy function - replaced by unified Load Roadmap dialog but kept for compatibility
-        function importFromExcel() {
-            document.getElementById('excelFileInput').click();
         }
         
-        function handleExcelLoad(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    // Clear existing data
-                    document.getElementById('epics-container').innerHTML = '';
-                    epicCounter = 0;
-                    storyCounters = {};
-                    
-                    // Always clear BTL stories during Excel import
-                    document.getElementById('btl-stories-container').innerHTML = '';
-                    btlStoryCounter = 0;
-                    
-                    // Load Team Info
-                    if (workbook.SheetNames.includes('Team Info')) {
-                        loadTeamInfoFromExcel(workbook.Sheets['Team Info']);
-                    }
-                    
-                    // Load Stories
-                    if (workbook.SheetNames.includes('Stories')) {
-                        loadStoriesFromExcel(workbook.Sheets['Stories']);
-                    }
-                    
-                    // Load KTLO
-                    if (workbook.SheetNames.includes('KTLO')) {
-                        loadKTLOFromExcel(workbook.Sheets['KTLO']);
-                        // Ensure January data is displayed after loading
-                        setTimeout(() => {
-                            loadKTLOMonth('jan');
-                        }, 100);
-                    }
-                    
-                    // Load BTL Stories
-                    if (workbook.SheetNames.includes('BTL Stories')) {
-                        loadBTLFromExcel(workbook.Sheets['BTL Stories']);
-                    }
-                    
-                    // Load Story Timeline
-                    if (workbook.SheetNames.includes('Story Timeline')) {
-                        loadTimelineChangesFromExcel(workbook.Sheets['Story Timeline']);
-                    } else if (workbook.SheetNames.includes('Timeline Changes')) {
-                        // Backward compatibility with old sheet name
-                        loadTimelineChangesFromExcel(workbook.Sheets['Timeline Changes']);
-                    }
-                    
-                                        // Apply pending timeline changes after stories are loaded
-                    setTimeout(() => {
-                        applyPendingTimelineChanges(() => {
-                            // Callback: This runs after timeline changes are fully applied
-                            updateIdCountersAfterImport();
-                            collapseAllSections();
-                            // Refresh date pickers to sync with imported data
-                            refreshAllDatePickers();
-                            // Ensure KTLO month data is properly displayed after Excel import
-                            const selector = document.getElementById('ktlo-month-selector');
-                            if (selector) {
-                                const currentMonth = selector.value || 'jan';
-                                loadKTLOMonth(currentMonth);
-                            }
-                            generatePreview();
-                            // Update document title to reflect the imported team name
-                            updateDocumentTitle();
-                        });
-                    }, 300);
-                    
-                } catch (error) {
-                    alert('Error importing Excel file: ' + error.message + '\n\nPlease make sure you are using the correct template format.');
-                }
+        function setupTooltips() {
+            const tooltipElements = document.querySelectorAll('[data-tooltip]');
+            tooltipElements.forEach(element => {
+                element.addEventListener('click', toggleDelayBreakdown);
+            });
+        }
+        
+        function toggleDelayBreakdown(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const container = e.currentTarget || e.target.closest('[data-tooltip]');
+            if (!container) return;
+
+            // Toggle existing breakdown
+            const existing = document.getElementById('delay-breakdown');
+            if (existing) {
+                existing.remove();
+                // If clicking same container, treat as collapse only
+                if (existing.__for === container) return;
+            }
+
+            const stats = window.__roadmapStats || { delayBreakdown: {}, delayStories: {}, totalStories: 0, cancelled: 0 };
+            const activeStories = (stats.totalStories || 0) - (stats.cancelled || 0);
+
+            // Create breakdown container
+            const breakdown = document.createElement('div');
+            breakdown.id = 'delay-breakdown';
+            breakdown.__for = container;
+            breakdown.style.cssText = `
+                margin-top: 10px;
+                padding: 12px;
+                background: #f8f9fa;
+                border: 1px solid #e5e7eb;
+                border-radius: 6px;
+                font-size: 12px;
+                color: #374151;
+            `;
+            breakdown.innerHTML = renderDelayBreakdown(stats, activeStories);
+
+            // Insert directly after the clicked container
+            container.parentNode.insertBefore(breakdown, container.nextSibling);
+
+            // Enable expand/collapse on rows
+            setupDelayBreakdownInteractions();
+        }
+
+        function renderDelayBreakdown(stats, totalActive) {
+            const counts = stats.delayBreakdown || {};
+            const sorted = Object.keys(counts).map(n => parseInt(n, 10)).sort((a, b) => a - b);
+            if (sorted.length === 0) {
+                return '<div style="color:#6b7280;">No delays recorded</div>';
+            }
+            const rows = sorted.map(delayCount => {
+                const value = counts[delayCount] || 0;
+                const pct = totalActive ? Math.round((value / totalActive) * 100) : 0;
+                const width = pct;
+                const details = (stats.delayStories && stats.delayStories[delayCount]) || [];
+                const rowId = `delay-row-${delayCount}`;
+                const detailsId = `delay-details-${delayCount}`;
+                return (
+                    '<div class="delay-row" id="' + rowId + '" data-delay-count="' + delayCount + '" style="margin-bottom: 10px;">' +
+                        '<div class="delay-row-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; cursor:pointer;">' +
+                            '<span style="font-size:13px; color:#374151;">' + delayCount + ' delay' + (delayCount > 1 ? 's' : '') + '</span>' +
+                            '<span style="font-size:13px; font-weight:600; color:#111827;">' + value + ' (' + pct + '%)</span>' +
+                        '</div>' +
+                        '<div class="delay-row-bar" style="background:#eef2f7; height:16px; border-radius:8px; overflow:hidden; cursor:pointer;">' +
+                            '<div style="background:#fd7e14; height:100%; width:' + width + '%; border-radius:8px;"></div>' +
+                        '</div>' +
+                        '<div class="delay-row-details" id="' + detailsId + '" style="display:none; padding:8px 10px; margin-top:8px; background:#ffffff; border:1px solid #e5e7eb; border-radius:6px;">' +
+                            renderDelayDetails(details) +
+                        '</div>' +
+                    '</div>'
+                );
+            }).join('');
+            return rows;
+        }
+
+        function renderDelayDetails(stories) {
+            if (!stories || !stories.length) return '<div style="color:#6b7280;">No items</div>';
+            return stories.map(s => {
+                const title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const epic = (s.epicName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<div style="font-size:12px; color:#374151; padding:2px 0;">' +
+                    '<span style="color:#6b7280;">[' + epic + ']</span> ' + title +
+                '</div>';
+            }).join('');
+        }
+
+        function setupDelayBreakdownInteractions() {
+            const rows = document.querySelectorAll('#delay-breakdown .delay-row');
+            rows.forEach(row => {
+                const details = row.querySelector('.delay-row-details');
+                const header = row.querySelector('.delay-row-header');
+                const bar = row.querySelector('.delay-row-bar');
+                const toggle = () => {
+                    if (!details) return;
+                    const isOpen = details.style.display !== 'none';
+                    details.style.display = isOpen ? 'none' : 'block';
+                };
+                if (header) header.addEventListener('click', toggle);
+                if (bar) bar.addEventListener('click', toggle);
+            });
+        }
+        function closeStatsModal() {
+            const modal = document.getElementById('statsModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        // Compute roadmap stats
+        function computeRoadmapStats(teamData) {
+            const result = {
+                totalEpics: 0,
+                totalStories: 0,
+                onTime: 0,
+                delayedOnce: 0,
+                delayedTwiceOrMore: 0,
+                cancelled: 0,
+                totalDelayed: 0,
+                delayBreakdown: {} // Track exact delay counts
             };
-            
-            reader.readAsArrayBuffer(file);
-            
-            // Reset ID counters to avoid conflicts with imported IDs
-            epicIdCounter = 0;
-            storyIdCounter = 0;
-            
-            // Reset the file input
-            event.target.value = '';
+            if (!teamData || !Array.isArray(teamData.epics)) return result;
+            result.totalEpics = teamData.epics.length;
+            for (const epic of teamData.epics) {
+                if (!Array.isArray(epic.stories)) continue;
+                for (const story of epic.stories) {
+                    result.totalStories++;
+                    if (story.isCancelled) {
+                        result.cancelled++;
+                        continue;
+                    }
+                    const changes = story.roadmapChanges?.changes || [];
+                    const delayCount = Array.isArray(changes) ? changes.length : 0;
+                    
+                    if (delayCount === 0) {
+                        result.onTime++;
+                    } else {
+                        result.totalDelayed++;
+                        if (delayCount === 1) {
+                            result.delayedOnce++;
+                        } else {
+                            result.delayedTwiceOrMore++;
+                        }
+                        
+                        // Track exact delay count for tooltip
+                        result.delayBreakdown[delayCount] = (result.delayBreakdown[delayCount] || 0) + 1;
+                    }
+                }
+            }
+            return result;
         }
+
+        function isDelayChange(change) {
+            // Consider a delay if newEndDate > prevEndDate or explicit type/description suggests delay
+            try {
+                if (!change) return false;
+                if (change.type && /delay|slip/i.test(change.type)) return true;
+                if (change.description && /delay|slip|pushed/i.test(change.description)) return true;
+                if (change.newEndDate && change.prevEndDate) {
+                    const n = Date.parse(change.newEndDate);
+                    const p = Date.parse(change.prevEndDate);
+                    if (!isNaN(n) && !isNaN(p) && n > p) return true;
+                }
+            } catch (_) {}
+            return false;
+        }
+
+        function renderStatsHtml(s) {
+            const pct = (num, den) => (den ? Math.round((num / den) * 100) : 0);
+            const activeStories = s.totalStories - s.cancelled;
+            
+            return (
+                '<div style="padding: 20px;">' +
+                    '<h3 style="margin: 0 0 20px 0; color: #333; text-align: center;">📊 Project Status Overview</h3>' +
+                    '<div style="margin-bottom: 20px; text-align: center; font-size: 14px; color: #666;">' +
+                        `${s.totalStories} Total Stories across ${s.totalEpics} EPICs` +
+                    '</div>' +
+                    '<div style="max-width: 600px; margin: 0 auto;">' +
+                        barChart('On-time Projects', s.onTime, activeStories, '#28a745', null) +
+                        barChart('Delayed Projects', s.totalDelayed, activeStories, '#dc3545', s) +
+                        barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', null) +
+                    '</div>' +
+                '</div>'
+            );
+        }
+        
+        function barChart(label, value, total, color, delayStats) {
+            const percentage = total ? Math.round((value / total) * 100) : 0;
+            const barWidth = total ? Math.round((value / total) * 100) : 0;
+            
+            let tooltipContent = '';
+            if (delayStats && label === 'Delayed Projects') {
+                const delayBreakdown = getDelayBreakdown(delayStats);
+                tooltipContent = `data-tooltip="${delayBreakdown}"`;
+            }
+            
+            return (
+                '<div style="margin-bottom: 15px; position: relative;">' +
+                    '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">' +
+                        `<span style="font-size: 14px; font-weight: 500; color: #374151;">${label}</span>` +
+                        `<span style="font-size: 14px; font-weight: 600; color: #111827;">${value} (${percentage}%)</span>` +
+                    '</div>' +
+                    `<div style="background: #f3f4f6; height: 20px; border-radius: 10px; overflow: hidden; position: relative; cursor: ${delayStats ? 'pointer' : 'default'};" ${tooltipContent}>` +
+                        `<div style="background: ${color}; height: 100%; width: ${barWidth}%; transition: width 0.3s ease; border-radius: 10px;"></div>` +
+                    '</div>' +
+                '</div>'
+            );
+        }
+        
+        function getDelayBreakdown(stats) {
+            let result = 'Delay Breakdown:\\n';
+            
+            // Sort delay counts for better display
+            const sortedDelays = Object.keys(stats.delayBreakdown || {})
+                .map(Number)
+                .sort((a, b) => a - b);
+            
+            if (sortedDelays.length === 0) {
+                result += 'No delays recorded';
+            } else {
+                sortedDelays.forEach(delayCount => {
+                    const count = stats.delayBreakdown[delayCount];
+                    result += `${delayCount} delay${delayCount > 1 ? 's' : ''}: ${count}\\n`;
+                });
+            }
+            
+            return result;
+        }
+
+        function card(label, value) {
+            return (
+                '<div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px; background:#fafafa;">' +
+                    `<div style="font-size:12px; color:#6b7280; margin-bottom:6px;">${label}</div>` +
+                    `<div style="font-size:20px; font-weight:600; color:#111827;">${value}</div>` +
+                '</div>'
+            );
+        }
+
+
+        
+        
         
         function updateIdCountersAfterImport() {
             // Update ID counters to avoid conflicts with imported IDs
@@ -4912,392 +4807,7 @@
 
         }
         
-        function loadTeamInfoFromExcel(sheet) {
-            const data = XLSX.utils.sheet_to_json(sheet, { header: ['field', 'value', 'description'] });
-            
-            // Clear description field first to ensure any missing values are properly cleared
-            document.getElementById('teamDescription').value = '';
-            
-            let desc1 = '';
-            let desc2 = '';
-            
-            data.forEach(row => {
-                if (row.field && row.value) {
-                    switch (row.field.toLowerCase()) {
-                        case 'team name':
-                            document.getElementById('teamName').value = row.value;
-                            break;
-                        case 'engineering director/vp':
-                        case 'director/vp': // backward compatibility
-                            document.getElementById('directorVP').value = row.value;
-                            break;
-                        case 'engineering manager':
-                            document.getElementById('em').value = row.value;
-                            break;
-                        case 'product manager':
-                            document.getElementById('pm').value = row.value;
-                            break;
-                        case 'team description':
-                            document.getElementById('teamDescription').value = row.value;
-                            break;
-                        case 'description line 1':
-                            // Handle old Excel format for backward compatibility
-                            desc1 = row.value;
-                            break;
-                        case 'description line 2':
-                            // Handle old Excel format for backward compatibility
-                            desc2 = row.value;
-                            break;
-                        case 'roadmap year':
-                            document.getElementById('roadmapYear').value = row.value;
-                            break;
-
-                    }
-                }
-            });
-            
-            // If we found old format description lines, combine them
-            if ((desc1 || desc2) && !document.getElementById('teamDescription').value) {
-                const combinedDescription = [desc1, desc2].filter(line => line && line.trim()).join('\n');
-                document.getElementById('teamDescription').value = combinedDescription;
-            }
-        }
         
-        function loadStoriesFromExcel(sheet) {
-            const data = XLSX.utils.sheet_to_json(sheet);
-            const epics = {};
-            let currentEpicName = '';
-            let currentEpicId = '';
-            
-            // Create a mapping to store loaded EPIC and Story IDs for timeline change matching
-            window.loadedEpicIds = {};
-            window.loadedStoryIds = {};
-            
-            data.forEach(row => {
-                // Skip empty rows or instruction rows
-                if (!row['Story Title'] || row['Story Title'].toLowerCase().includes('instruction')) return;
-                
-                // Use EPIC name if provided, otherwise use previous one
-                if (row['EPIC Name'] && row['EPIC Name'].trim()) {
-                    currentEpicName = row['EPIC Name'].trim();
-                    currentEpicId = row['EPIC ID'] || ''; // Read EPIC ID from Excel
-                }
-                
-                if (!currentEpicName) return;
-                
-                // Initialize EPIC if not exists
-                if (!epics[currentEpicName]) {
-                    epics[currentEpicName] = {
-                        epicId: currentEpicId,
-                        stories: []
-                    };
-                }
-                
-                // Add story to EPIC with ID information
-                const story = {
-                    title: row['Story Title'] || '',
-                    storyId: row['Story ID'] || '', // Read Story ID from Excel
-                    start: row['Start Date/Month'] || 'JAN',
-                    end: row['End Date/Month'] || 'MAR',
-                    bullets: row['Bullet Points'] || '',
-                    imo: row['IMO'] || '', // Read IMO from Excel
-                    done: row['Done'] === 'TRUE' || row['Done'] === true,
-                    doneDate: row['Done Date'] || '',
-                    doneNotes: row['Done Notes'] || '',
-                    cancelled: row['Cancelled'] === 'TRUE' || row['Cancelled'] === true,
-                    cancelDate: row['Cancel Date'] || '',
-                    cancelNotes: row['Cancel Notes'] || '',
-                    atRisk: row['At Risk'] === 'TRUE' || row['At Risk'] === true,
-                    riskDate: row['Risk Date'] || '',
-                    riskNotes: row['Risk Notes'] || '',
-                    newStory: row['New Story'] === 'TRUE' || row['New Story'] === true,
-                    newDate: row['New Date'] || '',
-                    newNotes: row['New Notes'] || '',
-                    info: row['Info'] === 'TRUE' || row['Info'] === true,
-                    infoDate: row['Info Date'] || '',
-                    infoNotes: row['Info Notes'] || '',
-                    // Support both old "Handed Over" and new "Transferred Out" column names for backward compatibility
-                    handedOver: row['Transferred Out'] === 'TRUE' || row['Transferred Out'] === true || row['Handed Over'] === 'TRUE' || row['Handed Over'] === true,
-                    handedOverDate: row['Transferred Out Date'] || row['Handed Over Date'] || '',
-                    handedOverNotes: row['Transferred Out Notes'] || row['Handed Over Notes'] || '',
-                    transferredIn: row['Transferred In'] === 'TRUE' || row['Transferred In'] === true,
-                    transferredInDate: row['Transferred In Date'] || '',
-                    transferredInNotes: row['Transferred In Notes'] || '',
-                    proposed: row['Proposed'] === 'TRUE' || row['Proposed'] === true,
-                    proposedDate: row['Proposed Date'] || '',
-                    proposedNotes: row['Proposed Notes'] || '',
-                    hasChanges: row['Has Story Timeline'] === 'TRUE' || row['Has Story Timeline'] === true || row['Has Timeline Changes'] === 'TRUE' || row['Has Timeline Changes'] === true
-                };
-                
-                epics[currentEpicName].stories.push(story);
-            });
-            
-            // Create EPICs and stories in the UI
-            Object.keys(epics).forEach(epicName => {
-                const epicData = epics[epicName];
-                
-                addEpic();
-                const currentEpicCounter = epicCounter;
-                
-                // Set EPIC name
-                document.getElementById(`epic-name-${currentEpicCounter}`).value = epicName;
-                
-                // Set EPIC ID if available (override the generated one if we have one from Excel)
-                if (epicData.epicId) {
-                    const epicIdField = document.getElementById(`epic-id-${currentEpicCounter}`);
-                    if (epicIdField) {
-                        epicIdField.value = epicData.epicId;
-
-                    }
-                    // Store mapping for timeline change matching
-                    window.loadedEpicIds[epicData.epicId] = currentEpicCounter;
-                }
-                
-                // Remove default story
-                const defaultStoryId = `${currentEpicCounter}-1`;
-                const defaultStoryElement = document.getElementById(`story-${defaultStoryId}`);
-                if (defaultStoryElement) {
-                    defaultStoryElement.remove();
-                    storyCounters[currentEpicCounter] = 0;
-                    // Decrement the global Story ID counter since we removed the default story
-                    storyIdCounter--;
-                }
-                
-                // Add stories
-                epicData.stories.forEach(story => {
-                    addStory(currentEpicCounter);
-                    const currentStoryId = `${currentEpicCounter}-${storyCounters[currentEpicCounter]}`;
-                    
-                    // Set Story ID if available (override the generated one if we have one from Excel)
-                    if (story.storyId) {
-                        const storyIdField = document.getElementById(`story-id-${currentStoryId}`);
-                        if (storyIdField) {
-                            storyIdField.value = story.storyId;
-
-                        }
-                        // Store mapping for timeline change matching
-                        window.loadedStoryIds[story.storyId] = currentStoryId;
-                    }
-                    
-                    populateStoryFromExcel(currentStoryId, story);
-                });
-            });
-        }
-        
-        function populateStoryFromExcel(storyId, story) {
-            // Basic story info
-            document.getElementById(`story-title-${storyId}`).value = story.title;
-            document.getElementById(`story-start-${storyId}`).value = story.start;
-            document.getElementById(`story-end-${storyId}`).value = story.end;
-            document.getElementById(`story-bullets-${storyId}`).value = story.bullets;
-            
-            // Set IMO field
-            const imoEl = document.getElementById(`story-imo-${storyId}`);
-            if (imoEl) {
-                imoEl.value = story.imo || '';
-            }
-            
-            // Status checkboxes using optimized approach
-            const statusMapping = {
-                done: { checked: story.done, date: story.doneDate, notes: story.doneNotes },
-                cancelled: { checked: story.cancelled, date: story.cancelDate, notes: story.cancelNotes },
-                atrisk: { checked: story.atRisk, date: story.riskDate, notes: story.riskNotes },
-                newstory: { checked: story.newStory, date: story.newDate, notes: story.newNotes },
-                info: { checked: story.info, date: story.infoDate, notes: story.infoNotes },
-                transferredout: { 
-                    checked: story.handedOver || story.transferredOut, 
-                    date: story.transferredOutDate || story.handedOverDate, 
-                    notes: story.transferredOutNotes || story.handedOverNotes 
-                },
-                transferredin: { checked: story.transferredIn, date: story.transferredInDate, notes: story.transferredInNotes },
-                proposed: { checked: story.proposed, date: story.proposedDate, notes: story.proposedNotes }
-            };
-            
-            // Apply all status configurations using bulk utility
-            StatusUtils.setMultipleStatusData(storyId, statusMapping);
-            
-            // Handle timeline changes
-            if (story.hasChanges) {
-                document.getElementById(`story-changes-${storyId}`).checked = true;
-                toggleChanges(storyId);
-            }
-        }
-        
-        function loadKTLOFromExcel(sheet) {
-            try {
-                // Get all data from the sheet
-                const allData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-                
-                // Process the data row by row
-                allData.forEach((row, index) => {
-                    if (!row || row.length === 0) return;
-                    
-                    // Handle basic KTLO info (first part of sheet)
-                    if (row[0] === 'KTLO Position' && row[1]) {
-                        const position = row[1].toLowerCase();
-                        const positionToggle = document.getElementById('ktlo-position-toggle');
-                        if (positionToggle) {
-                            positionToggle.checked = (position === 'top');
-                            // Reposition the KTLO section in the builder based on Excel data
-                            setTimeout(repositionKTLOSection, 50);
-                        }
-                    } else if (row[0] === 'KTLO Title' && row[1]) {
-                        const titleEl = document.getElementById('ktlo-title');
-                        if (titleEl) titleEl.value = row[1];
-                    } else if (row[0] === 'KTLO Bullets' && row[1]) {
-                        const bulletsEl = document.getElementById('ktlo-bullets');
-                        if (bulletsEl) bulletsEl.value = row[1];
-                    }
-                    
-                    // Handle monthly data (look for rows with Month, Number, Percentage, Description pattern)
-                    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-                    if (row[0] && months.includes(row[0].toString().toUpperCase())) {
-                        const month = row[0].toString().toLowerCase();
-                        const number = row[1] || '';
-                        const percentage = row[2] || '';
-                        const description = row[3] || '';
-                        
-                        // Round percentage to nearest multiple of 5 (legacy data fix)
-                        const roundedPercentage = roundToNearestFive(percentage);
-                        
-                        // Store in the in-memory data structure
-                        ktloMonthlyData[month] = {
-                            number: number,
-                            percentage: roundedPercentage,
-                            description: description
-                        };
-                        
-
-                    }
-                });
-                
-
-            } catch (error) {
-                // Don't throw error, just continue so import can complete
-            }
-        }
-        
-        function loadBTLFromExcel(sheet) {
-            try {
-                const btlData = XLSX.utils.sheet_to_json(sheet);
-
-                
-                // Clear existing BTL stories
-                document.getElementById('btl-stories-container').innerHTML = '';
-                btlStoryCounter = 0;
-                
-                let loadedBTLCount = 0;
-                btlData.forEach(row => {
-                    // Skip empty rows or instruction rows
-                    if (!row['BTL Story Title'] || row['BTL Story Title'].toLowerCase().includes('no btl stories')) return;
-                    
-                    // Only load first 3 BTL stories, ignore the rest
-                    if (loadedBTLCount >= 3) {
-
-                        return;
-                    }
-                    
-                    addBTLStory();
-                    loadedBTLCount++;
-                    const currentStoryId = `btl-${btlStoryCounter}`;
-                    
-                    // Populate BTL story data
-                    const titleEl = document.getElementById(`btl-title-${currentStoryId}`);
-                    const startEl = document.getElementById(`btl-start-${currentStoryId}`);
-                    const endEl = document.getElementById(`btl-end-${currentStoryId}`);
-                    const bulletsEl = document.getElementById(`btl-bullets-${currentStoryId}`);
-                    const dateAddedEl = document.getElementById(`btl-dateadded-${currentStoryId}`);
-                    const descriptionEl = document.getElementById(`btl-description-${currentStoryId}`);
-                    
-                    if (titleEl) titleEl.value = row['BTL Story Title'] || '';
-                    if (startEl) startEl.value = row['Start Date/Month'] || 'JAN';
-                    if (endEl) endEl.value = row['End Date/Month'] || 'MAR';
-                    if (bulletsEl) bulletsEl.value = row['Bullet Points'] || '';
-                    if (dateAddedEl) dateAddedEl.value = row['Date Added'] || '';
-                    if (descriptionEl) descriptionEl.value = row['Description'] || '';
-                    
-                    // Set IMO field
-                    const imoEl = document.getElementById(`btl-imo-${currentStoryId}`);
-                    if (imoEl) imoEl.value = row['IMO'] || '';
-                });
-                
-                if (btlData.length > loadedBTLCount + 1) { // +1 for header row that gets skipped
-                    const skippedCount = btlData.length - loadedBTLCount - 1;
-                    if (skippedCount > 0) {
-                        alert(`Note: ${skippedCount} BTL ${skippedCount === 1 ? 'story was' : 'stories were'} skipped during import due to the 3-story maximum limit.`);
-                    }
-                }
-                updateBTLAddButton(); // Update button state after loading from Excel
-            } catch (error) {
-                // Don't throw error, just continue so import can complete
-            }
-        }
-        
-        function loadTimelineChangesFromExcel(sheet) {
-            try {
-                const timelineData = XLSX.utils.sheet_to_json(sheet);
-
-                
-                // Store timeline changes data temporarily to associate with stories later
-                // Support both ID-based and string-based matching for backward compatibility
-                const timelineChanges = {};
-                const timelineChangesByIds = {};
-                
-                timelineData.forEach((row, index) => {
-
-                    
-                    // Check if required fields are present
-                    const hasRequiredFields = row['Change Date'] && row['Previous End Date'] && row['New End Date'];
-                    const hasIdFields = row['EPIC ID'] && row['Story ID'];
-                    const hasStringRef = row['Story Reference'];
-                    
-                    if (hasRequiredFields && (hasIdFields || hasStringRef)) {
-                        const change = {
-                            date: row['Change Date'],
-                            prevEndDate: row['Previous End Date'],
-                            newEndDate: row['New End Date'],
-                            description: row['Description'] || 'Story timeline change'
-                        };
-                        
-                        // If we have EPIC ID and Story ID, use ID-based matching (preferred)
-                        if (hasIdFields) {
-                            const epicId = row['EPIC ID'];
-                            const storyId = row['Story ID'];
-                            const idKey = `${epicId}:${storyId}`;
-                            
-                            if (!timelineChangesByIds[idKey]) {
-                                timelineChangesByIds[idKey] = [];
-                            }
-                            
-                            timelineChangesByIds[idKey].push(change);
-
-                        }
-                        
-                        // Also store by string reference for backward compatibility
-                        if (hasStringRef) {
-                            const storyRef = row['Story Reference'];
-                            
-                            if (!timelineChanges[storyRef]) {
-                                timelineChanges[storyRef] = [];
-                            }
-                            
-                            timelineChanges[storyRef].push(change);
-
-                        }
-                    } else {
-
-                    }
-                });
-                
-                // Store both types of timeline changes for later processing
-                window.pendingTimelineChanges = timelineChanges; // String-based (backward compatibility)
-                window.pendingTimelineChangesByIds = timelineChangesByIds; // ID-based (preferred)
-                
-
-            } catch (error) {
-                // Don't throw error, just continue so import can complete
-            }
-        }
         
         function applyPendingTimelineChanges(callback) {
             const hasIdBasedChanges = window.pendingTimelineChangesByIds && Object.keys(window.pendingTimelineChangesByIds).length > 0;
@@ -5453,6 +4963,21 @@
             // Always clear BTL stories during JSON import
             document.getElementById('btl-stories-container').innerHTML = '';
             btlStoryCounter = 0;
+            
+            // Reset sorting preferences and UI toggles on load
+            try {
+                const startToggle = document.getElementById('story-sorting-toggle');
+                const endToggle = document.getElementById('story-sorting-end-toggle');
+                const textBelowToggle = document.getElementById('force-text-below-toggle');
+                if (startToggle) startToggle.checked = false;
+                if (endToggle) endToggle.checked = false;
+                if (textBelowToggle) textBelowToggle.checked = false;
+                // Persist cleared state
+                getConfigUtility().setSortStories(false);
+                getConfigUtility().setSortByStart(false);
+                getConfigUtility().setSortByEnd(false);
+                getConfigUtility().setForceTextBelow(false);
+            } catch (_) {}
             
             // Load roadmap year
             document.getElementById('roadmapYear').value = teamData.roadmapYear || 2025;
@@ -7749,24 +7274,8 @@
                     alert('Error loading JSON file: ' + error.message);
                 }
                 
-            } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-                // Handle Excel file - create synthetic event for existing handler
-                const syntheticEvent = {
-                    target: {
-                        files: [file],
-                        value: '' // Reset value to allow same file to be loaded again
-                    }
-                };
-                
-                try {
-                    handleExcelLoad(syntheticEvent);
-                } catch (error) {
-                    console.error('Error handling dropped Excel file:', error);
-                    alert('Error loading Excel file: ' + error.message);
-                }
-                
             } else {
-                alert('Unsupported file type. Please drop a .json, .xlsx, or .xls file.');
+                alert('Unsupported file type. Please drop a .json file.');
             }
         }
 
@@ -7902,6 +7411,22 @@
             }
         }
         
+        // Handle fallback directory selection
+        function handleFallbackDirectorySelection(event) {
+            const files = event.target.files;
+            if (files && files.length > 0) {
+                window._fallbackDirectoryFiles = files;
+                loadDirectoryFiles();
+                
+                // Show directory path
+                const fileList = document.getElementById('fileList');
+                const pathDiv = document.createElement('div');
+                pathDiv.className = 'directory-path';
+                pathDiv.textContent = `📁 ${files[0].webkitRelativePath.split('/')[0]}/`;
+                fileList.insertBefore(pathDiv, fileList.firstChild);
+            }
+        }
+        
         // Update file browser button visibility based on panel state
         function updateFileBrowserButtonVisibility() {
             const panel = document.getElementById('fileBrowserPanel');
@@ -7918,33 +7443,35 @@
         
         // Select directory using File System Access API
         async function selectDirectory() {
-            if (!('showDirectoryPicker' in window)) {
-                alert('Directory picker is not supported in this browser. Please use Chrome, Edge, or another compatible browser.');
-                return;
-            }
-            
             try {
+                if ('showDirectoryPicker' in window) {
                 selectedDirectoryHandle = await window.showDirectoryPicker();
-                
-                // Save directory info to localStorage
                 saveDirectoryHandle(selectedDirectoryHandle);
-                
                 await loadDirectoryFiles();
-                
-                // Show directory path
                 const fileList = document.getElementById('fileList');
                 const pathDiv = document.createElement('div');
                 pathDiv.className = 'directory-path';
                 pathDiv.textContent = `📁 ${selectedDirectoryHandle.name}/`;
                 fileList.insertBefore(pathDiv, fileList.firstChild);
-                
+                } else {
+                    // Fallback: use webkitdirectory input
+                    const input = document.getElementById('directoryFileInput');
+                    input.onchange = handleFallbackDirectorySelection;
+                    input.click();
+                }
             } catch (error) {
                 if (error.name === 'AbortError') {
-                    // User cancelled
                     return;
                 }
+                // If picker failed (permissions/policy), try fallback input
+                try {
+                    const input = document.getElementById('directoryFileInput');
+                    input.onchange = handleFallbackDirectorySelection;
+                    input.click();
+                } catch (e) {
                 console.error('Error selecting directory:', error);
                 alert('Error selecting directory: ' + error.message);
+                }
             }
         }
         
@@ -7959,62 +7486,56 @@
                 reminderDiv.remove();
             }
             
-            if (!selectedDirectoryHandle) {
+            if (!selectedDirectoryHandle && !window._fallbackDirectoryFiles) {
                 fileList.innerHTML = '<div class="no-directory-message">Click "Select Folder" to browse your roadmap files</div>';
                 return;
             }
             
+            
+            
             try {
                 const roadmapFiles = [];
-                
-                // Iterate through directory entries
-                for await (const [name, handle] of selectedDirectoryHandle) {
+                if (selectedDirectoryHandle) {
+                    // Iterate via File System Access API
+                    for await (const [name, handle] of selectedDirectoryHandle.entries()) {
                     if (handle.kind === 'file') {
                         const isJson = name.toLowerCase().endsWith('.json');
-                        const isExcel = name.toLowerCase().endsWith('.xlsx') || name.toLowerCase().endsWith('.xls');
-                        
-                        if (isJson || isExcel) {
+                            if (isJson) {
                             try {
                                 const file = await handle.getFile();
                                 let teamName = 'Unknown Team';
-                                let fileType = isJson ? 'json' : 'excel';
-                                
-                                // Extract team name for JSON files
-                                if (isJson) {
-                                    try {
-                                        const content = await file.text();
+                                    const content = await file.text().catch(() => null);
+                                    if (content) {
+                                        try {
                                         const roadmapData = JSON.parse(content);
                                         teamName = roadmapData.teamData?.teamName || 'Unknown Team';
-                                    } catch (error) {
+                                        } catch (_) {
                                         teamName = 'Invalid JSON';
                                     }
-                                } else {
-                                    // For Excel files, extract team name from filename if possible
-                                    const nameWithoutExt = name.replace(/\.(xlsx?|json)$/i, '');
-                                    if (nameWithoutExt.includes('.Teya-Roadmap')) {
-                                        // Handle multiple formats:
-                // New format: TeamName.Teya-Roadmap.2025
-                // Old format: TeamName.Teya-Roadmap
-                teamName = nameWithoutExt
-                    .replace(/\.Teya-Roadmap\.\d{4}$/, '')  // Remove .Teya-Roadmap.2025
-                    .replace(/\.Teya-Roadmap$/, '');        // Remove .Teya-Roadmap
-                                    } else {
-                                        teamName = nameWithoutExt;
                                     }
-                                }
-                                
-                                roadmapFiles.push({
-                                    name: name,
-                                    handle: handle,
-                                    teamName: teamName,
-                                    size: file.size,
-                                    lastModified: file.lastModified,
-                                    fileType: fileType
-                                });
+                                    roadmapFiles.push({ name, handle, teamName, size: file.size, lastModified: file.lastModified, fileType: 'json' });
                             } catch (error) {
-                                // Skip files that can't be read
                                 console.warn(`Could not read roadmap file ${name}:`, error);
                             }
+                            }
+                        }
+                    }
+                } else if (window._fallbackDirectoryFiles) {
+                    // Iterate fallback FileList
+                    for (const file of window._fallbackDirectoryFiles) {
+                        const name = file.name;
+                        if (name.toLowerCase().endsWith('.json')) {
+                            let teamName = 'Unknown Team';
+                            const content = await file.text().catch(() => null);
+                            if (content) {
+                                try {
+                                    const roadmapData = JSON.parse(content);
+                                    teamName = roadmapData.teamData?.teamName || 'Unknown Team';
+                                } catch (_) {
+                                    teamName = 'Invalid JSON';
+                                }
+                            }
+                            roadmapFiles.push({ name, handle: file, teamName, size: file.size, lastModified: file.lastModified, fileType: 'json' });
                         }
                     }
                 }
@@ -8022,8 +7543,10 @@
                 // Sort files by team name
                 roadmapFiles.sort((a, b) => a.name.localeCompare(b.name));
                 
+                
+                
                 if (roadmapFiles.length === 0) {
-                    fileList.innerHTML = '<div class="no-directory-message">No roadmap (.json or .xlsx) files found in this folder</div>';
+                    fileList.innerHTML = '<div class="no-directory-message">No roadmap (.json) files found in this folder</div>';
                     return;
                 }
                 
@@ -8033,8 +7556,8 @@
                     fileItem.className = 'file-item';
                     fileItem.onclick = () => openRoadmapFile(fileInfo.handle, fileInfo.fileType);
                     
-                    const fileTypeText = fileInfo.fileType === 'json' ? 'JSON' : 'Excel';
-                    const icon = fileInfo.fileType === 'json' ? '📋' : '📊';
+                    const fileTypeText = 'JSON';
+                    const icon = '📋';
                     
                     fileItem.title = `${fileInfo.name}\nType: ${fileTypeText}\nTeam: ${fileInfo.teamName}\nSize: ${(fileInfo.size / 1024).toFixed(1)} KB\nModified: ${new Date(fileInfo.lastModified).toLocaleDateString('en-GB')}`;
                     
@@ -8057,7 +7580,10 @@
         // Open roadmap file - handle both JSON and Excel files
         async function openRoadmapFile(fileHandle, fileType) {
             try {
-                const file = await fileHandle.getFile();
+                // Support FileSystemFileHandle (getFile) and File (fallback)
+                const file = (fileHandle && typeof fileHandle.getFile === 'function')
+                    ? await fileHandle.getFile()
+                    : fileHandle;
                 
                 if (fileType === 'json') {
                     // Handle JSON files - load directly in current tab
@@ -8073,96 +7599,14 @@
                         refreshAllDatePickers();
                         generatePreview();
                     }, 500);
-                    
-                } else if (fileType === 'excel') {
-                    // Handle Excel files - load directly in current tab
-                    const arrayBuffer = await file.arrayBuffer();
-                    const data = new Uint8Array(arrayBuffer);
-                    
-                    // Load directly in current tab (like the buttons do)
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    processExcelWorkbook(workbook);
                 }
-                
             } catch (error) {
                 console.error('Error opening roadmap file:', error);
-                if (fileType === 'excel') {
-                    alert('Error opening Excel file: ' + error.message + '\n\nPlease make sure you are using the correct template format.');
-                } else {
                     alert('Error opening roadmap file: ' + error.message);
-                }
             }
                 }
         
         // Process Excel workbook directly without localStorage
-        function processExcelWorkbook(workbook) {
-            try {
-                // Clear existing data
-                document.getElementById('epics-container').innerHTML = '';
-                epicCounter = 0;
-                storyCounters = {};
-                
-                // Always clear BTL stories during Excel import
-                document.getElementById('btl-stories-container').innerHTML = '';
-                btlStoryCounter = 0;
-                
-                // Load Team Info
-                if (workbook.SheetNames.includes('Team Info')) {
-                    loadTeamInfoFromExcel(workbook.Sheets['Team Info']);
-                }
-                
-                // Load Stories
-                if (workbook.SheetNames.includes('Stories')) {
-                    loadStoriesFromExcel(workbook.Sheets['Stories']);
-                }
-                
-                // Load KTLO
-                if (workbook.SheetNames.includes('KTLO')) {
-                    loadKTLOFromExcel(workbook.Sheets['KTLO']);
-                    // Ensure January data is displayed after loading
-                    setTimeout(() => {
-                        loadKTLOMonth('jan');
-                    }, 100);
-                }
-                
-                // Load BTL Stories
-                if (workbook.SheetNames.includes('BTL Stories')) {
-                    loadBTLFromExcel(workbook.Sheets['BTL Stories']);
-                }
-                
-                // Load Story Timeline
-                if (workbook.SheetNames.includes('Story Timeline')) {
-                    loadTimelineChangesFromExcel(workbook.Sheets['Story Timeline']);
-                } else if (workbook.SheetNames.includes('Timeline Changes')) {
-                    // Backward compatibility with old sheet name
-                    loadTimelineChangesFromExcel(workbook.Sheets['Timeline Changes']);
-                }
-                
-                // Apply pending timeline changes after stories are loaded
-                setTimeout(() => {
-                    applyPendingTimelineChanges(() => {
-                        // Callback: This runs after timeline changes are fully applied
-                        updateIdCountersAfterImport();
-                        collapseAllSections();
-                        // Refresh date pickers to sync with imported data
-                        refreshAllDatePickers();
-                        // Ensure KTLO month data is properly displayed after Excel import
-                        const selector = document.getElementById('ktlo-month-selector');
-                        if (selector) {
-                            const currentMonth = selector.value || 'jan';
-                            loadKTLOMonth(currentMonth);
-                        }
-                        generatePreview();
-                        // Update document title to reflect the imported team name
-                        updateDocumentTitle();
-                    });
-                }, 300);
-                
-            } catch (error) {
-                console.error('Error processing Excel workbook:', error);
-                alert('Error processing Excel file: ' + error.message + '\n\nPlease make sure you are using the correct template format.');
-            }
-        }
         
         // Check for loaded data from URL parameters
         function checkForLoadedData() {
@@ -8178,84 +7622,7 @@
                         const loadedData = JSON.parse(dataStr);
                         
                         if (loadedData._fileType === 'excel') {
-                            // Handle Excel data
-                            
-                            // Convert base64 back to array buffer
-                            const base64Data = loadedData.excelData;
-                            const binaryString = atob(base64Data);
-                            const bytes = new Uint8Array(binaryString.length);
-                            for (let i = 0; i < binaryString.length; i++) {
-                                bytes[i] = binaryString.charCodeAt(i);
-                            }
-                            
-                            // Parse Excel workbook
-                            const workbook = XLSX.read(bytes, { type: 'array' });
-                            
-                            // Clear existing data
-                            document.getElementById('epics-container').innerHTML = '';
-                            epicCounter = 0;
-                            storyCounters = {};
-                            
-                            // Always clear BTL stories during Excel import
-                            document.getElementById('btl-stories-container').innerHTML = '';
-                            btlStoryCounter = 0;
-                            
-                            // Load Team Info
-                            if (workbook.SheetNames.includes('Team Info')) {
-                                loadTeamInfoFromExcel(workbook.Sheets['Team Info']);
-                            }
-                            
-                            // Load Stories
-                            if (workbook.SheetNames.includes('Stories')) {
-                                loadStoriesFromExcel(workbook.Sheets['Stories']);
-                            }
-                            
-                            // Load KTLO
-                            if (workbook.SheetNames.includes('KTLO')) {
-                                loadKTLOFromExcel(workbook.Sheets['KTLO']);
-                                // Ensure January data is displayed after loading
-                                setTimeout(() => {
-                                    loadKTLOMonth('jan');
-                                }, 100);
-                            }
-                            
-                            // Load BTL Stories
-                            if (workbook.SheetNames.includes('BTL Stories')) {
-                                loadBTLFromExcel(workbook.Sheets['BTL Stories']);
-                            }
-                            
-                            // Load Story Timeline
-                            if (workbook.SheetNames.includes('Story Timeline')) {
-                                loadTimelineChangesFromExcel(workbook.Sheets['Story Timeline']);
-                            } else if (workbook.SheetNames.includes('Timeline Changes')) {
-                                // Backward compatibility with old sheet name
-                                loadTimelineChangesFromExcel(workbook.Sheets['Timeline Changes']);
-                            }
-                            
-                            // Apply pending timeline changes after stories are loaded
-                            setTimeout(() => {
-                                applyPendingTimelineChanges(() => {
-                                    // Callback: This runs after timeline changes are fully applied
-                                    updateIdCountersAfterImport();
-                                    collapseAllSections();
-                                    // Refresh date pickers to sync with imported data
-                                    refreshAllDatePickers();
-                                    // Ensure KTLO month data is properly displayed after Excel import
-                                    const selector = document.getElementById('ktlo-month-selector');
-                                    if (selector) {
-                                        const currentMonth = selector.value || 'jan';
-                                        loadKTLOMonth(currentMonth);
-                                    }
-                                    generatePreview();
-                                    // Update document title to reflect the imported team name
-                                    updateDocumentTitle();
-                                });
-                            }, 300);
-                            
-                            // Reset ID counters to avoid conflicts with imported IDs
-                            epicIdCounter = 0;
-                            storyIdCounter = 0;
-                            
+                            // Excel handling removed
                         } else {
                             // Handle JSON data
                             const teamData = loadedData.teamData || loadedData;
@@ -8307,12 +7674,19 @@
             // Check for loaded data first - this must happen before default template loading
             const hasExternalData = checkForLoadedData();
             
-            // Initialize story sorting checkbox - always start unchecked
+            // Initialize sorting checkboxes from saved prefs
             const sortingToggle = document.getElementById('story-sorting-toggle');
+            const endToggle = document.getElementById('story-sorting-end-toggle');
+            const textBelowToggle = document.getElementById('force-text-below-toggle');
             if (sortingToggle) {
-                // Always start with sorting disabled
-                localStorage.removeItem('roadmap-sort-stories');
-                sortingToggle.checked = false;
+                const byStart = getConfigUtility().shouldSortByStart() || getConfigUtility().shouldSortStories();
+                sortingToggle.checked = !!byStart;
+            }
+            if (endToggle) {
+                endToggle.checked = !!getConfigUtility().shouldSortByEnd();
+            }
+            if (textBelowToggle) {
+                textBelowToggle.checked = !!getConfigUtility().shouldForceTextBelow();
             }
             
             if (!('showDirectoryPicker' in window)) {

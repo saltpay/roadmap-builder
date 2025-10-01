@@ -1035,12 +1035,14 @@ class RoadmapGenerator {
 
 
 
-        const gridRow = positionBelow ? 2 : 1;
-        const marginStyle = positionBelow ? '' : 'margin-top: 1px; '; // Shift text boxes to the right down by 1px (raised up 4px from original 5px)
+        const forceBelow = (typeof getConfigUtility === 'function' && getConfigUtility().shouldForceTextBelow && getConfigUtility().shouldForceTextBelow());
+        const effectiveBelow = forceBelow ? true : positionBelow;
+        const gridRow = effectiveBelow ? 2 : 1;
+        const marginStyle = effectiveBelow ? '' : 'margin-top: 1px; '; // Shift text boxes down by 1px when not below
         const textBoxWidth = endGrid - startGrid;
                         const canZoom = getConfigUtility().canZoom(textBoxWidth); // Text boxes below threshold can zoom
                 const zoomClass = canZoom ? ' story-zoomable' : ' story-non-zoomable';
-        const belowClass = positionBelow ? ' roadmap-text-below' : '';
+        const belowClass = effectiveBelow ? ' roadmap-text-below' : '';
         const backgroundStyle = backgroundColor ? `background-color: ${backgroundColor}; ` : '';
         
         return `
@@ -1517,9 +1519,16 @@ class RoadmapGenerator {
                     }
                 }
                 
+                // Global force: when enabled, always position below and align with story start
+                const forceBelowGlobal = (typeof getConfigUtility === 'function' && getConfigUtility().shouldForceTextBelow && getConfigUtility().shouldForceTextBelow());
+                if (forceBelowGlobal) {
+                    shouldPositionBelowFinal = true;
+                }
+                
                 if (shouldPositionBelowFinal) {
-                    // Step 4: Position below story, indented 10px (1 grid unit) from story's left edge
-                    changeStartGrid = storyStartGrid + 1; // Add 1 grid unit for 10px indentation
+                    // Position below story, align start with story start when forced; otherwise small indent
+                    const forceBelowGlobal = (typeof getConfigUtility === 'function' && getConfigUtility().shouldForceTextBelow && getConfigUtility().shouldForceTextBelow());
+                    changeStartGrid = forceBelowGlobal ? storyStartGrid : (storyStartGrid + 1);
                     changeEndGrid = changeStartGrid + textBoxWidth;
                     
                     // If text box would still extend past December when below, shift left
