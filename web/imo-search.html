@@ -531,9 +531,14 @@
             <div class="title-and-controls">
                 <div class="search-title">
                     <h1>🔍 Cross-Team Search</h1>
-                    <button class="search-button" onclick="clearAllSearchFields()" style="min-width: 160px;">
-                        🧹 Clear All
-                    </button>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="search-button" onclick="openSearchStatsModal()" id="searchStatsBtn" disabled style="min-width: 120px;">
+                            📊 Stats
+                        </button>
+                        <button class="search-button" onclick="clearAllSearchFields()" style="min-width: 160px;">
+                            🧹 Clear All
+                        </button>
+                    </div>
                 </div>
                 
                 <!-- Directory Selection - Top Priority -->
@@ -871,10 +876,276 @@
         </div>
     </div>
 
+    <!-- Search Stats Modal -->
+    <div id="searchStatsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📊 Search Results Statistics</h3>
+                <span class="close" onclick="closeSearchStatsModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="searchStatsModalBody">
+                <!-- Stats content will be injected here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="secondary" onclick="closeSearchStatsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Global variables
         let selectedDirectory = null;
         let currentResults = [];
+        
+        // Search Stats Modal Functions
+        function openSearchStatsModal() {
+            try {
+                if (!currentResults || currentResults.length === 0) {
+                    alert('No search results to analyze. Please perform a search first.');
+                    return;
+                }
+                
+                const stats = computeSearchStats(currentResults);
+                const body = document.getElementById('searchStatsModalBody');
+                body.innerHTML = renderSearchStatsHtml(stats);
+                const modal = document.getElementById('searchStatsModal');
+                modal.style.display = 'flex';
+                
+                // Make stats available for interactive breakdown
+                window.__searchStats = stats;
+                
+                // Add tooltip functionality after DOM is updated
+                setTimeout(setupSearchTooltips, 100);
+            } catch (e) {
+                alert('Failed to compute stats: ' + e.message);
+            }
+        }
+        
+        function closeSearchStatsModal() {
+            const modal = document.getElementById('searchStatsModal');
+            if (modal) modal.style.display = 'none';
+        }
+        
+        function computeSearchStats(stories) {
+            const result = {
+                totalStories: 0,
+                totalTeams: 0,
+                onTime: 0,
+                delayedOnce: 0,
+                delayedTwiceOrMore: 0,
+                cancelled: 0,
+                totalDelayed: 0,
+                delayBreakdown: {},
+                delayStories: {},
+                teams: new Set()
+            };
+            
+            if (!Array.isArray(stories)) return result;
+            
+            result.totalStories = stories.length;
+            
+            for (const story of stories) {
+                // Track unique teams
+                if (story.teamName) {
+                    result.teams.add(story.teamName);
+                }
+                
+                if (story.isCancelled) {
+                    result.cancelled++;
+                    continue;
+                }
+                
+                const changes = story.roadmapChanges?.changes || [];
+                const delayCount = Array.isArray(changes) ? changes.length : 0;
+                
+                if (delayCount === 0) {
+                    result.onTime++;
+                } else {
+                    result.totalDelayed++;
+                    if (delayCount === 1) {
+                        result.delayedOnce++;
+                    } else {
+                        result.delayedTwiceOrMore++;
+                    }
+                    
+                    // Track exact delay count for breakdown
+                    result.delayBreakdown[delayCount] = (result.delayBreakdown[delayCount] || 0) + 1;
+                    if (!result.delayStories[delayCount]) result.delayStories[delayCount] = [];
+                    result.delayStories[delayCount].push({
+                        title: story.title || 'Untitled',
+                        teamName: story.teamName || 'Unknown Team'
+                    });
+                }
+            }
+            
+            result.totalTeams = result.teams.size;
+            return result;
+        }
+        
+        function renderSearchStatsHtml(s) {
+            const pct = (num, den) => (den ? Math.round((num / den) * 100) : 0);
+            const activeStories = s.totalStories - s.cancelled;
+            
+            return (
+                '<div style="padding: 20px;">' +
+                    '<h3 style="margin: 0 0 20px 0; color: #333; text-align: center;">📊 Search Results Overview</h3>' +
+                    '<div style="margin-bottom: 20px; text-align: center; font-size: 14px; color: #666;">' +
+                        `${s.totalStories} Stories across ${s.totalTeams} Teams` +
+                    '</div>' +
+                    '<div style="max-width: 600px; margin: 0 auto;">' +
+                        barChart('On-time Projects', s.onTime, activeStories, '#28a745', null) +
+                        barChart('Delayed Projects', s.totalDelayed, activeStories, '#dc3545', s) +
+                        barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', null) +
+                    '</div>' +
+                '</div>'
+            );
+        }
+        
+        function barChart(label, value, total, color, delayStats) {
+            const percentage = total ? Math.round((value / total) * 100) : 0;
+            const barWidth = total ? Math.round((value / total) * 100) : 0;
+            
+            let tooltipContent = '';
+            if (delayStats && label === 'Delayed Projects') {
+                const delayBreakdown = getDelayBreakdown(delayStats);
+                tooltipContent = `data-tooltip="${delayBreakdown}"`;
+            }
+            
+            return (
+                '<div style="margin-bottom: 15px; position: relative;">' +
+                    '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">' +
+                        `<span style="font-size: 14px; font-weight: 500; color: #374151;">${label}</span>` +
+                        `<span style="font-size: 14px; font-weight: 600; color: #111827;">${value} (${percentage}%)</span>` +
+                    '</div>' +
+                    `<div style="background: #f3f4f6; height: 20px; border-radius: 10px; overflow: hidden; position: relative; cursor: ${delayStats ? 'pointer' : 'default'};" ${tooltipContent}>` +
+                        `<div style="background: ${color}; height: 100%; width: ${barWidth}%; transition: width 0.3s ease; border-radius: 10px;"></div>` +
+                    '</div>' +
+                '</div>'
+            );
+        }
+        
+        function getDelayBreakdown(stats) {
+            let result = 'Delay Breakdown:\\n';
+            
+            const sortedDelays = Object.keys(stats.delayBreakdown || {})
+                .map(Number)
+                .sort((a, b) => a - b);
+            
+            if (sortedDelays.length === 0) {
+                result += 'No delays recorded';
+            } else {
+                sortedDelays.forEach(delayCount => {
+                    const count = stats.delayBreakdown[delayCount];
+                    result += `${delayCount} delay${delayCount > 1 ? 's' : ''}: ${count}\\n`;
+                });
+            }
+            
+            return result;
+        }
+        
+        function setupSearchTooltips() {
+            const tooltipElements = document.querySelectorAll('[data-tooltip]');
+            tooltipElements.forEach(element => {
+                element.addEventListener('click', toggleSearchDelayBreakdown);
+            });
+        }
+        
+        function toggleSearchDelayBreakdown(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const container = e.currentTarget || e.target.closest('[data-tooltip]');
+            if (!container) return;
+
+            // Toggle existing breakdown
+            const existing = document.getElementById('search-delay-breakdown');
+            if (existing) {
+                existing.remove();
+                if (existing.__for === container) return;
+            }
+
+            const stats = window.__searchStats || { delayBreakdown: {}, delayStories: {}, totalStories: 0, cancelled: 0 };
+            const activeStories = (stats.totalStories || 0) - (stats.cancelled || 0);
+
+            // Create breakdown container
+            const breakdown = document.createElement('div');
+            breakdown.id = 'search-delay-breakdown';
+            breakdown.__for = container;
+            breakdown.style.cssText = `
+                margin-top: 10px;
+                padding: 12px;
+                background: #f8f9fa;
+                border: 1px solid #e5e7eb;
+                border-radius: 6px;
+                font-size: 12px;
+                color: #374151;
+            `;
+            breakdown.innerHTML = renderSearchDelayBreakdown(stats, activeStories);
+
+            // Insert directly after the clicked container
+            container.parentNode.insertBefore(breakdown, container.nextSibling);
+
+            // Enable expand/collapse on rows
+            setupSearchDelayBreakdownInteractions();
+        }
+        
+        function renderSearchDelayBreakdown(stats, totalActive) {
+            const counts = stats.delayBreakdown || {};
+            const sorted = Object.keys(counts).map(n => parseInt(n, 10)).sort((a, b) => a - b);
+            if (sorted.length === 0) {
+                return '<div style="color:#6b7280;">No delays recorded</div>';
+            }
+            const rows = sorted.map(delayCount => {
+                const value = counts[delayCount] || 0;
+                const pct = totalActive ? Math.round((value / totalActive) * 100) : 0;
+                const width = pct;
+                const details = (stats.delayStories && stats.delayStories[delayCount]) || [];
+                const rowId = `search-delay-row-${delayCount}`;
+                const detailsId = `search-delay-details-${delayCount}`;
+                return (
+                    '<div class="delay-row" id="' + rowId + '" data-delay-count="' + delayCount + '" style="margin-bottom: 10px;">' +
+                        '<div class="delay-row-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; cursor:pointer;">' +
+                            '<span style="font-size:13px; color:#374151;">' + delayCount + ' delay' + (delayCount > 1 ? 's' : '') + '</span>' +
+                            '<span style="font-size:13px; font-weight:600; color:#111827;">' + value + ' (' + pct + '%)</span>' +
+                        '</div>' +
+                        '<div class="delay-row-bar" style="background:#eef2f7; height:16px; border-radius:8px; overflow:hidden; cursor:pointer;">' +
+                            '<div style="background:#fd7e14; height:100%; width:' + width + '%; border-radius:8px;"></div>' +
+                        '</div>' +
+                        '<div class="delay-row-details" id="' + detailsId + '" style="display:none; padding:8px 10px; margin-top:8px; background:#ffffff; border:1px solid #e5e7eb; border-radius:6px;">' +
+                            renderSearchDelayDetails(details) +
+                        '</div>' +
+                    '</div>'
+                );
+            }).join('');
+            return rows;
+        }
+        
+        function renderSearchDelayDetails(stories) {
+            if (!stories || !stories.length) return '<div style="color:#6b7280;">No items</div>';
+            return stories.map(s => {
+                const title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const team = (s.teamName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<div style="font-size:12px; color:#374151; padding:2px 0;">' +
+                    '<span style="color:#6b7280;">[' + team + ']</span> ' + title +
+                '</div>';
+            }).join('');
+        }
+        
+        function setupSearchDelayBreakdownInteractions() {
+            const rows = document.querySelectorAll('#search-delay-breakdown .delay-row');
+            rows.forEach(row => {
+                const details = row.querySelector('.delay-row-details');
+                const header = row.querySelector('.delay-row-header');
+                const bar = row.querySelector('.delay-row-bar');
+                const toggle = () => {
+                    if (!details) return;
+                    const isOpen = details.style.display !== 'none';
+                    details.style.display = isOpen ? 'none' : 'block';
+                };
+                if (header) header.addEventListener('click', toggle);
+                if (bar) bar.addEventListener('click', toggle);
+            });
+        }
         
         /**
          * Open story details modal (read-only)
@@ -884,7 +1155,7 @@
             // Check if modal exists
             const storyModal = document.getElementById('storyDetailsModal');
             if (!storyModal) {
-                console.error('Modal element not found!');
+                
                 return;
             }
             
@@ -1364,7 +1635,7 @@
                 
             } catch (error) {
                 if (error.name !== 'AbortError') {
-                    console.error('Error selecting directory:', error);
+                    
                     alert('Error selecting directory: ' + error.message);
                 }
             }
@@ -1431,8 +1702,11 @@
                 currentResults = matchingStories;
                 displaySearchResults(matchingStories, searchQuery);
                 
+                // Enable stats button
+                document.getElementById('searchStatsBtn').disabled = false;
+                
             } catch (error) {
-                console.error('Error performing search:', error);
+                
                 showMessage('Search error: ' + error.message, 'error');
             }
         }
@@ -1496,8 +1770,9 @@
                 // Clean up the HTML (remove BTL sections, etc.)
                 const cleanedHtml = cleanRoadmapHtml(roadmapHtml);
                 
-                // Display in results container
+                // Display in results container with an inline Stats button above the roadmap
                 const contentArea = document.getElementById('contentArea');
+                const queryLabelSafe = (searchQuery || '').toString();
                 contentArea.innerHTML = `
                     <div class="results-container">
                         ${cleanedHtml}
@@ -1507,11 +1782,43 @@
                 // Add click handlers to story items after rendering
                 setTimeout(() => {
                     addStoryClickHandlers(stories);
+                    insertStatsButtonNearHeader();
                 }, 100);
                 
             } catch (error) {
-                console.error('Error displaying results:', error);
+                
                 showMessage('Error displaying results: ' + error.message, 'error');
+            }
+        }
+
+        // Insert Stats button inside the header box (with logo and title) without affecting layout
+        function insertStatsButtonNearHeader() {
+            try {
+                const container = document.querySelector('.results-container');
+                if (!container) return;
+                const headerEl = container.querySelector('.header');
+                if (!headerEl) return;
+                
+                // Avoid duplicates
+                if (container.querySelector('#inlineSearchStatsBtn')) return;
+                
+                // Ensure header is positioned for absolute child
+                const computed = window.getComputedStyle(headerEl);
+                if (!computed.position || computed.position === 'static') {
+                    headerEl.style.position = 'relative';
+                }
+
+                // Create absolutely positioned button inside header (top-right)
+                const bar = document.createElement('div');
+                bar.style.cssText = 'position:absolute; right: 12px; top: 108px; transform: translate(13px, 22px); z-index: 2;';
+                bar.innerHTML = '<button id="inlineSearchStatsBtn" class="search-button" style="min-width: 120px;">📊 Stats</button>';
+
+                headerEl.appendChild(bar);
+                
+                const btn = bar.querySelector('#inlineSearchStatsBtn');
+                btn.addEventListener('click', openSearchStatsModal);
+            } catch (e) {
+                
             }
         }
         
@@ -1591,6 +1898,9 @@
             currentResults = [];
             showBlankState();
             
+            // Disable stats button
+            document.getElementById('searchStatsBtn').disabled = true;
+            
             // Clear search inputs
             document.getElementById('searchInput').value = '';
             document.getElementById('titleSearchInput').value = '';
@@ -1652,7 +1962,7 @@
                     result = IMOUtility.searchStoriesByDateRange(result, startDate, endDate, searchMode);
                 }
             } catch (e) {
-                console.warn('applyAdditionalFilters warning:', e);
+                
             }
 
             return result;
@@ -1773,8 +2083,11 @@
                 currentResults = matchingStories;
                 displaySearchResults(matchingStories, queryLabel, { startDate, endDate });
                 
+                // Enable header stats button
+                document.getElementById('searchStatsBtn').disabled = false;
+                
             } catch (error) {
-                console.error('Error performing date range search:', error);
+                
                 showMessage('Search error: ' + error.message, 'error');
             }
         }
@@ -1829,8 +2142,11 @@
                 currentResults = matchingStories;
                 displaySearchResults(matchingStories, `Title: "${searchQuery}"`);
                 
+                // Enable stats button
+                document.getElementById('searchStatsBtn').disabled = false;
+                
             } catch (error) {
-                console.error('Error performing title search:', error);
+                
                 showMessage('Search error: ' + error.message, 'error');
             }
         }
@@ -1877,8 +2193,11 @@
                 }
 
                 displaySearchResults(filteredStories, `Leadership: "${query}"`);
+                
+                // Enable stats button
+                document.getElementById('searchStatsBtn').disabled = false;
             } catch (error) {
-                console.error('Error performing director search:', error);
+                
                 showMessage('Search error: ' + error.message, 'error');
             }
         }
@@ -1888,7 +2207,7 @@
             // Check if modal exists and is properly structured
             const modal = document.getElementById('storyDetailsModal');
             if (!modal) {
-                console.error('❌ Story details modal NOT found!');
+                
             }
             
             // Add input listeners for real-time button state updates

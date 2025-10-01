@@ -67,7 +67,7 @@ class ConfigUtility {
 
     // Feature Flags
     static FEATURES = {
-        SORT_STORIES: false  // Whether to sort stories by start/end date (default: off)
+        SORT_STORIES: false  // legacy flag (kept for compatibility)
     };
 
     // CSS Constants for consistent styling
@@ -285,6 +285,62 @@ class ConfigUtility {
         try {
             if (typeof localStorage !== 'undefined') {
                 localStorage.setItem('roadmap-sort-stories', enabled.toString());
+            }
+        } catch (e) {}
+    }
+
+    // New: separate preferences for start vs end sorting (mutually exclusive)
+    static shouldSortByStart() {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const stored = localStorage.getItem('roadmap-sort-by-start');
+                return stored === 'true';
+            }
+        } catch (e) {}
+        return false;
+    }
+
+    static shouldSortByEnd() {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const stored = localStorage.getItem('roadmap-sort-by-end');
+                return stored === 'true';
+            }
+        } catch (e) {}
+        return false;
+    }
+
+    static setSortByStart(enabled) {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('roadmap-sort-by-start', enabled.toString());
+            }
+        } catch (e) {}
+    }
+
+    static setSortByEnd(enabled) {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('roadmap-sort-by-end', enabled.toString());
+            }
+        } catch (e) {}
+    }
+
+    // Force all text boxes below stories
+    static shouldForceTextBelow() {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const stored = localStorage.getItem('roadmap-force-text-below');
+                return stored === 'true';
+            }
+        } catch (e) {}
+        return false;
+    }
+
+    static setForceTextBelow(enabled) {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('roadmap-force-text-below', enabled.toString());
             }
         } catch (e) {}
     }
