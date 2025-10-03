@@ -254,7 +254,7 @@ body {
 
 .ktlo-story {
     grid-column: 1 / 121;
-    pointer-events: none;
+    pointer-events: auto;
     transform: translateX(-4px);
 }
 
@@ -264,14 +264,36 @@ body {
     pointer-events: auto;
 }
 
-/* Story States */
-.story-zoomable:hover {
+/* KTLO Zoom States */
+.ktlo-story.story-zoom-large:hover {
+    transform: translateX(-4px) scale(1.20);
+    z-index: 100;
+}
+
+.ktlo-story.story-zoom-medium:hover {
+    transform: translateX(-4px) scale(1.15);
+    z-index: 100;
+}
+
+.ktlo-story.story-zoom-small:hover {
+    transform: translateX(-4px) scale(1.05);
+    z-index: 100;
+}
+
+/* Story States - Graduated Zoom Levels */
+.story-zoom-large:hover {
     transform: scale(1.20);
     z-index: 100;
 }
 
-.story-non-zoomable:hover {
-    box-shadow: none;
+.story-zoom-medium:hover {
+    transform: scale(1.15);
+    z-index: 100;
+}
+
+.story-zoom-small:hover {
+    transform: scale(1.05);
+    z-index: 100;
 }
 
 .story-positioned-january {
@@ -282,20 +304,28 @@ body {
     transform: translateX(1px);
 }
 
-.story-positioned-january.story-zoomable:hover {
+.story-positioned-january.story-zoom-large:hover {
     transform: translateX(-4px) scale(1.20);
 }
 
-.story-positioned-october.story-zoomable:hover {
+.story-positioned-october.story-zoom-large:hover {
     transform: translateX(1px) scale(1.20);
 }
 
-.story-positioned-january.story-non-zoomable:hover {
-    transform: translateX(-4px);
+.story-positioned-january.story-zoom-medium:hover {
+    transform: translateX(-4px) scale(1.15);
 }
 
-.story-positioned-october.story-non-zoomable:hover {
-    transform: translateX(1px);
+.story-positioned-october.story-zoom-medium:hover {
+    transform: translateX(1px) scale(1.15);
+}
+
+.story-positioned-january.story-zoom-small:hover {
+    transform: translateX(-4px) scale(1.05);
+}
+
+.story-positioned-october.story-zoom-small:hover {
+    transform: translateX(1px) scale(1.05);
 }
 
 /* Cancelled Stories */
