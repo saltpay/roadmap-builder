@@ -472,6 +472,11 @@ class IMOUtility {
             const storyStartDateStr = this.convertStoryDateToISO(story.startDate || story.startMonth || '', story.roadmapYear);
             const storyEndDateStr = this.convertStoryDateToISO(story.endDate || story.endMonth || '', story.roadmapYear);
             
+            // Validate: Skip stories where end date is before start date (invalid data)
+            if (storyStartDateStr && storyEndDateStr && storyEndDateStr < storyStartDateStr) {
+                return false;
+            }
+            
             if (searchMode === 'exact') {
                 // EXACT MATCH MODE
                 if (startDate && endDate) {
@@ -496,7 +501,7 @@ class IMOUtility {
                     return storyStartDateStr && this.isStartDateWithin7DaysForward(storyStartDateStr, startDate);
                 } else if (endDate) {
                     // Story must end within endDate +/- 7 days
-                    return storyEndDateStr && this.isWithinDateRange(storyEndDateStr, endDate, 7, 7); // +/- 7 days
+                    return storyEndDateStr && this.isWithinDateRange(storyEndDateStr, endDate, 7, 7);
                 }
             } else {
                 // RANGE SEARCH MODE
@@ -541,9 +546,11 @@ class IMOUtility {
             return str;
         }
         
-        // Handle DD/MM/YY or DD/MM/YYYY format
-        if (str.includes('/') && /\d+\/\d+/.test(str)) {
-            const parts = str.split('/');
+        // Handle DD/MM/YY or DD/MM/YYYY format (with "/" or "-" separator)
+        if (/\d+[\/\-]\d+/.test(str)) {
+            // Replace "-" with "/" for consistent parsing
+            const normalized = str.replace(/-/g, '/');
+            const parts = normalized.split('/');
             if (parts.length >= 2) {
                 const day = parseInt(parts[0]);
                 const month = parseInt(parts[1]);

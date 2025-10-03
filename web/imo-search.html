@@ -1905,20 +1905,13 @@
         function insertStatsButtonNearHeader() {
             try {
                 const container = document.querySelector('.results-container');
-                if (!container) {
-                    console.log('No results container found');
-                    return;
-                }
+                if (!container) return;
                 
                 // Avoid duplicates
-                if (container.querySelector('#inlineSearchStatsBtn')) {
-                    console.log('Stats button already exists');
-                    return;
-                }
+                if (container.querySelector('#inlineSearchStatsBtn')) return;
                 
                 const headerEl = container.querySelector('.header');
                 if (!headerEl) {
-                    console.log('No header found, using fallback positioning');
                     // Fallback: If no header found, insert button at the top of results container
                     const bar = document.createElement('div');
                     bar.style.cssText = 'text-align: right; margin-bottom: 10px; padding: 10px;';
@@ -1928,12 +1921,10 @@
                     const btn = bar.querySelector('#inlineSearchStatsBtn');
                     if (btn) {
                         btn.addEventListener('click', openSearchStatsModal);
-                        console.log('Stats button inserted (fallback)');
                     }
                     return;
                 }
                 
-                console.log('Header found, using absolute positioning');
                 // Ensure header is positioned for absolute child
                 const computed = window.getComputedStyle(headerEl);
                 if (!computed.position || computed.position === 'static') {
@@ -1943,8 +1934,6 @@
                 // Get header height to position button appropriately
                 const headerHeight = headerEl.offsetHeight;
                 const buttonTop = Math.min(108, headerHeight - 40) - 5; // Use 108px or adapt to small headers, moved up 5px total
-                
-                console.log('Header height:', headerHeight, 'Button top:', buttonTop);
 
                 // Create absolutely positioned button inside header (top-right)
                 const bar = document.createElement('div');
@@ -1956,10 +1945,9 @@
                 const btn = bar.querySelector('#inlineSearchStatsBtn');
                 if (btn) {
                     btn.addEventListener('click', openSearchStatsModal);
-                    console.log('Stats button inserted (header) at position:', buttonTop);
                 }
             } catch (e) {
-                console.error('Error inserting stats button:', e);
+                // Silent fail - stats button is optional
             }
         }
         
