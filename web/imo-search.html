@@ -653,14 +653,7 @@
 
                 <!-- Status Filters Section -->
                 <div class="search-section">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <h3 class="search-section-title" style="margin-bottom: 0;">🎯 Status Filters</h3>
-                        <!-- Any/All Toggle Button -->
-                        <button type="button" id="statusFilterModeBtn" onclick="toggleStatusFilterMode()" style="padding: 3px 8px; font-size: 11px; cursor: pointer; border: 1px solid #007cba; border-radius: 3px; background: #007cba; color: white; font-weight: bold; position: relative; top: 4px;">
-                            Any (OR)
-                        </button>
-                        <input type="hidden" id="statusFilterMode" value="any">
-                    </div>
+                    <h3 class="search-section-title">🎯 Status Filters</h3>
                     <div style="padding: 0 5px; margin-top: 10px;">
                         <!-- Row 1: New, Done, Cancelled, Info, Timeline -->
                         <div style="display: flex; flex-wrap: wrap; column-gap: 15px; row-gap: 8px; align-items: center; margin-bottom: 10px;">
@@ -708,6 +701,21 @@
                         
                         <div style="font-size: 11px; color: #888; margin-top: 8px;">
                             Click once for ✓ (include), twice for ! (exclude/NOT), three times to clear. Filters apply to all search results.
+                        </div>
+                        
+                        <!-- Advanced Expression Filter -->
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
+                            <div style="font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px;">Advanced Filter (Optional):</div>
+                            <input type="text" 
+                                   id="advancedFilterExpression" 
+                                   placeholder="e.g., Done && !Timeline, (Cancelled || AtRisk) && New"
+                                   onchange="applyStatusFilters()"
+                                   style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 12px;">
+                            <div style="font-size: 10px; color: #888; margin-top: 5px;">
+                                Use: <code>&&</code> (AND), <code>||</code> (OR), <code>!</code> (NOT), <code>( )</code> (grouping)<br>
+                                Status names: Done, Cancelled, Timeline, New, AtRisk, Proposed, Info, TransferredIn, TransferredOut<br>
+                                Expression overrides checkboxes if provided.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2077,13 +2085,9 @@
                 }
             });
             
-            // Reset filter mode to "Any" (default)
-            const modeInput = document.getElementById('statusFilterMode');
-            if (modeInput) modeInput.value = 'any';
-            const modeBtn = document.getElementById('statusFilterModeBtn');
-            if (modeBtn) {
-                modeBtn.textContent = 'Any (OR)';
-            }
+            // Clear advanced expression
+            const advancedExpr = document.getElementById('advancedFilterExpression');
+            if (advancedExpr) advancedExpr.value = '';
             
             updateSearchButtonStates();
         }
@@ -2137,28 +2141,38 @@
 
                 // Status filter - apply if any status filters are active
                 if (!opts.skipStatus) {
-                    // Get all filter states
-                    const filters = {
-                        filterNew: statusFilterStates.filterNew,
-                        filterDone: statusFilterStates.filterDone,
-                        filterCancelled: statusFilterStates.filterCancelled,
-                        filterAtRisk: statusFilterStates.filterAtRisk,
-                        filterTimeline: statusFilterStates.filterTimeline,
-                        filterProposed: statusFilterStates.filterProposed,
-                        filterInfo: statusFilterStates.filterInfo,
-                        filterTransferredIn: statusFilterStates.filterTransferredIn,
-                        filterTransferredOut: statusFilterStates.filterTransferredOut
-                    };
+                    // Check if advanced expression is provided
+                    const advancedExpression = document.getElementById('advancedFilterExpression')?.value.trim();
                     
-                    // Check if any filters are active (include or exclude)
-                    const hasIncludeFilters = Object.values(filters).some(state => state === 'include');
-                    const hasExcludeFilters = Object.values(filters).some(state => state === 'exclude');
-                    const anyFilterActive = hasIncludeFilters || hasExcludeFilters;
+                    if (advancedExpression) {
+                        // Use expression-based filtering
+                        result = result.filter(story => {
+                            const matches = evaluateFilterExpression(advancedExpression, story);
+                            // If expression is invalid (null), don't filter
+                            return matches === null ? true : matches;
+                        });
+                    } else {
+                        // Use checkbox-based filtering
+                        // Get all filter states
+                        const filters = {
+                            filterNew: statusFilterStates.filterNew,
+                            filterDone: statusFilterStates.filterDone,
+                            filterCancelled: statusFilterStates.filterCancelled,
+                            filterAtRisk: statusFilterStates.filterAtRisk,
+                            filterTimeline: statusFilterStates.filterTimeline,
+                            filterProposed: statusFilterStates.filterProposed,
+                            filterInfo: statusFilterStates.filterInfo,
+                            filterTransferredIn: statusFilterStates.filterTransferredIn,
+                            filterTransferredOut: statusFilterStates.filterTransferredOut
+                        };
+                        
+                        // Check if any filters are active (include or exclude)
+                        const hasIncludeFilters = Object.values(filters).some(state => state === 'include');
+                        const hasExcludeFilters = Object.values(filters).some(state => state === 'exclude');
+                        const anyFilterActive = hasIncludeFilters || hasExcludeFilters;
                     
                     if (anyFilterActive) {
-                        // Get the filter mode (any vs all)
-                        const filterMode = document.getElementById('statusFilterMode')?.value || 'any';
-                        
+                        // Use OR logic for checkboxes (simpler without the button)
                         result = result.filter(story => {
                             // Helper function to check story status
                             const hasStatus = (filterKey) => {
@@ -2188,25 +2202,15 @@
                                 return true;
                             }
                             
-                            // Now check INCLUDE conditions based on mode
-                            if (filterMode === 'all') {
-                                // AND logic: Story must have ALL included statuses
-                                for (const [filterKey, state] of Object.entries(filters)) {
-                                    if (state === 'include' && !hasStatus(filterKey)) {
-                                        return false;
-                                    }
+                            // OR logic: Story must have at least ONE included status
+                            for (const [filterKey, state] of Object.entries(filters)) {
+                                if (state === 'include' && hasStatus(filterKey)) {
+                                    return true;
                                 }
-                                return true;
-                            } else {
-                                // OR logic: Story must have at least ONE included status
-                                for (const [filterKey, state] of Object.entries(filters)) {
-                                    if (state === 'include' && hasStatus(filterKey)) {
-                                        return true;
-                                    }
-                                }
-                                return false;
                             }
+                            return false;
                         });
+                    }
                     }
                 }
             } catch (e) {
@@ -2214,6 +2218,110 @@
             }
 
             return result;
+        }
+
+        /**
+         * Parse and evaluate a filter expression for a story
+         * Supports: &&, ||, !, and ( ) with status names
+         */
+        function evaluateFilterExpression(expression, story) {
+            if (!expression || !expression.trim()) return null;
+            
+            // Tokenize the expression
+            const tokens = expression
+                .replace(/\(/g, ' ( ')
+                .replace(/\)/g, ' ) ')
+                .replace(/&&/g, ' && ')
+                .replace(/\|\|/g, ' || ')
+                .replace(/!/g, ' ! ')
+                .split(/\s+/)
+                .filter(t => t.length > 0);
+            
+            let pos = 0;
+            
+            // Recursive descent parser
+            const parseExpression = () => parseOr();
+            
+            const parseOr = () => {
+                let left = parseAnd();
+                while (pos < tokens.length && tokens[pos] === '||') {
+                    pos++; // consume ||
+                    const right = parseAnd();
+                    left = left || right;
+                }
+                return left;
+            };
+            
+            const parseAnd = () => {
+                let left = parseNot();
+                while (pos < tokens.length && tokens[pos] === '&&') {
+                    pos++; // consume &&
+                    const right = parseNot();
+                    left = left && right;
+                }
+                return left;
+            };
+            
+            const parseNot = () => {
+                if (pos < tokens.length && tokens[pos] === '!') {
+                    pos++; // consume !
+                    return !parsePrimary();
+                }
+                return parsePrimary();
+            };
+            
+            const parsePrimary = () => {
+                if (pos >= tokens.length) {
+                    throw new Error('Unexpected end of expression');
+                }
+                
+                const token = tokens[pos];
+                
+                // Handle parentheses
+                if (token === '(') {
+                    pos++; // consume (
+                    const result = parseExpression();
+                    if (pos >= tokens.length || tokens[pos] !== ')') {
+                        throw new Error('Missing closing parenthesis');
+                    }
+                    pos++; // consume )
+                    return result;
+                }
+                
+                // Handle status names
+                const statusMap = {
+                    'Done': story.isDone,
+                    'Cancelled': story.isCancelled,
+                    'Timeline': story.roadmapChanges && story.roadmapChanges.changes && story.roadmapChanges.changes.length > 0,
+                    'New': story.isNewStory,
+                    'AtRisk': story.isAtRisk,
+                    'Proposed': story.isProposed,
+                    'Info': story.isInfo,
+                    'TransferredIn': story.isTransferredIn,
+                    'TransferredOut': story.isTransferredOut
+                };
+                
+                // Case-insensitive lookup
+                const statusKey = Object.keys(statusMap).find(key => key.toLowerCase() === token.toLowerCase());
+                
+                if (statusKey !== undefined) {
+                    pos++; // consume status name
+                    return statusMap[statusKey] || false;
+                }
+                
+                throw new Error(`Unknown status: ${token}`);
+            };
+            
+            try {
+                const result = parseExpression();
+                if (pos < tokens.length) {
+                    throw new Error(`Unexpected token: ${tokens[pos]}`);
+                }
+                return result;
+            } catch (error) {
+                console.error('Expression parse error:', error.message);
+                return null; // Return null on error to indicate invalid expression
+            }
         }
 
         /**
@@ -2239,24 +2347,6 @@
                 statusFilterStates[filterId] = 'none';
                 checkbox.setAttribute('data-state', 'none');
                 checkbox.textContent = '';
-            }
-            
-            applyStatusFilters();
-        }
-
-        /**
-         * Toggle status filter mode between Any and All
-         */
-        function toggleStatusFilterMode() {
-            const modeInput = document.getElementById('statusFilterMode');
-            const modeBtn = document.getElementById('statusFilterModeBtn');
-            
-            if (modeInput.value === 'any') {
-                modeInput.value = 'all';
-                modeBtn.textContent = 'All (AND)';
-            } else {
-                modeInput.value = 'any';
-                modeBtn.textContent = 'Any (OR)';
             }
             
             applyStatusFilters();
