@@ -2114,6 +2114,69 @@
             addListenersToExistingElements();
         }
         
+        /**
+         * Validate that end date is not before start date
+         */
+        function validateEndDate(event) {
+            const endField = event.target;
+            const endValue = endField.value.trim();
+            
+            if (!endValue) {
+                // Empty is okay - clear any error styling
+                endField.style.borderColor = '';
+                endField.style.backgroundColor = '';
+                return;
+            }
+            
+            // Find corresponding start date field
+            const endFieldId = endField.id;
+            let startFieldId = '';
+            
+            if (endFieldId.includes('story-end-')) {
+                startFieldId = endFieldId.replace('story-end-', 'story-start-');
+            } else if (endFieldId.includes('btl-end-')) {
+                startFieldId = endFieldId.replace('btl-end-', 'btl-start-');
+            } else if (endFieldId.includes('End')) {
+                startFieldId = endFieldId.replace('End', 'Start');
+            }
+            
+            if (!startFieldId) return;
+            
+            const startField = document.getElementById(startFieldId);
+            if (!startField) return;
+            
+            const startValue = startField.value.trim();
+            if (!startValue) {
+                // No start date to compare - clear any error styling
+                endField.style.borderColor = '';
+                endField.style.backgroundColor = '';
+                return;
+            }
+            
+            try {
+                const roadmapYear = parseInt(document.getElementById('roadmapYear').value) || new Date().getFullYear();
+                
+                // Parse both dates to ISO format for comparison
+                const startISO = DateUtility.parseTextValue(startValue, false, roadmapYear);
+                const endISO = DateUtility.parseTextValue(endValue, true, roadmapYear);
+                
+                if (startISO && endISO && endISO < startISO) {
+                    // End date is before start date - show error styling (stays until user fixes it)
+                    endField.style.borderColor = '#dc3545';
+                    endField.style.backgroundColor = '#ffe6e6';
+                    alert(`Warning: End date (${endValue}) is before start date (${startValue}).`);
+                } else {
+                    // Valid - clear any error styling
+                    endField.style.borderColor = '';
+                    endField.style.backgroundColor = '';
+                }
+            } catch (error) {
+                // If parsing fails, don't validate (might be month name)
+                endField.style.borderColor = '';
+                endField.style.backgroundColor = '';
+            }
+        }
+        
         function addListenersToExistingElements() {
             // EPIC name fields
             document.querySelectorAll('[id^="epic-name-"]').forEach(element => {
@@ -2125,6 +2188,19 @@
             document.querySelectorAll('[id^="story-title-"], [id^="story-start-"], [id^="story-end-"], [id^="story-bullets-"], [id^="story-imo-"]').forEach(element => {
                 element.addEventListener('input', debouncedGeneratePreview);
                 element.addEventListener('change', debouncedGeneratePreview);
+            });
+            
+            // Add validation to story end date fields
+            document.querySelectorAll('[id^="story-end-"]').forEach(element => {
+                if (!element.dataset.hasValidation) {
+                    element.addEventListener('blur', validateEndDate);
+                    // Clear error styling when user starts typing
+                    element.addEventListener('input', function() {
+                        this.style.borderColor = '';
+                        this.style.backgroundColor = '';
+                    });
+                    element.dataset.hasValidation = 'true';
+                }
             });
             
             // Story checkboxes (status, timeline changes)
@@ -2149,6 +2225,31 @@
                 element.addEventListener('input', debouncedGeneratePreview);
                 element.addEventListener('change', debouncedGeneratePreview);
             });
+            
+            // Add validation to BTL end date fields
+            document.querySelectorAll('[id^="btl-end-"]').forEach(element => {
+                if (!element.dataset.hasValidation) {
+                    element.addEventListener('blur', validateEndDate);
+                    // Clear error styling when user starts typing
+                    element.addEventListener('input', function() {
+                        this.style.borderColor = '';
+                        this.style.backgroundColor = '';
+                    });
+                    element.dataset.hasValidation = 'true';
+                }
+            });
+            
+            // Add validation to edit modal end date field
+            const editEndField = document.getElementById('editEnd');
+            if (editEndField && !editEndField.dataset.hasValidation) {
+                editEndField.addEventListener('blur', validateEndDate);
+                // Clear error styling when user starts typing
+                editEndField.addEventListener('input', function() {
+                    this.style.borderColor = '';
+                    this.style.backgroundColor = '';
+                });
+                editEndField.dataset.hasValidation = 'true';
+            }
             
             // Date pickers are now initialized when sections are expanded
         }
@@ -2492,6 +2593,16 @@
                 }
                 if (endField) {
                     initializeDatePicker(endField, true);
+                    // Add validation listener
+                    if (!endField.dataset.hasValidation) {
+                        endField.addEventListener('blur', validateEndDate);
+                        // Clear error styling when user starts typing
+                        endField.addEventListener('input', function() {
+                            this.style.borderColor = '';
+                            this.style.backgroundColor = '';
+                        });
+                        endField.dataset.hasValidation = 'true';
+                    }
                 }
                 
                 // Initialize all status date fields that may be shown later
@@ -2611,7 +2722,20 @@
             
             // Initialize date pickers for BTL date fields immediately since BTL is always expanded
             initializeDatePicker(document.getElementById(`btl-start-${storyId}`), true);
-            initializeDatePicker(document.getElementById(`btl-end-${storyId}`), true);
+            const btlEndField = document.getElementById(`btl-end-${storyId}`);
+            if (btlEndField) {
+                initializeDatePicker(btlEndField, true);
+                // Add validation listener
+                if (!btlEndField.dataset.hasValidation) {
+                    btlEndField.addEventListener('blur', validateEndDate);
+                    // Clear error styling when user starts typing
+                    btlEndField.addEventListener('input', function() {
+                        this.style.borderColor = '';
+                        this.style.backgroundColor = '';
+                    });
+                    btlEndField.dataset.hasValidation = 'true';
+                }
+            }
             initializeDatePicker(document.getElementById(`btl-dateadded-${storyId}`), false);
             
             updateBTLAddButton();
@@ -5287,6 +5411,9 @@
                             } else if (story.endMonth) {
                                 endEl.value = DateUtility.convertMonthToEndDate(story.endMonth);
                             }
+                            // Clear any previous error styling when loading data
+                            endEl.style.borderColor = '';
+                            endEl.style.backgroundColor = '';
                         }
                         
                         if (bulletsEl && story.bullets && Array.isArray(story.bullets)) {
@@ -5353,6 +5480,9 @@
                     } else if (story.endMonth) {
                         endEl.value = DateUtility.convertMonthToEndDate(story.endMonth);
                     }
+                    // Clear any previous error styling when loading data
+                    endEl.style.borderColor = '';
+                    endEl.style.backgroundColor = '';
                 }
                 
                 // Load bullets with error checking
@@ -5801,7 +5931,11 @@
             const startValue = foundStory.startDate || foundStory.startMonth || foundStory.start || '';
             const endValue = foundStory.endDate || foundStory.endMonth || foundStory.end || '';
             document.getElementById('editStart').value = startValue;
-            document.getElementById('editEnd').value = endValue;
+            const editEndField = document.getElementById('editEnd');
+            editEndField.value = endValue;
+            // Clear any previous error styling when loading data
+            editEndField.style.borderColor = '';
+            editEndField.style.backgroundColor = '';
             
             document.getElementById('editBullets').value = foundStory.bullets || '';
             document.getElementById('editIMO').value = foundStory.imo || '';
