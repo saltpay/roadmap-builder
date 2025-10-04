@@ -3081,8 +3081,20 @@
                  }
              });
              
-             // Keep date picker in sync when user types manually
+             // Keep date picker in sync when user types manually, and format with year
              inputElement.addEventListener('blur', function() {
+                 const textValue = this.value.trim();
+                 if (textValue) {
+                     // Parse the date
+                     const dateValue = parseTextValue(textValue);
+                     if (dateValue) {
+                         // Format it back with the year included
+                         const formattedDate = formatDateToText(dateValue);
+                         if (formattedDate && formattedDate !== textValue) {
+                             this.value = formattedDate;
+                         }
+                     }
+                 }
                  syncToDateInput();
              });
              
