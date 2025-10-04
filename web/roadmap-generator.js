@@ -804,17 +804,10 @@ class RoadmapGenerator {
         const continuesClass = isContinuingStory ? ' story-continues story-with-continuation' : '';
         const storyWidth = endGrid - startGrid;
         
-        // Enhanced zooming logic: restrict zooming for long stories that end in December
-        let canZoom = getConfigUtility().canZoom(storyWidth); // Stories below threshold can zoom
-        
-        // Additional restriction: if story is longer than 5 months AND ends in December, disable zoom
-        // This covers both stories that continue next year and stories that naturally end in Dec
-        const endsInDecember = endGrid >= 111; // December starts at grid 111
-        if (storyWidth > 50 && endsInDecember) { // 5 months = 50 grid units (10 per month)
-            canZoom = false;
-        }
-        
-        const zoomClass = canZoom ? ' story-zoomable' : ' story-non-zoomable';
+        // Graduated zooming logic: all stories can zoom, just at different levels based on width
+        // Pass startGrid and endGrid to apply special rules (e.g., January/December stories > 3 months cap at 1.10x)
+        const zoomLevel = getConfigUtility().getZoomLevel(storyWidth, startGrid, endGrid);
+        const zoomClass = ` story-zoom-${zoomLevel}`;
         
         // Add edit icon only in embedded mode (builder view)
         const editIconHTML = getUIUtility().generateEditIconHTML(embedded, epicName, story.title, storyIndex, (text) => this.formatText(text));
@@ -1040,8 +1033,8 @@ class RoadmapGenerator {
         const gridRow = effectiveBelow ? 2 : 1;
         const marginStyle = effectiveBelow ? '' : 'margin-top: 1px; '; // Shift text boxes down by 1px when not below
         const textBoxWidth = endGrid - startGrid;
-                        const canZoom = getConfigUtility().canZoom(textBoxWidth); // Text boxes below threshold can zoom
-                const zoomClass = canZoom ? ' story-zoomable' : ' story-non-zoomable';
+        const zoomLevel = getConfigUtility().getZoomLevel(textBoxWidth, startGrid, endGrid);
+        const zoomClass = ` story-zoom-${zoomLevel}`;
         const belowClass = effectiveBelow ? ' roadmap-text-below' : '';
         const backgroundStyle = backgroundColor ? `background-color: ${backgroundColor}; ` : '';
         
@@ -1222,8 +1215,10 @@ class RoadmapGenerator {
     generateKTLOSwimlane(ktloData, totalEpics = 0, embedded = false, ktloPosition = 'top') {
         const bulletsHTML = getUIUtility().generateBulletsHTML(ktloData.story.bullets, (text) => this.formatText(text));
         
-        // KTLO stories are too long and become unusable when zoomed, so disable hover scaling
-        const zoomClass = ' story-non-zoomable';
+        // KTLO spans the entire year (120 grid units), so it gets the 'tiny' zoom level
+        const ktloWidth = 120; // Full year
+        const zoomLevel = getConfigUtility().getZoomLevel(ktloWidth);
+        const zoomClass = ` story-zoom-${zoomLevel}`;
         
         // Add edit and move icons only in embedded mode (builder view) - KTLO doesn't need move icons since it's always alone
         const editIconHTML = getUIUtility().generateEditIconHTML(embedded, 'KTLO', ktloData.story.title, 0, (text) => this.formatText(text));

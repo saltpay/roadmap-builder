@@ -344,7 +344,7 @@
                     <div class="top-action-buttons">
                     <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
                     <button onclick="loadRoadmap()" class="secondary">📂 Load Roadmap</button>
-                    <button onclick="saveRoadmap()" class="secondary">💾 Save .json</button>
+                    <button onclick="saveRoadmap()" class="secondary">💾 Save Roadmap</button>
                     <button onclick="openIMOSearch()" class="secondary">🔍 Search</button>
                     <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
                     <style>
@@ -2114,6 +2114,69 @@
             addListenersToExistingElements();
         }
         
+        /**
+         * Validate that end date is not before start date
+         */
+        function validateEndDate(event) {
+            const endField = event.target;
+            const endValue = endField.value.trim();
+            
+            if (!endValue) {
+                // Empty is okay - clear any error styling
+                endField.style.borderColor = '';
+                endField.style.backgroundColor = '';
+                return;
+            }
+            
+            // Find corresponding start date field
+            const endFieldId = endField.id;
+            let startFieldId = '';
+            
+            if (endFieldId.includes('story-end-')) {
+                startFieldId = endFieldId.replace('story-end-', 'story-start-');
+            } else if (endFieldId.includes('btl-end-')) {
+                startFieldId = endFieldId.replace('btl-end-', 'btl-start-');
+            } else if (endFieldId.includes('End')) {
+                startFieldId = endFieldId.replace('End', 'Start');
+            }
+            
+            if (!startFieldId) return;
+            
+            const startField = document.getElementById(startFieldId);
+            if (!startField) return;
+            
+            const startValue = startField.value.trim();
+            if (!startValue) {
+                // No start date to compare - clear any error styling
+                endField.style.borderColor = '';
+                endField.style.backgroundColor = '';
+                return;
+            }
+            
+            try {
+                const roadmapYear = parseInt(document.getElementById('roadmapYear').value) || new Date().getFullYear();
+                
+                // Parse both dates to ISO format for comparison
+                const startISO = DateUtility.parseTextValue(startValue, false, roadmapYear);
+                const endISO = DateUtility.parseTextValue(endValue, true, roadmapYear);
+                
+                if (startISO && endISO && endISO < startISO) {
+                    // End date is before start date - show error styling (stays until user fixes it)
+                    endField.style.borderColor = '#dc3545';
+                    endField.style.backgroundColor = '#ffe6e6';
+                    alert(`Warning: End date (${endValue}) is before start date (${startValue}).`);
+                } else {
+                    // Valid - clear any error styling
+                    endField.style.borderColor = '';
+                    endField.style.backgroundColor = '';
+                }
+            } catch (error) {
+                // If parsing fails, don't validate (might be month name)
+                endField.style.borderColor = '';
+                endField.style.backgroundColor = '';
+            }
+        }
+        
         function addListenersToExistingElements() {
             // EPIC name fields
             document.querySelectorAll('[id^="epic-name-"]').forEach(element => {
@@ -2125,6 +2188,19 @@
             document.querySelectorAll('[id^="story-title-"], [id^="story-start-"], [id^="story-end-"], [id^="story-bullets-"], [id^="story-imo-"]').forEach(element => {
                 element.addEventListener('input', debouncedGeneratePreview);
                 element.addEventListener('change', debouncedGeneratePreview);
+            });
+            
+            // Add validation to story end date fields
+            document.querySelectorAll('[id^="story-end-"]').forEach(element => {
+                if (!element.dataset.hasValidation) {
+                    element.addEventListener('blur', validateEndDate);
+                    // Clear error styling when user starts typing
+                    element.addEventListener('input', function() {
+                        this.style.borderColor = '';
+                        this.style.backgroundColor = '';
+                    });
+                    element.dataset.hasValidation = 'true';
+                }
             });
             
             // Story checkboxes (status, timeline changes)
@@ -2149,6 +2225,31 @@
                 element.addEventListener('input', debouncedGeneratePreview);
                 element.addEventListener('change', debouncedGeneratePreview);
             });
+            
+            // Add validation to BTL end date fields
+            document.querySelectorAll('[id^="btl-end-"]').forEach(element => {
+                if (!element.dataset.hasValidation) {
+                    element.addEventListener('blur', validateEndDate);
+                    // Clear error styling when user starts typing
+                    element.addEventListener('input', function() {
+                        this.style.borderColor = '';
+                        this.style.backgroundColor = '';
+                    });
+                    element.dataset.hasValidation = 'true';
+                }
+            });
+            
+            // Add validation to edit modal end date field
+            const editEndField = document.getElementById('editEnd');
+            if (editEndField && !editEndField.dataset.hasValidation) {
+                editEndField.addEventListener('blur', validateEndDate);
+                // Clear error styling when user starts typing
+                editEndField.addEventListener('input', function() {
+                    this.style.borderColor = '';
+                    this.style.backgroundColor = '';
+                });
+                editEndField.dataset.hasValidation = 'true';
+            }
             
             // Date pickers are now initialized when sections are expanded
         }
@@ -2492,6 +2593,16 @@
                 }
                 if (endField) {
                     initializeDatePicker(endField, true);
+                    // Add validation listener
+                    if (!endField.dataset.hasValidation) {
+                        endField.addEventListener('blur', validateEndDate);
+                        // Clear error styling when user starts typing
+                        endField.addEventListener('input', function() {
+                            this.style.borderColor = '';
+                            this.style.backgroundColor = '';
+                        });
+                        endField.dataset.hasValidation = 'true';
+                    }
                 }
                 
                 // Initialize all status date fields that may be shown later
@@ -2611,7 +2722,20 @@
             
             // Initialize date pickers for BTL date fields immediately since BTL is always expanded
             initializeDatePicker(document.getElementById(`btl-start-${storyId}`), true);
-            initializeDatePicker(document.getElementById(`btl-end-${storyId}`), true);
+            const btlEndField = document.getElementById(`btl-end-${storyId}`);
+            if (btlEndField) {
+                initializeDatePicker(btlEndField, true);
+                // Add validation listener
+                if (!btlEndField.dataset.hasValidation) {
+                    btlEndField.addEventListener('blur', validateEndDate);
+                    // Clear error styling when user starts typing
+                    btlEndField.addEventListener('input', function() {
+                        this.style.borderColor = '';
+                        this.style.backgroundColor = '';
+                    });
+                    btlEndField.dataset.hasValidation = 'true';
+                }
+            }
             initializeDatePicker(document.getElementById(`btl-dateadded-${storyId}`), false);
             
             updateBTLAddButton();
@@ -2957,8 +3081,20 @@
                  }
              });
              
-             // Keep date picker in sync when user types manually
+             // Keep date picker in sync when user types manually, and format with year
              inputElement.addEventListener('blur', function() {
+                 const textValue = this.value.trim();
+                 if (textValue) {
+                     // Parse the date
+                     const dateValue = parseTextValue(textValue);
+                     if (dateValue) {
+                         // Format it back with the year included
+                         const formattedDate = formatDateToText(dateValue);
+                         if (formattedDate && formattedDate !== textValue) {
+                             this.value = formattedDate;
+                         }
+                     }
+                 }
                  syncToDateInput();
              });
              
@@ -3862,11 +3998,24 @@
             const start = startEl ? startEl.value : '';
             const end = endEl ? endEl.value : '';
             
+            // Helper function to ensure date has year and uses consistent "/" separator
+            const ensureDateHasYear = (dateStr) => {
+                if (!dateStr) return dateStr;
+                // If date is in dd/mm or dd-mm format without year, normalize to "/" and add year
+                if (/^\d{1,2}[\/\-]\d{1,2}$/.test(dateStr)) {
+                    const roadmapYear = parseInt(document.getElementById('roadmapYear').value) || new Date().getFullYear();
+                    // Replace all "-" with "/" for consistency, then add year
+                    const normalizedDate = dateStr.replace(/-/g, '/');
+                    return normalizedDate + '/' + roadmapYear;
+                }
+                return dateStr;
+            };
+            
             // Determine if it's a month or date format
             if (start) {
                 // Check for date formats: ISO (YYYY-MM-DD) or European (DD/MM or DD/MM/YYYY)
                 if (start.includes('-') || start.match(/^\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?$/)) {
-                    story.startDate = start;
+                    story.startDate = ensureDateHasYear(start);
                 } else {
                     story.startMonth = start.toUpperCase();
                 }
@@ -3878,7 +4027,7 @@
             if (end) {
                 // Check for date formats: ISO (YYYY-MM-DD) or European (DD/MM or DD/MM/YYYY)
                 if (end.includes('-') || end.match(/^\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?$/)) {
-                    story.endDate = end;
+                    story.endDate = ensureDateHasYear(end);
                 } else {
                     story.endMonth = end.toUpperCase();
                 }
@@ -4011,9 +4160,9 @@
                         
                         if (date && prevEnd && newEnd) {
                             story.roadmapChanges.changes.push({
-                                date: date,
-                                prevEndDate: prevEnd,
-                                newEndDate: newEnd,
+                                date: ensureDateHasYear(date),
+                                prevEndDate: ensureDateHasYear(prevEnd),
+                                newEndDate: ensureDateHasYear(newEnd),
                                 description: desc || 'Story timeline change'
                             });
                         }
@@ -4033,7 +4182,7 @@
                             
                             // Determine if this is a date or month format and update accordingly
                             if (newEndDate.includes('-') || newEndDate.match(/^\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?$/)) {
-                                // It's a date format - update endDate and clear endMonth
+                                // It's a date format - update endDate and clear endMonth (already has year from ensureDateHasYear above)
                                 story.endDate = newEndDate;
                                 delete story.endMonth;
                                 
@@ -4056,56 +4205,56 @@
                 // FOR ROADMAP DATA: Only add if checkbox is checked (regardless of existing date/notes)
                 if (story.isDone) {
                     story.roadmapChanges.doneInfo = {
-                        date: doneDate || '',
+                        date: ensureDateHasYear(doneDate) || '',
                         notes: doneNotes || ''
                     };
                 }
                 
                 if (story.isCancelled) {
                     story.roadmapChanges.cancelInfo = {
-                        date: cancelDate || '',
+                        date: ensureDateHasYear(cancelDate) || '',
                         notes: cancelNotes || ''
                     };
                 }
                 
                 if (story.isAtRisk) {
                     story.roadmapChanges.atRiskInfo = {
-                        date: atRiskDate || '',
+                        date: ensureDateHasYear(atRiskDate) || '',
                         notes: atRiskNotes || ''
                     };
                 }
                 
                 if (story.isNewStory) {
                     story.roadmapChanges.newStoryInfo = {
-                        date: newStoryDate || '',
+                        date: ensureDateHasYear(newStoryDate) || '',
                         notes: newStoryNotes || ''
                     };
                 }
                 
                 if (story.isInfo) {
                     story.roadmapChanges.infoInfo = {
-                        date: infoDate || '',
+                        date: ensureDateHasYear(infoDate) || '',
                         notes: infoNotes || ''
                     };
                 }
                 
                 if (story.isTransferredOut) {
                     story.roadmapChanges.transferredOutInfo = {
-                        date: transferredOutDate || '',
+                        date: ensureDateHasYear(transferredOutDate) || '',
                         notes: transferredOutNotes || ''
                     };
                 }
                 
                 if (story.isTransferredIn) {
                     story.roadmapChanges.transferredInInfo = {
-                        date: transferredInDate || '',
+                        date: ensureDateHasYear(transferredInDate) || '',
                         notes: transferredInNotes || ''
                     };
                 }
                 
                 if (story.isProposed) {
                     story.roadmapChanges.proposedInfo = {
-                        date: proposedDate || '',
+                        date: ensureDateHasYear(proposedDate) || '',
                         notes: proposedNotes || ''
                     };
                 }
@@ -4454,6 +4603,75 @@
             event.target.value = '';
         }
         
+        /**
+         * Fix dates without years when loading roadmap
+         */
+        function fixDatesOnLoad(teamData) {
+            const roadmapYear = teamData.roadmapYear || new Date().getFullYear();
+            
+            // Helper function to fix a date string and normalize separator
+            const fixDate = (dateStr) => {
+                if (!dateStr || typeof dateStr !== 'string') return dateStr;
+                // Match dd/mm or dd-mm format (without year)
+                if (/^\d{1,2}[\/\-]\d{1,2}$/.test(dateStr)) {
+                    // Replace all "-" with "/" for consistency, then add year
+                    const normalizedDate = dateStr.replace(/-/g, '/');
+                    return normalizedDate + '/' + roadmapYear;
+                }
+                return dateStr;
+            };
+            
+            // Fix dates in all epics and stories
+            if (teamData.epics) {
+                teamData.epics.forEach(epic => {
+                    if (epic.stories) {
+                        epic.stories.forEach(story => {
+                            // Fix story start/end dates
+                            if (story.startDate) story.startDate = fixDate(story.startDate);
+                            if (story.endDate) story.endDate = fixDate(story.endDate);
+                            
+                            // Fix timeline change dates
+                            if (story.roadmapChanges && story.roadmapChanges.changes) {
+                                story.roadmapChanges.changes.forEach(change => {
+                                    if (change.date) change.date = fixDate(change.date);
+                                    if (change.prevEndDate) change.prevEndDate = fixDate(change.prevEndDate);
+                                    if (change.newEndDate) change.newEndDate = fixDate(change.newEndDate);
+                                });
+                            }
+                            
+                            // Fix status info dates
+                            if (story.roadmapChanges) {
+                                if (story.roadmapChanges.doneInfo && story.roadmapChanges.doneInfo.date) {
+                                    story.roadmapChanges.doneInfo.date = fixDate(story.roadmapChanges.doneInfo.date);
+                                }
+                                if (story.roadmapChanges.cancelInfo && story.roadmapChanges.cancelInfo.date) {
+                                    story.roadmapChanges.cancelInfo.date = fixDate(story.roadmapChanges.cancelInfo.date);
+                                }
+                                if (story.roadmapChanges.atRiskInfo && story.roadmapChanges.atRiskInfo.date) {
+                                    story.roadmapChanges.atRiskInfo.date = fixDate(story.roadmapChanges.atRiskInfo.date);
+                                }
+                                if (story.roadmapChanges.newStoryInfo && story.roadmapChanges.newStoryInfo.date) {
+                                    story.roadmapChanges.newStoryInfo.date = fixDate(story.roadmapChanges.newStoryInfo.date);
+                                }
+                                if (story.roadmapChanges.infoInfo && story.roadmapChanges.infoInfo.date) {
+                                    story.roadmapChanges.infoInfo.date = fixDate(story.roadmapChanges.infoInfo.date);
+                                }
+                                if (story.roadmapChanges.transferredOutInfo && story.roadmapChanges.transferredOutInfo.date) {
+                                    story.roadmapChanges.transferredOutInfo.date = fixDate(story.roadmapChanges.transferredOutInfo.date);
+                                }
+                                if (story.roadmapChanges.transferredInInfo && story.roadmapChanges.transferredInInfo.date) {
+                                    story.roadmapChanges.transferredInInfo.date = fixDate(story.roadmapChanges.transferredInInfo.date);
+                                }
+                                if (story.roadmapChanges.proposedInfo && story.roadmapChanges.proposedInfo.date) {
+                                    story.roadmapChanges.proposedInfo.date = fixDate(story.roadmapChanges.proposedInfo.date);
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+        }
+
         function handleFileLoad(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -4470,6 +4688,9 @@
                     if (!teamData || typeof teamData !== 'object') {
                         throw new Error('Invalid roadmap data structure');
                     }
+                    
+                    // Fix dates without years by adding current roadmap year
+                    fixDatesOnLoad(teamData);
                     
                     loadTeamData(teamData);
                     
@@ -5202,6 +5423,9 @@
                             } else if (story.endMonth) {
                                 endEl.value = DateUtility.convertMonthToEndDate(story.endMonth);
                             }
+                            // Clear any previous error styling when loading data
+                            endEl.style.borderColor = '';
+                            endEl.style.backgroundColor = '';
                         }
                         
                         if (bulletsEl && story.bullets && Array.isArray(story.bullets)) {
@@ -5268,6 +5492,9 @@
                     } else if (story.endMonth) {
                         endEl.value = DateUtility.convertMonthToEndDate(story.endMonth);
                     }
+                    // Clear any previous error styling when loading data
+                    endEl.style.borderColor = '';
+                    endEl.style.backgroundColor = '';
                 }
                 
                 // Load bullets with error checking
@@ -5716,7 +5943,11 @@
             const startValue = foundStory.startDate || foundStory.startMonth || foundStory.start || '';
             const endValue = foundStory.endDate || foundStory.endMonth || foundStory.end || '';
             document.getElementById('editStart').value = startValue;
-            document.getElementById('editEnd').value = endValue;
+            const editEndField = document.getElementById('editEnd');
+            editEndField.value = endValue;
+            // Clear any previous error styling when loading data
+            editEndField.style.borderColor = '';
+            editEndField.style.backgroundColor = '';
             
             document.getElementById('editBullets').value = foundStory.bullets || '';
             document.getElementById('editIMO').value = foundStory.imo || '';

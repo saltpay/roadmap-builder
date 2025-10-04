@@ -522,6 +522,33 @@
                 gap: 15px;
             }
         }
+        
+        /* Tri-state checkbox styling */
+        .tri-state-checkbox {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #666;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            user-select: none;
+            flex-shrink: 0;
+        }
+        
+        .tri-state-checkbox[data-state="include"] {
+            background-color: #007cba;
+            border-color: #007cba;
+            color: white;
+        }
+        
+        .tri-state-checkbox[data-state="exclude"] {
+            background-color: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -622,6 +649,77 @@
                     <div id="searchModeHelp" style="font-size: 12px; color: #666; margin-top: 5px;">
                         Exact: Stories must start/end exactly on the specified dates.
                     </div>
+                </div>
+
+                <!-- Status Filters Section -->
+                <div class="search-section">
+                    <h3 class="search-section-title">🎯 Status Filters</h3>
+                    <div style="padding: 0 5px; margin-top: 10px;">
+                        <!-- Row 1: New, Done, Cancelled, Info, Timeline -->
+                        <div style="display: flex; flex-wrap: wrap; column-gap: 15px; row-gap: 8px; align-items: center; margin-bottom: 10px;">
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" onclick="cycleFilterState('filterNew', event)">
+                                <span id="filterNew" class="tri-state-checkbox" data-state="none"></span>
+                                <span>New</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" onclick="cycleFilterState('filterDone', event)">
+                                <span id="filterDone" class="tri-state-checkbox" data-state="none"></span>
+                                <span>Done</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" onclick="cycleFilterState('filterCancelled', event)">
+                                <span id="filterCancelled" class="tri-state-checkbox" data-state="none"></span>
+                                <span>Cancelled</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" onclick="cycleFilterState('filterInfo', event)">
+                                <span id="filterInfo" class="tri-state-checkbox" data-state="none"></span>
+                                <span>Info</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" onclick="cycleFilterState('filterTimeline', event)">
+                                <span id="filterTimeline" class="tri-state-checkbox" data-state="none"></span>
+                                <span>Timeline</span>
+                            </label>
+                            <!-- Force line break -->
+                            <div style="flex-basis: 100%; height: 0;"></div>
+                            <!-- Row 2: At Risk, Proposed, Transferred: In, Out -->
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap;" onclick="cycleFilterState('filterAtRisk', event)">
+                                <span id="filterAtRisk" class="tri-state-checkbox" data-state="none"></span>
+                                <span>At Risk</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" onclick="cycleFilterState('filterProposed', event)">
+                                <span id="filterProposed" class="tri-state-checkbox" data-state="none"></span>
+                                <span>Proposed</span>
+                            </label>
+                            <span style="font-weight: bold; margin-right: 5px; display: flex; align-items: center; position: relative; top: -2px; left: 6px;">Transferred:</span>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; margin-right: 5px;" onclick="cycleFilterState('filterTransferredIn', event)">
+                                <span id="filterTransferredIn" class="tri-state-checkbox" data-state="none"></span>
+                                <span>In</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" onclick="cycleFilterState('filterTransferredOut', event)">
+                                <span id="filterTransferredOut" class="tri-state-checkbox" data-state="none"></span>
+                                <span>Out</span>
+                            </label>
+                        </div>
+                        
+                        <div style="font-size: 11px; color: #888; margin-top: 8px;">
+                            Click once for ✓ (include), twice for ! (exclude/NOT), three times to clear. Filters apply to all search results.
+                        </div>
+                        
+                        <!-- Advanced Expression Filter -->
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
+                            <div style="font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px;">Advanced Filter (Optional):</div>
+                            <input type="text" 
+                                   id="advancedFilterExpression" 
+                                   placeholder="e.g., Done && !Timeline, (Cancelled || AtRisk) && New"
+                                   onchange="applyStatusFilters()"
+                                   style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 12px;">
+                            <div style="font-size: 10px; color: #888; margin-top: 5px;">
+                                Use: <code>&&</code> (AND), <code>||</code> (OR), <code>!</code> (NOT), <code>( )</code> (grouping)<br>
+                                Status names: Done, Cancelled, Timeline, New, AtRisk, Proposed, Info, TransferredIn, TransferredOut<br>
+                                Expression overrides checkboxes if provided.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 </div>
 
                 
@@ -896,6 +994,21 @@
         // Global variables
         let selectedDirectory = null;
         let currentResults = [];
+        let lastSearchStories = [];
+        let lastRoadmapFiles = [];
+        
+        // Track tri-state checkbox states: 'none', 'include', 'exclude'
+        const statusFilterStates = {
+            filterNew: 'none',
+            filterDone: 'none',
+            filterCancelled: 'none',
+            filterAtRisk: 'none',
+            filterTimeline: 'none',
+            filterProposed: 'none',
+            filterInfo: 'none',
+            filterTransferredIn: 'none',
+            filterTransferredOut: 'none'
+        };
         
         // Search Stats Modal Functions
         function openSearchStatsModal() {
@@ -1691,6 +1804,11 @@
                 const allStories = IMOUtility.aggregateStoriesAcrossTeams(roadmapFiles);
                 
                 let matchingStories = IMOUtility.searchStories(allStories, searchQuery);
+                
+                // Store base search results before filtering for potential re-filtering
+                lastSearchStories = matchingStories.slice();
+                lastRoadmapFiles = roadmapFiles;
+                
                 matchingStories = applyAdditionalFilters(matchingStories, roadmapFiles, { skipIMO: true });
                 
                 if (matchingStories.length === 0) {
@@ -1796,11 +1914,24 @@
             try {
                 const container = document.querySelector('.results-container');
                 if (!container) return;
-                const headerEl = container.querySelector('.header');
-                if (!headerEl) return;
                 
                 // Avoid duplicates
                 if (container.querySelector('#inlineSearchStatsBtn')) return;
+                
+                const headerEl = container.querySelector('.header');
+                if (!headerEl) {
+                    // Fallback: If no header found, insert button at the top of results container
+                    const bar = document.createElement('div');
+                    bar.style.cssText = 'text-align: right; margin-bottom: 10px; padding: 10px;';
+                    bar.innerHTML = '<button id="inlineSearchStatsBtn" class="search-button" style="min-width: 120px;">📊 Stats</button>';
+                    container.insertBefore(bar, container.firstChild);
+                    
+                    const btn = bar.querySelector('#inlineSearchStatsBtn');
+                    if (btn) {
+                        btn.addEventListener('click', openSearchStatsModal);
+                    }
+                    return;
+                }
                 
                 // Ensure header is positioned for absolute child
                 const computed = window.getComputedStyle(headerEl);
@@ -1808,17 +1939,23 @@
                     headerEl.style.position = 'relative';
                 }
 
+                // Get header height to position button appropriately
+                const headerHeight = headerEl.offsetHeight;
+                const buttonTop = Math.min(108, headerHeight - 40) - 5; // Use 108px or adapt to small headers, moved up 5px total
+
                 // Create absolutely positioned button inside header (top-right)
                 const bar = document.createElement('div');
-                bar.style.cssText = 'position:absolute; right: 12px; top: 108px; transform: translate(13px, 22px); z-index: 2;';
+                bar.style.cssText = `position:absolute; right: 12px; top: ${buttonTop}px; transform: translate(18px, 22px); z-index: 2;`;
                 bar.innerHTML = '<button id="inlineSearchStatsBtn" class="search-button" style="min-width: 120px;">📊 Stats</button>';
 
                 headerEl.appendChild(bar);
                 
                 const btn = bar.querySelector('#inlineSearchStatsBtn');
-                btn.addEventListener('click', openSearchStatsModal);
+                if (btn) {
+                    btn.addEventListener('click', openSearchStatsModal);
+                }
             } catch (e) {
-                
+                // Silent fail - stats button is optional
             }
         }
         
@@ -1888,7 +2025,17 @@
          */
         function showBlankState() {
             const contentArea = document.getElementById('contentArea');
-            contentArea.innerHTML = document.getElementById('blankState').outerHTML;
+            contentArea.innerHTML = `
+                <div class="blank-state" id="blankState">
+                    <div class="blank-state-icon">🔍</div>
+                    <h2>Cross-Team IMO & Timeline Search</h2>
+                    <p>Search across multiple team roadmaps to find stories by IMO number or timeline</p>
+                    
+                    <p style="font-size: 14px; color: #999;">
+                        First select a directory containing roadmap JSON files, then enter your search query
+                    </p>
+                </div>
+            `;
         }
         
         /**
@@ -1896,6 +2043,8 @@
          */
         function clearAllResults() {
             currentResults = [];
+            lastSearchStories = [];
+            lastRoadmapFiles = [];
             showBlankState();
             
             // Disable stats button
@@ -1906,12 +2055,40 @@
             document.getElementById('titleSearchInput').value = '';
             const directorEl = document.getElementById('directorSearchInput');
             if (directorEl) directorEl.value = '';
+            
+            // Clear date inputs
             const startEl = document.getElementById('startDateInput');
-            if (startEl) startEl.value = '';
+            if (startEl) {
+                startEl.value = '';
+                startEl.setAttribute('value', '');
+            }
             const endEl = document.getElementById('endDateInput');
-            if (endEl) endEl.value = '';
+            if (endEl) {
+                endEl.value = '';
+                endEl.setAttribute('value', '');
+            }
+            
+            // Reset search mode
             const modeEl = document.getElementById('searchModeSelect');
-            if (modeEl) modeEl.value = 'exact';
+            if (modeEl) {
+                modeEl.value = 'exact';
+                updateSearchModeHelp();
+            }
+            
+            // Clear status filter tri-state checkboxes
+            Object.keys(statusFilterStates).forEach(filterId => {
+                statusFilterStates[filterId] = 'none';
+                const checkbox = document.getElementById(filterId);
+                if (checkbox) {
+                    checkbox.setAttribute('data-state', 'none');
+                    checkbox.textContent = '';
+                }
+            });
+            
+            // Clear advanced expression
+            const advancedExpr = document.getElementById('advancedFilterExpression');
+            if (advancedExpr) advancedExpr.value = '';
+            
             updateSearchButtonStates();
         }
 
@@ -1930,7 +2107,7 @@
         // Apply additional filters based on other filled inputs (AND semantics)
         function applyAdditionalFilters(stories, roadmapFiles, options = {}) {
             let result = Array.isArray(stories) ? stories.slice() : [];
-            const opts = Object.assign({ skipDirector: false, skipIMO: false, skipTitle: false, skipDate: false }, options);
+            const opts = Object.assign({ skipDirector: false, skipIMO: false, skipTitle: false, skipDate: false, skipStatus: false }, options);
 
             try {
                 // Director/VP filter (team-level)
@@ -1961,11 +2138,253 @@
                 if (!opts.skipDate && (startDate || endDate)) {
                     result = IMOUtility.searchStoriesByDateRange(result, startDate, endDate, searchMode);
                 }
+
+                // Status filter - apply if any status filters are active
+                if (!opts.skipStatus) {
+                    // Check if advanced expression is provided
+                    const advancedExpression = document.getElementById('advancedFilterExpression')?.value.trim();
+                    
+                    if (advancedExpression) {
+                        // Use expression-based filtering
+                        result = result.filter(story => {
+                            const matches = evaluateFilterExpression(advancedExpression, story);
+                            // If expression is invalid (null), don't filter
+                            return matches === null ? true : matches;
+                        });
+                    } else {
+                        // Use checkbox-based filtering
+                        // Get all filter states
+                        const filters = {
+                            filterNew: statusFilterStates.filterNew,
+                            filterDone: statusFilterStates.filterDone,
+                            filterCancelled: statusFilterStates.filterCancelled,
+                            filterAtRisk: statusFilterStates.filterAtRisk,
+                            filterTimeline: statusFilterStates.filterTimeline,
+                            filterProposed: statusFilterStates.filterProposed,
+                            filterInfo: statusFilterStates.filterInfo,
+                            filterTransferredIn: statusFilterStates.filterTransferredIn,
+                            filterTransferredOut: statusFilterStates.filterTransferredOut
+                        };
+                        
+                        // Check if any filters are active (include or exclude)
+                        const hasIncludeFilters = Object.values(filters).some(state => state === 'include');
+                        const hasExcludeFilters = Object.values(filters).some(state => state === 'exclude');
+                        const anyFilterActive = hasIncludeFilters || hasExcludeFilters;
+                    
+                    if (anyFilterActive) {
+                        // Use OR logic for checkboxes (simpler without the button)
+                        result = result.filter(story => {
+                            // Helper function to check story status
+                            const hasStatus = (filterKey) => {
+                                switch(filterKey) {
+                                    case 'filterNew': return story.isNewStory;
+                                    case 'filterDone': return story.isDone;
+                                    case 'filterCancelled': return story.isCancelled;
+                                    case 'filterAtRisk': return story.isAtRisk;
+                                    case 'filterTimeline': return story.roadmapChanges && story.roadmapChanges.changes && story.roadmapChanges.changes.length > 0;
+                                    case 'filterProposed': return story.isProposed;
+                                    case 'filterInfo': return story.isInfo;
+                                    case 'filterTransferredIn': return story.isTransferredIn;
+                                    case 'filterTransferredOut': return story.isTransferredOut;
+                                    default: return false;
+                                }
+                            };
+                            
+                            // First, check all EXCLUDE conditions - these must ALL pass regardless of mode
+                            for (const [filterKey, state] of Object.entries(filters)) {
+                                if (state === 'exclude' && hasStatus(filterKey)) {
+                                    return false; // Story has a status that should be excluded
+                                }
+                            }
+                            
+                            // If there are no INCLUDE filters, and we passed all EXCLUDE checks, include the story
+                            if (!hasIncludeFilters) {
+                                return true;
+                            }
+                            
+                            // OR logic: Story must have at least ONE included status
+                            for (const [filterKey, state] of Object.entries(filters)) {
+                                if (state === 'include' && hasStatus(filterKey)) {
+                                    return true;
+                                }
+                            }
+                            return false;
+                        });
+                    }
+                    }
+                }
             } catch (e) {
                 
             }
 
             return result;
+        }
+
+        /**
+         * Parse and evaluate a filter expression for a story
+         * Supports: &&, ||, !, and ( ) with status names
+         */
+        function evaluateFilterExpression(expression, story) {
+            if (!expression || !expression.trim()) return null;
+            
+            // Tokenize the expression
+            const tokens = expression
+                .replace(/\(/g, ' ( ')
+                .replace(/\)/g, ' ) ')
+                .replace(/&&/g, ' && ')
+                .replace(/\|\|/g, ' || ')
+                .replace(/!/g, ' ! ')
+                .split(/\s+/)
+                .filter(t => t.length > 0);
+            
+            let pos = 0;
+            
+            // Recursive descent parser
+            const parseExpression = () => parseOr();
+            
+            const parseOr = () => {
+                let left = parseAnd();
+                while (pos < tokens.length && tokens[pos] === '||') {
+                    pos++; // consume ||
+                    const right = parseAnd();
+                    left = left || right;
+                }
+                return left;
+            };
+            
+            const parseAnd = () => {
+                let left = parseNot();
+                while (pos < tokens.length && tokens[pos] === '&&') {
+                    pos++; // consume &&
+                    const right = parseNot();
+                    left = left && right;
+                }
+                return left;
+            };
+            
+            const parseNot = () => {
+                if (pos < tokens.length && tokens[pos] === '!') {
+                    pos++; // consume !
+                    return !parsePrimary();
+                }
+                return parsePrimary();
+            };
+            
+            const parsePrimary = () => {
+                if (pos >= tokens.length) {
+                    throw new Error('Unexpected end of expression');
+                }
+                
+                const token = tokens[pos];
+                
+                // Handle parentheses
+                if (token === '(') {
+                    pos++; // consume (
+                    const result = parseExpression();
+                    if (pos >= tokens.length || tokens[pos] !== ')') {
+                        throw new Error('Missing closing parenthesis');
+                    }
+                    pos++; // consume )
+                    return result;
+                }
+                
+                // Handle status names
+                const statusMap = {
+                    'Done': story.isDone,
+                    'Cancelled': story.isCancelled,
+                    'Timeline': story.roadmapChanges && story.roadmapChanges.changes && story.roadmapChanges.changes.length > 0,
+                    'New': story.isNewStory,
+                    'AtRisk': story.isAtRisk,
+                    'Proposed': story.isProposed,
+                    'Info': story.isInfo,
+                    'TransferredIn': story.isTransferredIn,
+                    'TransferredOut': story.isTransferredOut
+                };
+                
+                // Case-insensitive lookup
+                const statusKey = Object.keys(statusMap).find(key => key.toLowerCase() === token.toLowerCase());
+                
+                if (statusKey !== undefined) {
+                    pos++; // consume status name
+                    return statusMap[statusKey] || false;
+                }
+                
+                throw new Error(`Unknown status: ${token}`);
+            };
+            
+            try {
+                const result = parseExpression();
+                if (pos < tokens.length) {
+                    throw new Error(`Unexpected token: ${tokens[pos]}`);
+                }
+                return result;
+            } catch (error) {
+                console.error('Expression parse error:', error.message);
+                return null; // Return null on error to indicate invalid expression
+            }
+        }
+
+        /**
+         * Cycle through tri-state checkbox: none → include (✓) → exclude (!) → none
+         */
+        function cycleFilterState(filterId, event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const checkbox = document.getElementById(filterId);
+            const currentState = statusFilterStates[filterId];
+            
+            // Cycle: none → include → exclude → none
+            if (currentState === 'none') {
+                statusFilterStates[filterId] = 'include';
+                checkbox.setAttribute('data-state', 'include');
+                checkbox.textContent = '✓';
+            } else if (currentState === 'include') {
+                statusFilterStates[filterId] = 'exclude';
+                checkbox.setAttribute('data-state', 'exclude');
+                checkbox.textContent = '!';
+            } else {
+                statusFilterStates[filterId] = 'none';
+                checkbox.setAttribute('data-state', 'none');
+                checkbox.textContent = '';
+            }
+            
+            applyStatusFilters();
+        }
+
+        /**
+         * Apply status filters to current search results
+         */
+        function applyStatusFilters() {
+            try {
+                // Re-filter the last search results with the new status filters
+                if (lastSearchStories && lastSearchStories.length > 0) {
+                    const filteredStories = applyAdditionalFilters(lastSearchStories, lastRoadmapFiles, {});
+                    
+                    // Get the current search parameters to determine which range to use
+                    const startDate = document.getElementById('startDateInput')?.value;
+                    const endDate = document.getElementById('endDateInput')?.value;
+                    const searchModeEl = document.getElementById('searchModeSelect');
+                    const searchMode = (searchModeEl && searchModeEl.value) ? searchModeEl.value : 'exact';
+                    
+                    // Create search range info if dates exist
+                    let searchRange = null;
+                    if (startDate || endDate) {
+                        searchRange = {
+                            startDate: startDate || 'N/A',
+                            endDate: endDate || 'N/A',
+                            mode: searchMode
+                        };
+                    }
+                    
+                    // Display the filtered results
+                    displaySearchResults(filteredStories, 'Filtered Results', searchRange);
+                    currentResults = filteredStories;
+                }
+            } catch (e) {
+                console.error('Error applying status filters:', e);
+                showMessage('Error applying filters', 'error');
+            }
         }
 
         /**
@@ -2072,6 +2491,11 @@
                 
                 const allStories = IMOUtility.aggregateStoriesAcrossTeams(roadmapFiles);
                 let matchingStories = IMOUtility.searchStoriesByDateRange(allStories, startDate, endDate, searchMode);
+                
+                // Store base search results before filtering for potential re-filtering
+                lastSearchStories = matchingStories.slice();
+                lastRoadmapFiles = roadmapFiles;
+                
                 matchingStories = applyAdditionalFilters(matchingStories, roadmapFiles, { skipDate: true });
                 
                 if (matchingStories.length === 0) {
@@ -2131,6 +2555,11 @@
                 const allStories = IMOUtility.aggregateStoriesAcrossTeams(roadmapFiles);
                 
                 let matchingStories = IMOUtility.searchStoriesByTitle(allStories, searchQuery);
+                
+                // Store base search results before filtering for potential re-filtering
+                lastSearchStories = matchingStories.slice();
+                lastRoadmapFiles = roadmapFiles;
+                
                 matchingStories = applyAdditionalFilters(matchingStories, roadmapFiles, { skipTitle: true });
                 
                 if (matchingStories.length === 0) {
@@ -2183,6 +2612,10 @@
                 // Get all stories from the matching roadmaps
                 const allStories = IMOUtility.aggregateStoriesAcrossTeams(matchingRoadmaps);
                 
+                // Store base search results before filtering for potential re-filtering
+                lastSearchStories = allStories.slice();
+                lastRoadmapFiles = roadmapFiles;
+                
                 // Apply additional filters if other search fields are filled
                 let filteredStories = allStories;
                 filteredStories = applyAdditionalFilters(filteredStories, roadmapFiles, { skipDirector: true });
@@ -2192,6 +2625,7 @@
                     return;
                 }
 
+                currentResults = filteredStories;
                 displaySearchResults(filteredStories, `Leadership: "${query}"`);
                 
                 // Enable stats button

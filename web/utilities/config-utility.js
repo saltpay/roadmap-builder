@@ -162,12 +162,40 @@ class ConfigUtility {
     }
 
     /**
-     * Check if an item can zoom based on its width
+     * Get zoom level based on item width, start, and end positions
+     * @param {number} width - Width in grid units
+     * @param {number} startGrid - Start grid position (optional)
+     * @param {number} endGrid - End grid position (optional)
+     * @returns {string} - Zoom level class: 'large', 'medium', or 'small'
+     */
+    static getZoomLevel(width, startGrid = null, endGrid = null) {
+        // Special rule: Stories starting in January (grid 1-10) and > 3 months cap at 1.05x zoom
+        if (startGrid !== null && startGrid <= 10 && width > 30) {
+            // Cap at 'small' (1.05x) if they would normally zoom higher
+            if (width < 40) return 'small';      // Would be 'large', cap to 'small'
+            if (width < 75) return 'small';      // Would be 'medium', cap to 'small'
+        }
+        
+        // Special rule: Stories ending in December (grid >= 111) and > 3 months cap at 1.05x zoom
+        if (endGrid !== null && endGrid >= 111 && width > 30) {
+            // Cap at 'small' (1.05x) if they would normally zoom higher
+            if (width < 40) return 'small';      // Would be 'large', cap to 'small'
+            if (width < 75) return 'small';      // Would be 'medium', cap to 'small'
+        }
+        
+        // Normal zoom levels
+        if (width < 40) return 'large';      // < 4 months: 1.20x zoom
+        if (width < 75) return 'medium';     // 4-7.5 months: 1.15x zoom
+        return 'small';                      // 7.5+ months: 1.05x zoom (collapsed small/tiny)
+    }
+
+    /**
+     * Check if an item can zoom based on its width (deprecated - use getZoomLevel)
      * @param {number} width - Width in grid units
      * @returns {boolean} - True if item can zoom
      */
     static canZoom(width) {
-        return width < this.GRID.ZOOM_THRESHOLD;
+        return true; // All items can zoom now, just at different levels
     }
 
     /**
