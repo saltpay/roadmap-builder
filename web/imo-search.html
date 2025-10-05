@@ -641,6 +641,7 @@
                             <option value="exact">Exact</option>
                             <option value="exact-7days">Exact +/- 7 Days</option>
                             <option value="range">Range</option>
+                            <option value="current-year">Current Year</option>
                         </select>
                         <button class="search-button" id="dateRangeSearchBtn" onclick="performDateRangeSearch()" disabled>
                             📅 Search Dates
@@ -1044,12 +1045,15 @@
                 totalStories: 0,
                 totalTeams: 0,
                 onTime: 0,
+                onTimeDone: 0,
+                onTimeNotDone: 0,
                 delayedOnce: 0,
                 delayedTwiceOrMore: 0,
                 cancelled: 0,
                 totalDelayed: 0,
                 delayBreakdown: {},
                 delayStories: {},
+                onTimeStories: { done: [], notDone: [] },
                 teams: new Set()
             };
             
@@ -1073,6 +1077,14 @@
                 
                 if (delayCount === 0) {
                     result.onTime++;
+                    const isDone = story.isDone || false;
+                    if (isDone) {
+                        result.onTimeDone++;
+                        result.onTimeStories.done.push({ title: story.title || 'Untitled', epicName: story.teamName || 'Unknown Team' });
+                    } else {
+                        result.onTimeNotDone++;
+                        result.onTimeStories.notDone.push({ title: story.title || 'Untitled', epicName: story.teamName || 'Unknown Team' });
+                    }
                 } else {
                     result.totalDelayed++;
                     if (delayCount === 1) {
@@ -1106,22 +1118,21 @@
                         `${s.totalStories} Stories across ${s.totalTeams} Teams` +
                     '</div>' +
                     '<div style="max-width: 600px; margin: 0 auto;">' +
-                        barChart('On-time Projects', s.onTime, activeStories, '#28a745', null) +
-                        barChart('Delayed Projects', s.totalDelayed, activeStories, '#dc3545', s) +
-                        barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', null) +
+                        barChart('On-time Projects', s.onTime, activeStories, '#28a745', s, 'ontime') +
+                        barChart('Delayed Projects', s.totalDelayed, activeStories, '#dc3545', s, 'delayed') +
+                        barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', null, null) +
                     '</div>' +
                 '</div>'
             );
         }
         
-        function barChart(label, value, total, color, delayStats) {
+        function barChart(label, value, total, color, stats, breakdownType) {
             const percentage = total ? Math.round((value / total) * 100) : 0;
             const barWidth = total ? Math.round((value / total) * 100) : 0;
             
             let tooltipContent = '';
-            if (delayStats && label === 'Delayed Projects') {
-                const delayBreakdown = getDelayBreakdown(delayStats);
-                tooltipContent = `data-tooltip="${delayBreakdown}"`;
+            if (stats && breakdownType) {
+                tooltipContent = `data-tooltip="breakdown" data-breakdown-type="${breakdownType}"`;
             }
             
             return (
@@ -1130,7 +1141,7 @@
                         `<span style="font-size: 14px; font-weight: 500; color: #374151;">${label}</span>` +
                         `<span style="font-size: 14px; font-weight: 600; color: #111827;">${value} (${percentage}%)</span>` +
                     '</div>' +
-                    `<div style="background: #f3f4f6; height: 20px; border-radius: 10px; overflow: hidden; position: relative; cursor: ${delayStats ? 'pointer' : 'default'};" ${tooltipContent}>` +
+                    `<div style="background: #f3f4f6; height: 20px; border-radius: 10px; overflow: hidden; position: relative; cursor: ${stats ? 'pointer' : 'default'};" ${tooltipContent}>` +
                         `<div style="background: ${color}; height: 100%; width: ${barWidth}%; transition: width 0.3s ease; border-radius: 10px;"></div>` +
                     '</div>' +
                 '</div>'
@@ -1179,6 +1190,8 @@
 
             const stats = window.__searchStats || { delayBreakdown: {}, delayStories: {}, totalStories: 0, cancelled: 0 };
             const activeStories = (stats.totalStories || 0) - (stats.cancelled || 0);
+            
+            const breakdownType = container.getAttribute('data-breakdown-type');
 
             // Create breakdown container
             const breakdown = document.createElement('div');
@@ -1193,13 +1206,59 @@
                 font-size: 12px;
                 color: #374151;
             `;
-            breakdown.innerHTML = renderSearchDelayBreakdown(stats, activeStories);
+            
+            if (breakdownType === 'delayed') {
+                breakdown.innerHTML = renderSearchDelayBreakdown(stats, activeStories);
+            } else if (breakdownType === 'ontime') {
+                breakdown.innerHTML = renderSearchOntimeBreakdown(stats, activeStories);
+            }
 
             // Insert directly after the clicked container
             container.parentNode.insertBefore(breakdown, container.nextSibling);
 
             // Enable expand/collapse on rows
             setupSearchDelayBreakdownInteractions();
+        }
+        
+        function renderSearchOntimeBreakdown(stats, totalActive) {
+            const done = stats.onTimeDone || 0;
+            const notDone = stats.onTimeNotDone || 0;
+            const doneStories = (stats.onTimeStories && stats.onTimeStories.done) || [];
+            const notDoneStories = (stats.onTimeStories && stats.onTimeStories.notDone) || [];
+            
+            if (done === 0 && notDone === 0) {
+                return '<div style="color:#6b7280;">No on-time projects</div>';
+            }
+            
+            const donePct = totalActive ? Math.round((done / totalActive) * 100) : 0;
+            const notDonePct = totalActive ? Math.round((notDone / totalActive) * 100) : 0;
+            
+            return (
+                '<div class="delay-row" id="search-ontime-done-row" style="margin-bottom: 10px;">' +
+                    '<div class="delay-row-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; cursor:pointer;">' +
+                        '<span style="font-size:13px; color:#374151;">Done</span>' +
+                        '<span style="font-size:13px; font-weight:600; color:#111827;">' + done + ' (' + donePct + '%)</span>' +
+                    '</div>' +
+                    '<div class="delay-row-bar" style="background:#eef2f7; height:16px; border-radius:8px; overflow:hidden; cursor:pointer;">' +
+                        '<div style="background:#28a745; height:100%; width:' + donePct + '%; border-radius:8px;"></div>' +
+                    '</div>' +
+                    '<div class="delay-row-details" id="search-ontime-done-details" style="display:none; padding:8px 10px; margin-top:8px; background:#ffffff; border:1px solid #e5e7eb; border-radius:6px;">' +
+                        renderSearchDelayDetails(doneStories) +
+                    '</div>' +
+                '</div>' +
+                '<div class="delay-row" id="search-ontime-notdone-row" style="margin-bottom: 10px;">' +
+                    '<div class="delay-row-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; cursor:pointer;">' +
+                        '<span style="font-size:13px; color:#374151;">Not Done</span>' +
+                        '<span style="font-size:13px; font-weight:600; color:#111827;">' + notDone + ' (' + notDonePct + '%)</span>' +
+                    '</div>' +
+                    '<div class="delay-row-bar" style="background:#eef2f7; height:16px; border-radius:8px; overflow:hidden; cursor:pointer;">' +
+                        '<div style="background:#ffc107; height:100%; width:' + notDonePct + '%; border-radius:8px;"></div>' +
+                    '</div>' +
+                    '<div class="delay-row-details" id="search-ontime-notdone-details" style="display:none; padding:8px 10px; margin-top:8px; background:#ffffff; border:1px solid #e5e7eb; border-radius:6px;">' +
+                        renderSearchDelayDetails(notDoneStories) +
+                    '</div>' +
+                '</div>'
+            );
         }
         
         function renderSearchDelayBreakdown(stats, totalActive) {
@@ -2390,6 +2449,22 @@
         /**
          * Handle date range picker change
          */
+        /**
+         * Set date range to current year (01/01 to 31/12)
+         */
+        function setCurrentYearRange() {
+            const currentYear = new Date().getFullYear();
+            const startDateInput = document.getElementById('startDateInput');
+            const endDateInput = document.getElementById('endDateInput');
+            
+            // Set to ISO format for date inputs (YYYY-MM-DD)
+            startDateInput.value = `${currentYear}-01-01`;
+            endDateInput.value = `${currentYear}-12-31`;
+            
+            // Enable the search button
+            updateSearchButtonStates();
+        }
+        
         function handleDateRangeChange(event) {
             updateSearchButtonStates();
         }
@@ -2428,6 +2503,11 @@
                 helpElement.textContent = 'Exact: Stories must start/end exactly on the specified dates.';
             } else if (searchMode === 'exact-7days') {
                 helpElement.textContent = 'Exact +/- 7 Days: Start date to +7 days forward only, end date +/- 7 days buffer.';
+            } else if (searchMode === 'current-year') {
+                const currentYear = new Date().getFullYear();
+                helpElement.textContent = `Current Year: Searches all stories in ${currentYear} (auto-fills 01/01/${currentYear} to 31/12/${currentYear}).`;
+                // Auto-populate with current year dates
+                setCurrentYearRange();
             } else {
                 helpElement.textContent = 'Range: Stories must start on or after start date AND end on or before end date.';
             }
@@ -2464,6 +2544,9 @@
                 } else if (searchMode === 'exact-7days') {
                     modeText = 'with +/- 7 day buffer';
                     modeLabel = 'Exact +/- 7 Days';
+                } else if (searchMode === 'current-year') {
+                    modeText = 'in current year';
+                    modeLabel = 'Current Year';
                 } else {
                     modeText = 'in range';
                     modeLabel = 'Range';
