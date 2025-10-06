@@ -504,7 +504,7 @@ class IMOUtility {
                     return storyEndDateStr && this.isWithinDateRange(storyEndDateStr, endDate, 7, 7);
                 }
             } else {
-                // RANGE SEARCH MODE
+                // RANGE SEARCH MODE (also used for current-year)
                 if (startDate && endDate) {
                     // Story must start on or after startDate AND end on or before endDate
                     if (storyStartDateStr && storyEndDateStr) {
