@@ -1049,10 +1049,12 @@
                 onTimeNotDone: 0,
                 delayedOnce: 0,
                 delayedTwiceOrMore: 0,
+                accelerated: 0,
                 cancelled: 0,
                 totalDelayed: 0,
                 delayBreakdown: {},
                 delayStories: {},
+                acceleratedStories: { done: [], notDone: [] },
                 onTimeStories: { done: [], notDone: [] },
                 teams: new Set()
             };
@@ -1073,33 +1075,74 @@
                 }
                 
                 const changes = story.roadmapChanges?.changes || [];
-                const delayCount = Array.isArray(changes) ? changes.length : 0;
                 
-                if (delayCount === 0) {
+                // Count only ACTUAL delays (new date > prev date)
+                let actualDelayCount = 0;
+                let hasAcceleration = false;
+                
+                if (Array.isArray(changes) && changes.length > 0) {
+                    for (const change of changes) {
+                        if (change.prevEndDate && change.newEndDate) {
+                            // Parse dates properly using IMOUtility
+                            const roadmapYear = story.roadmapYear || new Date().getFullYear();
+                            const prevISO = IMOUtility.parseStoryDate(change.prevEndDate, roadmapYear);
+                            const newISO = IMOUtility.parseStoryDate(change.newEndDate, roadmapYear);
+                            
+                            if (prevISO && newISO) {
+                                // Compare ISO date strings
+                                if (newISO > prevISO) {
+                                    actualDelayCount++; // Actual delay
+                                } else if (newISO < prevISO) {
+                                    hasAcceleration = true; // Pulled forward
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if (actualDelayCount === 0 && !hasAcceleration) {
+                    // No timeline changes at all
                     result.onTime++;
                     const isDone = story.isDone || false;
                     if (isDone) {
                         result.onTimeDone++;
-                        result.onTimeStories.done.push({ title: story.title || 'Untitled', epicName: story.teamName || 'Unknown Team' });
+                        result.onTimeStories.done.push({ title: story.title || 'Untitled', teamName: story.teamName || 'Unknown Team' });
                     } else {
                         result.onTimeNotDone++;
-                        result.onTimeStories.notDone.push({ title: story.title || 'Untitled', epicName: story.teamName || 'Unknown Team' });
+                        result.onTimeStories.notDone.push({ title: story.title || 'Untitled', teamName: story.teamName || 'Unknown Team' });
                     }
-                } else {
+                } else if (hasAcceleration && actualDelayCount === 0) {
+                    // Only accelerations, no delays
+                    result.accelerated++;
+                    const acceleratedStory = { title: story.title || 'Untitled', teamName: story.teamName || 'Unknown Team' };
+                    if (story.isDone) {
+                        result.acceleratedStories.done.push(acceleratedStory);
+                    } else {
+                        result.acceleratedStories.notDone.push(acceleratedStory);
+                    }
+                } else if (actualDelayCount > 0) {
+                    // Has at least one actual delay
                     result.totalDelayed++;
-                    if (delayCount === 1) {
+                    if (actualDelayCount === 1) {
                         result.delayedOnce++;
                     } else {
                         result.delayedTwiceOrMore++;
                     }
                     
                     // Track exact delay count for breakdown
-                    result.delayBreakdown[delayCount] = (result.delayBreakdown[delayCount] || 0) + 1;
-                    if (!result.delayStories[delayCount]) result.delayStories[delayCount] = [];
-                    result.delayStories[delayCount].push({
+                    result.delayBreakdown[actualDelayCount] = (result.delayBreakdown[actualDelayCount] || 0) + 1;
+                    if (!result.delayStories[actualDelayCount]) {
+                        result.delayStories[actualDelayCount] = { done: [], notDone: [] };
+                    }
+                    const delayedStory = {
                         title: story.title || 'Untitled',
                         teamName: story.teamName || 'Unknown Team'
-                    });
+                    };
+                    if (story.isDone) {
+                        result.delayStories[actualDelayCount].done.push(delayedStory);
+                    } else {
+                        result.delayStories[actualDelayCount].notDone.push(delayedStory);
+                    }
                 }
             }
             
@@ -1119,6 +1162,7 @@
                     '</div>' +
                     '<div style="max-width: 600px; margin: 0 auto;">' +
                         barChart('On-time Projects', s.onTime, activeStories, '#28a745', s, 'ontime') +
+                        barChart('Accelerated Projects', s.accelerated, activeStories, '#17a2b8', s, 'accelerated') +
                         barChart('Delayed Projects', s.totalDelayed, activeStories, '#dc3545', s, 'delayed') +
                         barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', null, null) +
                     '</div>' +
@@ -1181,21 +1225,24 @@
             const container = e.currentTarget || e.target.closest('[data-tooltip]');
             if (!container) return;
 
-            // Toggle existing breakdown
-            const existing = document.getElementById('search-delay-breakdown');
+            const breakdownType = container.getAttribute('data-breakdown-type');
+            if (!breakdownType) return;
+            
+            const breakdownId = `search-${breakdownType}-breakdown`;
+
+            // Toggle only this specific breakdown
+            const existing = document.getElementById(breakdownId);
             if (existing) {
                 existing.remove();
-                if (existing.__for === container) return;
+                return; // Just close it, don't reopen
             }
 
             const stats = window.__searchStats || { delayBreakdown: {}, delayStories: {}, totalStories: 0, cancelled: 0 };
             const activeStories = (stats.totalStories || 0) - (stats.cancelled || 0);
-            
-            const breakdownType = container.getAttribute('data-breakdown-type');
 
             // Create breakdown container
             const breakdown = document.createElement('div');
-            breakdown.id = 'search-delay-breakdown';
+            breakdown.id = breakdownId;
             breakdown.__for = container;
             breakdown.style.cssText = `
                 margin-top: 10px;
@@ -1211,6 +1258,8 @@
                 breakdown.innerHTML = renderSearchDelayBreakdown(stats, activeStories);
             } else if (breakdownType === 'ontime') {
                 breakdown.innerHTML = renderSearchOntimeBreakdown(stats, activeStories);
+            } else if (breakdownType === 'accelerated') {
+                breakdown.innerHTML = renderSearchAcceleratedBreakdown(stats, activeStories);
             }
 
             // Insert directly after the clicked container
@@ -1234,27 +1283,70 @@
             const notDonePct = totalActive ? Math.round((notDone / totalActive) * 100) : 0;
             
             return (
-                '<div class="delay-row" id="search-ontime-done-row" style="margin-bottom: 10px;">' +
-                    '<div class="delay-row-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; cursor:pointer;">' +
-                        '<span style="font-size:13px; color:#374151;">Done</span>' +
+                '<div class="delay-row" id="search-ontime-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
+                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
+                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
+                        '<span style="font-size:13px; color:#374151; flex: 1;">Done</span>' +
                         '<span style="font-size:13px; font-weight:600; color:#111827;">' + done + ' (' + donePct + '%)</span>' +
                     '</div>' +
-                    '<div class="delay-row-bar" style="background:#eef2f7; height:16px; border-radius:8px; overflow:hidden; cursor:pointer;">' +
-                        '<div style="background:#28a745; height:100%; width:' + donePct + '%; border-radius:8px;"></div>' +
-                    '</div>' +
-                    '<div class="delay-row-details" id="search-ontime-done-details" style="display:none; padding:8px 10px; margin-top:8px; background:#ffffff; border:1px solid #e5e7eb; border-radius:6px;">' +
+                    '<div class="delay-row-details" id="search-ontime-done-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #28a745;">' +
                         renderSearchDelayDetails(doneStories) +
                     '</div>' +
                 '</div>' +
-                '<div class="delay-row" id="search-ontime-notdone-row" style="margin-bottom: 10px;">' +
-                    '<div class="delay-row-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; cursor:pointer;">' +
-                        '<span style="font-size:13px; color:#374151;">Not Done</span>' +
+                '<div class="delay-row" id="search-ontime-notdone-row" style="margin-bottom: 8px; margin-left: 10px;">' +
+                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
+                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
+                        '<span style="font-size:13px; color:#374151; flex: 1;">Not Done</span>' +
                         '<span style="font-size:13px; font-weight:600; color:#111827;">' + notDone + ' (' + notDonePct + '%)</span>' +
                     '</div>' +
-                    '<div class="delay-row-bar" style="background:#eef2f7; height:16px; border-radius:8px; overflow:hidden; cursor:pointer;">' +
-                        '<div style="background:#ffc107; height:100%; width:' + notDonePct + '%; border-radius:8px;"></div>' +
+                    '<div class="delay-row-details" id="search-ontime-notdone-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #ffc107;">' +
+                        renderSearchDelayDetails(notDoneStories) +
                     '</div>' +
-                    '<div class="delay-row-details" id="search-ontime-notdone-details" style="display:none; padding:8px 10px; margin-top:8px; background:#ffffff; border:1px solid #e5e7eb; border-radius:6px;">' +
+                '</div>'
+            );
+        }
+        
+        function renderSearchAcceleratedBreakdown(stats, totalActive) {
+            const acceleratedStories = stats.acceleratedStories || { done: [], notDone: [] };
+            
+            // Handle backward compatibility: if acceleratedStories is an array (old format), convert it
+            if (Array.isArray(acceleratedStories)) {
+                const doneStories = acceleratedStories.filter(s => s.isDone);
+                const notDoneStories = acceleratedStories.filter(s => !s.isDone);
+                acceleratedStories = { done: doneStories, notDone: notDoneStories };
+            }
+            
+            const done = acceleratedStories.done ? acceleratedStories.done.length : 0;
+            const notDone = acceleratedStories.notDone ? acceleratedStories.notDone.length : 0;
+            const doneStories = acceleratedStories.done || [];
+            const notDoneStories = acceleratedStories.notDone || [];
+            
+            if (done === 0 && notDone === 0) {
+                return '<div style="color:#6b7280;">No accelerated projects</div>';
+            }
+            
+            const total = done + notDone;
+            const donePct = total ? Math.round((done / total) * 100) : 0;
+            const notDonePct = total ? Math.round((notDone / total) * 100) : 0;
+            
+            return (
+                '<div class="delay-row" id="search-accelerated-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
+                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
+                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
+                        '<span style="font-size:13px; color:#374151; flex: 1;">Done</span>' +
+                        '<span style="font-size:13px; font-weight:600; color:#111827;">' + done + ' (' + donePct + '%)</span>' +
+                    '</div>' +
+                    '<div class="delay-row-details" id="search-accelerated-done-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #28a745;">' +
+                        renderSearchDelayDetails(doneStories) +
+                    '</div>' +
+                '</div>' +
+                '<div class="delay-row" id="search-accelerated-notdone-row" style="margin-bottom: 8px; margin-left: 10px;">' +
+                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
+                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
+                        '<span style="font-size:13px; color:#374151; flex: 1;">Not Done</span>' +
+                        '<span style="font-size:13px; font-weight:600; color:#111827;">' + notDone + ' (' + notDonePct + '%)</span>' +
+                    '</div>' +
+                    '<div class="delay-row-details" id="search-accelerated-notdone-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #ffc107;">' +
                         renderSearchDelayDetails(notDoneStories) +
                     '</div>' +
                 '</div>'
@@ -1267,29 +1359,70 @@
             if (sorted.length === 0) {
                 return '<div style="color:#6b7280;">No delays recorded</div>';
             }
+            
             const rows = sorted.map(delayCount => {
                 const value = counts[delayCount] || 0;
                 const pct = totalActive ? Math.round((value / totalActive) * 100) : 0;
-                const width = pct;
-                const details = (stats.delayStories && stats.delayStories[delayCount]) || [];
+                const delayGroup = (stats.delayStories && stats.delayStories[delayCount]) || { done: [], notDone: [] };
+                const doneCount = delayGroup.done ? delayGroup.done.length : 0;
+                const notDoneCount = delayGroup.notDone ? delayGroup.notDone.length : 0;
                 const rowId = `search-delay-row-${delayCount}`;
                 const detailsId = `search-delay-details-${delayCount}`;
+                
                 return (
-                    '<div class="delay-row" id="' + rowId + '" data-delay-count="' + delayCount + '" style="margin-bottom: 10px;">' +
-                        '<div class="delay-row-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; cursor:pointer;">' +
-                            '<span style="font-size:13px; color:#374151;">' + delayCount + ' delay' + (delayCount > 1 ? 's' : '') + '</span>' +
+                    '<div class="delay-row" id="' + rowId + '" style="margin-bottom: 8px; margin-left: 10px;">' +
+                        '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
+                            '<span style="margin-right: 8px; color:#999;">▶</span>' +
+                            '<span style="font-size:13px; color:#374151; flex: 1;">' + delayCount + ' delay' + (delayCount > 1 ? 's' : '') + '</span>' +
                             '<span style="font-size:13px; font-weight:600; color:#111827;">' + value + ' (' + pct + '%)</span>' +
                         '</div>' +
-                        '<div class="delay-row-bar" style="background:#eef2f7; height:16px; border-radius:8px; overflow:hidden; cursor:pointer;">' +
-                            '<div style="background:#fd7e14; height:100%; width:' + width + '%; border-radius:8px;"></div>' +
-                        '</div>' +
-                        '<div class="delay-row-details" id="' + detailsId + '" style="display:none; padding:8px 10px; margin-top:8px; background:#ffffff; border:1px solid #e5e7eb; border-radius:6px;">' +
-                            renderSearchDelayDetails(details) +
+                        '<div class="delay-row-details" id="' + detailsId + '" style="display:none; margin-left: 20px;">' +
+                            renderSearchDelaySubBreakdown(delayGroup, delayCount, value) +
                         '</div>' +
                     '</div>'
                 );
             }).join('');
             return rows;
+        }
+        
+        function renderSearchDelaySubBreakdown(delayGroup, delayCount, totalCount) {
+            // Handle backward compatibility: if delayGroup is an array (old format), convert it
+            if (Array.isArray(delayGroup)) {
+                const doneStories = delayGroup.filter(s => s.isDone);
+                const notDoneStories = delayGroup.filter(s => !s.isDone);
+                delayGroup = { done: doneStories, notDone: notDoneStories };
+            }
+            
+            const doneStories = delayGroup.done || [];
+            const notDoneStories = delayGroup.notDone || [];
+            const doneCount = doneStories.length;
+            const notDoneCount = notDoneStories.length;
+            
+            const donePct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
+            const notDonePct = totalCount ? Math.round((notDoneCount / totalCount) * 100) : 0;
+            
+            return (
+                '<div class="delay-row" id="search-delay-' + delayCount + '-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
+                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
+                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
+                        '<span style="font-size:13px; color:#374151; flex: 1;">Done</span>' +
+                        '<span style="font-size:13px; font-weight:600; color:#111827;">' + doneCount + ' (' + donePct + '%)</span>' +
+                    '</div>' +
+                    '<div class="delay-row-details" id="search-delay-' + delayCount + '-done-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #28a745;">' +
+                        renderSearchDelayDetails(doneStories) +
+                    '</div>' +
+                '</div>' +
+                '<div class="delay-row" id="search-delay-' + delayCount + '-notdone-row" style="margin-bottom: 8px; margin-left: 10px;">' +
+                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
+                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
+                        '<span style="font-size:13px; color:#374151; flex: 1;">Not Done</span>' +
+                        '<span style="font-size:13px; font-weight:600; color:#111827;">' + notDoneCount + ' (' + notDonePct + '%)</span>' +
+                    '</div>' +
+                    '<div class="delay-row-details" id="search-delay-' + delayCount + '-notdone-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #ffc107;">' +
+                        renderSearchDelayDetails(notDoneStories) +
+                    '</div>' +
+                '</div>'
+            );
         }
         
         function renderSearchDelayDetails(stories) {
@@ -1304,18 +1437,20 @@
         }
         
         function setupSearchDelayBreakdownInteractions() {
-            const rows = document.querySelectorAll('#search-delay-breakdown .delay-row');
+            const rows = document.querySelectorAll('[id$="-breakdown"] .delay-row');
             rows.forEach(row => {
                 const details = row.querySelector('.delay-row-details');
                 const header = row.querySelector('.delay-row-header');
-                const bar = row.querySelector('.delay-row-bar');
+                const arrow = header ? header.querySelector('span:first-child') : null;
                 const toggle = () => {
                     if (!details) return;
                     const isOpen = details.style.display !== 'none';
                     details.style.display = isOpen ? 'none' : 'block';
+                    if (arrow) {
+                        arrow.textContent = isOpen ? '▶' : '▼';
+                    }
                 };
                 if (header) header.addEventListener('click', toggle);
-                if (bar) bar.addEventListener('click', toggle);
             });
         }
         
