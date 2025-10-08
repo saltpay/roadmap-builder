@@ -902,7 +902,7 @@ class RoadmapGenerator {
         const hasTimelineChanges = changes && changes.length > 0;
         const statusBoxStyle = ''; // Remove margin that was creating extra space at top
         
-        if ((!changes || changes.length === 0) && !doneInfo && !cancelInfo && !atRiskInfo && !newStoryInfo && !transferredOutInfo && !transferredInInfo && !proposedInfo) return '';
+        if ((!changes || changes.length === 0) && !doneInfo && !cancelInfo && !atRiskInfo && !newStoryInfo && !infoInfo && !transferredOutInfo && !transferredInInfo && !proposedInfo) return '';
         
         // Collect all items (timeline changes + status items) for unified chronological sorting
         const allItems = [];
