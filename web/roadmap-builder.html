@@ -302,6 +302,20 @@
             margin-left: 6px;
             color: #111;
         }
+
+        /* Bar chart expand/collapse styles */
+        .bar-chart-container[data-tooltip="breakdown"]:hover {
+            background: #e5e7eb !important;
+        }
+        
+        .expand-chevron {
+            display: inline-block;
+            transition: transform 0.2s ease;
+        }
+        
+        .bar-chart-container:hover .expand-chevron {
+            color: #374151;
+        }
     </style>
 </head>
 <body>
@@ -4808,6 +4822,8 @@
         function setupTooltips() {
             const tooltipElements = document.querySelectorAll('[data-tooltip]');
             tooltipElements.forEach(element => {
+                // Remove old listener if it exists to prevent duplicates
+                element.removeEventListener('click', toggleDelayBreakdown);
                 element.addEventListener('click', toggleDelayBreakdown);
             });
         }
@@ -4826,9 +4842,23 @@
 
             // Toggle only this specific breakdown
             const existing = document.getElementById(breakdownId);
+            
+            // Find the chevron icon - the container itself should be the bar-chart-container
+            const barChartContainer = container.classList.contains('bar-chart-container') ? container : container.closest('.bar-chart-container');
+            const chevron = barChartContainer ? barChartContainer.querySelector('.expand-chevron') : null;
+            
             if (existing) {
                 existing.remove();
+                // Rotate chevron back to collapsed state (pointing right)
+                if (chevron) {
+                    chevron.style.transform = 'rotate(0deg)';
+                }
                 return; // Just close it, don't reopen
+            }
+
+            // Rotate chevron to expanded state (pointing down)
+            if (chevron) {
+                chevron.style.transform = 'rotate(90deg)';
             }
 
             const stats = window.__roadmapStats || { delayBreakdown: {}, delayStories: {}, totalStories: 0, cancelled: 0 };
@@ -4880,8 +4910,7 @@
                 '<div class="delay-row" id="ontime-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
                     '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
                         '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151; flex: 1;">Done</span>' +
-                        '<span style="font-size:13px; font-weight:600; color:#111827;">' + done + ' (' + donePct + '%)</span>' +
+                        '<span style="font-size:13px; color:#374151;">Done (' + done + ' / ' + donePct + '%)</span>' +
                     '</div>' +
                     '<div class="delay-row-details" id="ontime-done-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #28a745;">' +
                         renderDelayDetails(doneStories) +
@@ -4890,8 +4919,7 @@
                 '<div class="delay-row" id="ontime-notdone-row" style="margin-bottom: 8px; margin-left: 10px;">' +
                     '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
                         '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151; flex: 1;">Not Done</span>' +
-                        '<span style="font-size:13px; font-weight:600; color:#111827;">' + notDone + ' (' + notDonePct + '%)</span>' +
+                        '<span style="font-size:13px; color:#374151;">Not Done (' + notDone + ' / ' + notDonePct + '%)</span>' +
                     '</div>' +
                     '<div class="delay-row-details" id="ontime-notdone-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #ffc107;">' +
                         renderDelayDetails(notDoneStories) +
@@ -4927,8 +4955,7 @@
                 '<div class="delay-row" id="accelerated-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
                     '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
                         '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151; flex: 1;">Done</span>' +
-                        '<span style="font-size:13px; font-weight:600; color:#111827;">' + done + ' (' + donePct + '%)</span>' +
+                        '<span style="font-size:13px; color:#374151;">Done (' + done + ' / ' + donePct + '%)</span>' +
                     '</div>' +
                     '<div class="delay-row-details" id="accelerated-done-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #28a745;">' +
                         renderDelayDetails(doneStories) +
@@ -4937,8 +4964,7 @@
                 '<div class="delay-row" id="accelerated-notdone-row" style="margin-bottom: 8px; margin-left: 10px;">' +
                     '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
                         '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151; flex: 1;">Not Done</span>' +
-                        '<span style="font-size:13px; font-weight:600; color:#111827;">' + notDone + ' (' + notDonePct + '%)</span>' +
+                        '<span style="font-size:13px; color:#374151;">Not Done (' + notDone + ' / ' + notDonePct + '%)</span>' +
                     '</div>' +
                     '<div class="delay-row-details" id="accelerated-notdone-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #ffc107;">' +
                         renderDelayDetails(notDoneStories) +
@@ -4967,8 +4993,7 @@
                     '<div class="delay-row" id="' + rowId + '" style="margin-bottom: 8px; margin-left: 10px;">' +
                         '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
                             '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                            '<span style="font-size:13px; color:#374151; flex: 1;">' + delayCount + ' delay' + (delayCount > 1 ? 's' : '') + '</span>' +
-                            '<span style="font-size:13px; font-weight:600; color:#111827;">' + value + ' (' + pct + '%)</span>' +
+                            '<span style="font-size:13px; color:#374151;">' + delayCount + ' delay' + (delayCount > 1 ? 's' : '') + ' (' + value + ' / ' + pct + '%)</span>' +
                         '</div>' +
                         '<div class="delay-row-details" id="' + detailsId + '" style="display:none; margin-left: 20px;">' +
                             renderDelaySubBreakdown(delayGroup, delayCount, value) +
@@ -4999,8 +5024,7 @@
                 '<div class="delay-row" id="delay-' + delayCount + '-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
                     '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
                         '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151; flex: 1;">Done</span>' +
-                        '<span style="font-size:13px; font-weight:600; color:#111827;">' + doneCount + ' (' + donePct + '%)</span>' +
+                        '<span style="font-size:13px; color:#374151;">Done (' + doneCount + ' / ' + donePct + '%)</span>' +
                     '</div>' +
                     '<div class="delay-row-details" id="delay-' + delayCount + '-done-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #28a745;">' +
                         renderDelayDetails(doneStories) +
@@ -5009,8 +5033,7 @@
                 '<div class="delay-row" id="delay-' + delayCount + '-notdone-row" style="margin-bottom: 8px; margin-left: 10px;">' +
                     '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
                         '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151; flex: 1;">Not Done</span>' +
-                        '<span style="font-size:13px; font-weight:600; color:#111827;">' + notDoneCount + ' (' + notDonePct + '%)</span>' +
+                        '<span style="font-size:13px; color:#374151;">Not Done (' + notDoneCount + ' / ' + notDonePct + '%)</span>' +
                     '</div>' +
                     '<div class="delay-row-details" id="delay-' + delayCount + '-notdone-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #ffc107;">' +
                         renderDelayDetails(notDoneStories) +
@@ -5036,6 +5059,12 @@
                 const details = row.querySelector('.delay-row-details');
                 const header = row.querySelector('.delay-row-header');
                 const arrow = header ? header.querySelector('span:first-child') : null;
+                
+                // Remove any existing click handler to prevent duplicates
+                if (header && header._toggleHandler) {
+                    header.removeEventListener('click', header._toggleHandler);
+                }
+                
                 const toggle = () => {
                     if (!details) return;
                     const isOpen = details.style.display !== 'none';
@@ -5044,7 +5073,12 @@
                         arrow.textContent = isOpen ? '▶' : '▼';
                     }
                 };
-                if (header) header.addEventListener('click', toggle);
+                
+                // Store the handler reference for later removal
+                if (header) {
+                    header._toggleHandler = toggle;
+                    header.addEventListener('click', toggle);
+                }
             });
         }
         function closeStatsModal() {
@@ -5188,21 +5222,22 @@
         
         function barChart(label, value, total, color, stats, breakdownType) {
             const percentage = total ? Math.round((value / total) * 100) : 0;
-            const barWidth = total ? Math.round((value / total) * 100) : 0;
             
             let tooltipContent = '';
+            let expandIcon = '';
+            let cursorStyle = 'default';
             if (stats && breakdownType) {
                 tooltipContent = `data-tooltip="breakdown" data-breakdown-type="${breakdownType}"`;
+                cursorStyle = 'pointer';
+                // Add expand/collapse chevron icon on the LEFT
+                expandIcon = `<span class="expand-chevron" style="margin-right: 8px; font-size: 12px; color: #6b7280; transition: transform 0.2s ease; pointer-events: none;">▶</span>`;
             }
             
             return (
-                '<div style="margin-bottom: 15px; position: relative;">' +
-                    '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">' +
-                        `<span style="font-size: 14px; font-weight: 500; color: #374151;">${label}</span>` +
-                        `<span style="font-size: 14px; font-weight: 600; color: #111827;">${value} (${percentage}%)</span>` +
-                    '</div>' +
-                    `<div style="background: #f3f4f6; height: 20px; border-radius: 10px; overflow: hidden; position: relative; cursor: ${stats ? 'pointer' : 'default'};" ${tooltipContent}>` +
-                        `<div style="background: ${color}; height: 100%; width: ${barWidth}%; transition: width 0.3s ease; border-radius: 10px;"></div>` +
+                '<div style="margin-bottom: 12px; padding: 8px 12px; border-radius: 6px; background: #f9fafb; cursor: ' + cursorStyle + '; transition: all 0.2s ease;" class="bar-chart-container" ' + tooltipContent + '>' +
+                    '<div style="display: flex; justify-content: space-between; align-items: center; pointer-events: none;">' +
+                        `<span style="font-size: 14px; font-weight: 500; color: #374151; display: flex; align-items: center;">${expandIcon}${label}</span>` +
+                        `<span style="font-size: 14px; font-weight: 600; color: ${color};">${value} (${percentage}%)</span>` +
                     '</div>' +
                 '</div>'
             );
