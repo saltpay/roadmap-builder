@@ -3377,9 +3377,9 @@
         function addChange(storyId) {
             const container = document.getElementById(`changes-container-${storyId}`);
             
-            // Check if we've reached the maximum of 3 changes
+            // Check if we've reached the maximum of 4 changes
             const existingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
-            if (existingChanges.length >= 3) {
+            if (existingChanges.length >= 4) {
                 return; // Don't add more changes if limit is reached
             }
             
@@ -3464,9 +3464,9 @@
             
             const existingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
             
-            if (existingChanges.length >= 3) {
+            if (existingChanges.length >= 4) {
                 addButton.disabled = true;
-                addButton.textContent = '+ Add Change (Max 3 reached)';
+                addButton.textContent = '+ Add Change (Max 4 reached)';
                 addButton.style.opacity = '0.5';
                 addButton.style.cursor = 'not-allowed';
             } else {
@@ -4879,11 +4879,11 @@
             `;
             
             if (breakdownType === 'delayed') {
-                breakdown.innerHTML = renderDelayBreakdown(stats, activeStories);
+                breakdown.innerHTML = renderDelayBreakdown(stats, stats.totalStories);
             } else if (breakdownType === 'ontime') {
-                breakdown.innerHTML = renderOntimeBreakdown(stats, activeStories);
+                breakdown.innerHTML = renderOntimeBreakdown(stats, stats.totalStories);
             } else if (breakdownType === 'accelerated') {
-                breakdown.innerHTML = renderAcceleratedBreakdown(stats, activeStories);
+                breakdown.innerHTML = renderAcceleratedBreakdown(stats, stats.totalStories);
             } else if (breakdownType === 'cancelled') {
                 breakdown.innerHTML = renderCancelledBreakdown(stats);
             }
@@ -4895,7 +4895,7 @@
             setupDelayBreakdownInteractions();
         }
 
-        function renderOntimeBreakdown(stats, totalActive) {
+        function renderOntimeBreakdown(stats, totalStories) {
             const done = stats.onTimeDone || 0;
             const notDone = stats.onTimeNotDone || 0;
             const doneStories = (stats.onTimeStories && stats.onTimeStories.done) || [];
@@ -4905,8 +4905,8 @@
                 return '<div style="color:#6b7280;">No on-time projects</div>';
             }
             
-            const donePct = totalActive ? Math.round((done / totalActive) * 100) : 0;
-            const notDonePct = totalActive ? Math.round((notDone / totalActive) * 100) : 0;
+            const donePct = totalStories ? ((done / totalStories) * 100).toFixed(1) : 0;
+            const notDonePct = totalStories ? ((notDone / totalStories) * 100).toFixed(1) : 0;
             
             return (
                 '<div class="delay-row" id="ontime-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
@@ -4930,7 +4930,7 @@
             );
         }
         
-        function renderAcceleratedBreakdown(stats, totalActive) {
+        function renderAcceleratedBreakdown(stats, totalStories) {
             const acceleratedStories = stats.acceleratedStories || { done: [], notDone: [] };
             
             // Handle backward compatibility: if acceleratedStories is an array (old format), convert it
@@ -4949,9 +4949,8 @@
                 return '<div style="color:#6b7280;">No accelerated projects</div>';
             }
             
-            const total = done + notDone;
-            const donePct = total ? Math.round((done / total) * 100) : 0;
-            const notDonePct = total ? Math.round((notDone / total) * 100) : 0;
+            const donePct = totalStories ? ((done / totalStories) * 100).toFixed(1) : 0;
+            const notDonePct = totalStories ? ((notDone / totalStories) * 100).toFixed(1) : 0;
             
             return (
                 '<div class="delay-row" id="accelerated-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
@@ -4993,7 +4992,7 @@
             return '<div style="display:block; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #dc3545;">' + items + '</div>';
         }
         
-        function renderDelayBreakdown(stats, totalActive) {
+        function renderDelayBreakdown(stats, totalStories) {
             const counts = stats.delayBreakdown || {};
             const sorted = Object.keys(counts).map(n => parseInt(n, 10)).sort((a, b) => a - b);
             if (sorted.length === 0) {
@@ -5002,7 +5001,7 @@
             
             const rows = sorted.map(delayCount => {
                 const value = counts[delayCount] || 0;
-                const pct = totalActive ? Math.round((value / totalActive) * 100) : 0;
+                const pct = totalStories ? ((value / totalStories) * 100).toFixed(1) : 0;
                 const delayGroup = (stats.delayStories && stats.delayStories[delayCount]) || { done: [], notDone: [] };
                 const doneCount = delayGroup.done ? delayGroup.done.length : 0;
                 const notDoneCount = delayGroup.notDone ? delayGroup.notDone.length : 0;
@@ -5037,8 +5036,8 @@
             const doneCount = doneStories.length;
             const notDoneCount = notDoneStories.length;
             
-            const donePct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
-            const notDonePct = totalCount ? Math.round((notDoneCount / totalCount) * 100) : 0;
+            const donePct = totalCount ? ((doneCount / totalCount) * 100).toFixed(1) : 0;
+            const notDonePct = totalCount ? ((notDoneCount / totalCount) * 100).toFixed(1) : 0;
             
             return (
                 '<div class="delay-row" id="delay-' + delayCount + '-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
@@ -5241,7 +5240,7 @@
         }
 
         function renderStatsHtml(s) {
-            const pct = (num, den) => (den ? Math.round((num / den) * 100) : 0);
+            const pct = (num, den) => (den ? ((num / den) * 100).toFixed(1) : 0);
             const activeStories = s.totalStories - s.cancelled;
             
             return (
@@ -5261,7 +5260,7 @@
         }
         
         function barChart(label, value, total, color, stats, breakdownType) {
-            const percentage = total ? Math.round((value / total) * 100) : 0;
+            const percentage = total ? ((value / total) * 100).toFixed(1) : 0;
             
             let tooltipContent = '';
             let expandIcon = '';
@@ -6695,9 +6694,9 @@
         function addEditChange() {
             const container = document.getElementById('editChangesContainer');
             
-            // Check if we've reached the maximum of 3 changes
+            // Check if we've reached the maximum of 4 changes
             const existingChanges = container.querySelectorAll('div[id^="edit-change-"]');
-            if (existingChanges.length >= 3) {
+            if (existingChanges.length >= 4) {
                 return; // Don't add more changes if limit is reached
             }
             
@@ -6797,9 +6796,9 @@
             
             const existingChanges = container.querySelectorAll('div[id^="edit-change-"]');
             
-            if (existingChanges.length >= 3) {
+            if (existingChanges.length >= 4) {
                 addButton.disabled = true;
-                addButton.textContent = '+ Add Timeline Entry (Max 3 reached)';
+                addButton.textContent = '+ Add Timeline Entry (Max 4 reached)';
                 addButton.style.opacity = '0.5';
                 addButton.style.cursor = 'not-allowed';
             } else {

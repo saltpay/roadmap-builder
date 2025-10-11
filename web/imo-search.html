@@ -1171,7 +1171,7 @@
         }
         
         function renderSearchStatsHtml(s) {
-            const pct = (num, den) => (den ? Math.round((num / den) * 100) : 0);
+            const pct = (num, den) => (den ? ((num / den) * 100).toFixed(1) : 0);
             const activeStories = s.totalStories - s.cancelled;
             
             return (
@@ -1191,7 +1191,7 @@
         }
         
         function barChart(label, value, total, color, stats, breakdownType) {
-            const percentage = total ? Math.round((value / total) * 100) : 0;
+            const percentage = total ? ((value / total) * 100).toFixed(1) : 0;
             
             let tooltipContent = '';
             let expandIcon = '';
@@ -1292,11 +1292,11 @@
             `;
             
             if (breakdownType === 'delayed') {
-                breakdown.innerHTML = renderSearchDelayBreakdown(stats, activeStories);
+                breakdown.innerHTML = renderSearchDelayBreakdown(stats, stats.totalStories);
             } else if (breakdownType === 'ontime') {
-                breakdown.innerHTML = renderSearchOntimeBreakdown(stats, activeStories);
+                breakdown.innerHTML = renderSearchOntimeBreakdown(stats, stats.totalStories);
             } else if (breakdownType === 'accelerated') {
-                breakdown.innerHTML = renderSearchAcceleratedBreakdown(stats, activeStories);
+                breakdown.innerHTML = renderSearchAcceleratedBreakdown(stats, stats.totalStories);
             } else if (breakdownType === 'cancelled') {
                 breakdown.innerHTML = renderSearchCancelledBreakdown(stats);
             }
@@ -1308,7 +1308,7 @@
             setupSearchDelayBreakdownInteractions();
         }
         
-        function renderSearchOntimeBreakdown(stats, totalActive) {
+        function renderSearchOntimeBreakdown(stats, totalStories) {
             const done = stats.onTimeDone || 0;
             const notDone = stats.onTimeNotDone || 0;
             const doneStories = (stats.onTimeStories && stats.onTimeStories.done) || [];
@@ -1318,8 +1318,8 @@
                 return '<div style="color:#6b7280;">No on-time projects</div>';
             }
             
-            const donePct = totalActive ? Math.round((done / totalActive) * 100) : 0;
-            const notDonePct = totalActive ? Math.round((notDone / totalActive) * 100) : 0;
+            const donePct = totalStories ? ((done / totalStories) * 100).toFixed(1) : 0;
+            const notDonePct = totalStories ? ((notDone / totalStories) * 100).toFixed(1) : 0;
             
             return (
                 '<div class="delay-row" id="search-ontime-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
@@ -1343,7 +1343,7 @@
             );
         }
         
-        function renderSearchAcceleratedBreakdown(stats, totalActive) {
+        function renderSearchAcceleratedBreakdown(stats, totalStories) {
             const acceleratedStories = stats.acceleratedStories || { done: [], notDone: [] };
             
             // Handle backward compatibility: if acceleratedStories is an array (old format), convert it
@@ -1362,9 +1362,8 @@
                 return '<div style="color:#6b7280;">No accelerated projects</div>';
             }
             
-            const total = done + notDone;
-            const donePct = total ? Math.round((done / total) * 100) : 0;
-            const notDonePct = total ? Math.round((notDone / total) * 100) : 0;
+            const donePct = totalStories ? ((done / totalStories) * 100).toFixed(1) : 0;
+            const notDonePct = totalStories ? ((notDone / totalStories) * 100).toFixed(1) : 0;
             
             return (
                 '<div class="delay-row" id="search-accelerated-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
@@ -1388,7 +1387,7 @@
             );
         }
         
-        function renderSearchDelayBreakdown(stats, totalActive) {
+        function renderSearchDelayBreakdown(stats, totalStories) {
             const counts = stats.delayBreakdown || {};
             const sorted = Object.keys(counts).map(n => parseInt(n, 10)).sort((a, b) => a - b);
             if (sorted.length === 0) {
@@ -1397,7 +1396,7 @@
             
             const rows = sorted.map(delayCount => {
                 const value = counts[delayCount] || 0;
-                const pct = totalActive ? Math.round((value / totalActive) * 100) : 0;
+                const pct = totalStories ? ((value / totalStories) * 100).toFixed(1) : 0;
                 const delayGroup = (stats.delayStories && stats.delayStories[delayCount]) || { done: [], notDone: [] };
                 const doneCount = delayGroup.done ? delayGroup.done.length : 0;
                 const notDoneCount = delayGroup.notDone ? delayGroup.notDone.length : 0;
@@ -1432,8 +1431,8 @@
             const doneCount = doneStories.length;
             const notDoneCount = notDoneStories.length;
             
-            const donePct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
-            const notDonePct = totalCount ? Math.round((notDoneCount / totalCount) * 100) : 0;
+            const donePct = totalCount ? ((doneCount / totalCount) * 100).toFixed(1) : 0;
+            const notDonePct = totalCount ? ((notDoneCount / totalCount) * 100).toFixed(1) : 0;
             
             return (
                 '<div class="delay-row" id="search-delay-' + delayCount + '-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
