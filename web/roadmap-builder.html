@@ -1116,7 +1116,7 @@
                             <h5 style="margin-top: 0; margin-bottom: 10px;">Story Information</h5>
                             <div id="editInfoEntries">
                                 <!-- Info entries will be added here -->
-                            </div>
+                                </div>
                             <button id="add-edit-info-btn" onclick="addEditInfoEntry()" class="secondary" style="margin-top: 10px;">+ Add Info Entry</button>
                         </div>
 
@@ -1915,10 +1915,14 @@
             }
         }
 
+        // Temporary variable for force text below (one-time action)
+        let tempForceTextBelow = false;
+        
         function handleForceTextBelowToggle() {
             const toggle = document.getElementById('force-text-below-toggle');
             if (toggle) {
-                getConfigUtility().setForceTextBelow(toggle.checked);
+                // Use temporary variable instead of saving to localStorage
+                tempForceTextBelow = toggle.checked;
                 // Regenerate the preview to apply placement
                 generatePreview();
             }
@@ -2500,7 +2504,7 @@
                         <h5>Story Information</h5>
                         <div id="info-entries-${storyId}">
                             <!-- Info entries will be added here -->
-                        </div>
+                            </div>
                         <button id="add-info-btn-${storyId}" onclick="addInfoEntry('${storyId}')" class="secondary" style="margin-top: 10px;">+ Add Info Entry</button>
                     </div>
 
@@ -3264,18 +3268,18 @@
                         }
                     }, 100);
                 } else {
-                    // Auto-fill today's date if date field is empty
-                    const dateField = document.getElementById(dateFieldId);
-                    if (dateField && !dateField.value) {
-                        dateField.value = getTodaysDateEuropean();
+                // Auto-fill today's date if date field is empty
+                const dateField = document.getElementById(dateFieldId);
+                if (dateField && !dateField.value) {
+                    dateField.value = getTodaysDateEuropean();
+                }
+                
+                // Focus on the date field for convenience
+                setTimeout(() => {
+                    if (dateField) {
+                        dateField.focus({ preventScroll: true });
                     }
-                    
-                    // Focus on the date field for convenience
-                    setTimeout(() => {
-                        if (dateField) {
-                            dateField.focus({ preventScroll: true });
-                        }
-                    }, 100);
+                }, 100);
                 }
             } else {
                 // Hide the section
@@ -3566,9 +3570,9 @@
         function addChange(storyId) {
             const container = document.getElementById(`changes-container-${storyId}`);
             
-            // Check if we've reached the maximum of 4 changes
+            // Check if we've reached the maximum of 5 changes (allowing for 4th delay)
             const existingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
-            if (existingChanges.length >= 4) {
+            if (existingChanges.length >= 5) {
                 return; // Don't add more changes if limit is reached
             }
             
@@ -4963,7 +4967,7 @@
                                         });
                                     } else if (story.roadmapChanges.infoInfo.date) {
                                         // Single info entry (backward compatibility)
-                                        story.roadmapChanges.infoInfo.date = fixDate(story.roadmapChanges.infoInfo.date);
+                                    story.roadmapChanges.infoInfo.date = fixDate(story.roadmapChanges.infoInfo.date);
                                     }
                                 }
                                 if (story.roadmapChanges.transferredOutInfo && story.roadmapChanges.transferredOutInfo.date) {
@@ -5760,6 +5764,8 @@
                 if (startToggle) startToggle.checked = false;
                 if (endToggle) endToggle.checked = false;
                 if (textBelowToggle) textBelowToggle.checked = false;
+                // Reset temporary force text below variable
+                tempForceTextBelow = false;
                 // Persist cleared state
                 getConfigUtility().setSortStories(false);
                 getConfigUtility().setSortByStart(false);
@@ -7137,9 +7143,9 @@
         function addEditChange() {
             const container = document.getElementById('editChangesContainer');
             
-            // Check if we've reached the maximum of 4 changes
+            // Check if we've reached the maximum of 5 changes (allowing for 4th delay)
             const existingChanges = container.querySelectorAll('div[id^="edit-change-"]');
-            if (existingChanges.length >= 4) {
+            if (existingChanges.length >= 5) {
                 return; // Don't add more changes if limit is reached
             }
             
@@ -7242,9 +7248,9 @@
             
             const existingChanges = container.querySelectorAll('div[id^="edit-change-"]');
             
-            if (existingChanges.length >= 4) {
+            if (existingChanges.length >= 5) {
                 addButton.disabled = true;
-                addButton.textContent = '+ Add Timeline Entry (Max 4 reached)';
+                addButton.textContent = '+ Add Timeline Entry (Max 5 reached)';
                 addButton.style.opacity = '0.5';
                 addButton.style.cursor = 'not-allowed';
             } else {
@@ -8740,8 +8746,9 @@
             if (endToggle) {
                 endToggle.checked = !!getConfigUtility().shouldSortByEnd();
             }
+            // Force text below is a one-time action, don't restore from saved state
             if (textBelowToggle) {
-                textBelowToggle.checked = !!getConfigUtility().shouldForceTextBelow();
+                textBelowToggle.checked = false;
             }
             
             if (!('showDirectoryPicker' in window)) {

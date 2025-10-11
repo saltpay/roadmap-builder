@@ -1532,14 +1532,21 @@ class RoadmapGenerator {
                 }
                 
                 // Global force: when enabled, always position below and align with story start
-                const forceBelowGlobal = (typeof getConfigUtility === 'function' && getConfigUtility().shouldForceTextBelow && getConfigUtility().shouldForceTextBelow());
+                // Check localStorage, main form temporary variable, and search results temporary variable
+                const forceBelowFromConfig = (typeof getConfigUtility === 'function' && getConfigUtility().shouldForceTextBelow());
+                const forceBelowFromTemp = (typeof tempForceTextBelow !== 'undefined' && tempForceTextBelow);
+                const forceBelowFromSearch = (typeof searchTempForceTextBelow !== 'undefined' && searchTempForceTextBelow);
+                const forceBelowGlobal = forceBelowFromConfig || forceBelowFromTemp || forceBelowFromSearch;
                 if (forceBelowGlobal) {
                     shouldPositionBelowFinal = true;
                 }
                 
                 if (shouldPositionBelowFinal) {
                     // Position below story, align start with story start when forced; otherwise small indent
-                    const forceBelowGlobal = (typeof getConfigUtility === 'function' && getConfigUtility().shouldForceTextBelow && getConfigUtility().shouldForceTextBelow());
+                    const forceBelowFromConfig = (typeof getConfigUtility === 'function' && getConfigUtility().shouldForceTextBelow());
+                    const forceBelowFromTemp = (typeof tempForceTextBelow !== 'undefined' && tempForceTextBelow);
+                    const forceBelowFromSearch = (typeof searchTempForceTextBelow !== 'undefined' && searchTempForceTextBelow);
+                    const forceBelowGlobal = forceBelowFromConfig || forceBelowFromTemp || forceBelowFromSearch;
                     changeStartGrid = forceBelowGlobal ? storyStartGrid : (storyStartGrid + 1);
                     changeEndGrid = changeStartGrid + textBoxWidth;
                     
