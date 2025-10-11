@@ -1798,8 +1798,27 @@
                 const infoInfo = storyData.infoInfo || {};
                 const roadmapInfoInfo = storyData.roadmapChanges?.infoInfo || {};
                 
-                const infoDate = infoInfo.date || roadmapInfoInfo.date || storyData.infoDate || 'Not specified';
-                const infoNotes = infoInfo.notes || roadmapInfoInfo.notes || storyData.infoNotes || 'None';
+                let infoDate = 'Not specified';
+                let infoNotes = 'None';
+                
+                if (Array.isArray(roadmapInfoInfo) && roadmapInfoInfo.length > 0) {
+                    // Multiple info entries - show the first one or combine them
+                    const firstEntry = roadmapInfoInfo[0];
+                    infoDate = firstEntry.date || 'Not specified';
+                    if (roadmapInfoInfo.length === 1) {
+                        infoNotes = firstEntry.notes || 'None';
+                    } else {
+                        infoNotes = `${firstEntry.notes || 'None'} (${roadmapInfoInfo.length} entries total)`;
+                    }
+                } else if (roadmapInfoInfo && roadmapInfoInfo.date) {
+                    // Single info entry (backward compatibility)
+                    infoDate = roadmapInfoInfo.date;
+                    infoNotes = roadmapInfoInfo.notes || 'None';
+                } else {
+                    // Fallback to old format
+                    infoDate = infoInfo.date || storyData.infoDate || 'Not specified';
+                    infoNotes = infoInfo.notes || storyData.infoNotes || 'None';
+                }
                 
                 document.getElementById('viewInfoDate').textContent = infoDate;
                 document.getElementById('viewInfoNotes').textContent = infoNotes;

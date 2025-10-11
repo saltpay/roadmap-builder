@@ -987,11 +987,25 @@ class RoadmapGenerator {
             });
         }
         
-        if (infoInfo && (infoInfo.date || infoInfo.notes)) {
-            allItems.push({
-                date: infoInfo.date,
-                html: generateStatusColumn('ℹ️', '#007cba', infoInfo.date, infoInfo.notes)
-            });
+        // Handle multiple info entries
+        if (infoInfo) {
+            if (Array.isArray(infoInfo)) {
+                // Multiple info entries
+                infoInfo.forEach(entry => {
+                    if (entry && (entry.date || entry.notes)) {
+                        allItems.push({
+                            date: entry.date,
+                            html: generateStatusColumn('ℹ️', '#007cba', entry.date, entry.notes)
+                        });
+                    }
+                });
+            } else if (infoInfo.date || infoInfo.notes) {
+                // Single info entry (backward compatibility)
+                allItems.push({
+                    date: infoInfo.date,
+                    html: generateStatusColumn('ℹ️', '#007cba', infoInfo.date, infoInfo.notes)
+                });
+            }
         }
         
         // Add transferred in first (to ensure it appears before transferred out)
@@ -1324,7 +1338,10 @@ class RoadmapGenerator {
             const hasCancelInfo = story.roadmapChanges && story.roadmapChanges.cancelInfo && (story.roadmapChanges.cancelInfo.date || story.roadmapChanges.cancelInfo.notes);
             const hasAtRiskInfo = story.roadmapChanges && story.roadmapChanges.atRiskInfo && (story.roadmapChanges.atRiskInfo.date || story.roadmapChanges.atRiskInfo.notes);
             const hasNewStoryInfo = story.roadmapChanges && story.roadmapChanges.newStoryInfo && (story.roadmapChanges.newStoryInfo.date || story.roadmapChanges.newStoryInfo.notes);
-            const hasInfoInfo = story.roadmapChanges && story.roadmapChanges.infoInfo && (story.roadmapChanges.infoInfo.date || story.roadmapChanges.infoInfo.notes);
+            const hasInfoInfo = story.roadmapChanges && story.roadmapChanges.infoInfo && (
+                (Array.isArray(story.roadmapChanges.infoInfo) && story.roadmapChanges.infoInfo.length > 0) ||
+                (!Array.isArray(story.roadmapChanges.infoInfo) && (story.roadmapChanges.infoInfo.date || story.roadmapChanges.infoInfo.notes))
+            );
             const hasTransferredOutInfo = story.roadmapChanges && story.roadmapChanges.transferredOutInfo && (story.roadmapChanges.transferredOutInfo.date || story.roadmapChanges.transferredOutInfo.notes);
             const hasTransferredInInfo = story.roadmapChanges && story.roadmapChanges.transferredInInfo && (story.roadmapChanges.transferredInInfo.date || story.roadmapChanges.transferredInInfo.notes);
             const hasProposedInfo = story.roadmapChanges && story.roadmapChanges.proposedInfo && (story.roadmapChanges.proposedInfo.date || story.roadmapChanges.proposedInfo.notes);

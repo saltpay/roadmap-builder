@@ -1114,16 +1114,10 @@
                         
                         <div id="editInfoFields" class="border-card" style="display: none;">
                             <h5>Story Information</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editInfoDate">Info Date:</label>
-                                    <input type="text" id="editInfoDate" placeholder="15/3/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editInfoNotes">Info Notes:</label>
-                                    <textarea id="editInfoNotes" rows="4" style="height: 80px;" placeholder="Additional information about this story (multiple lines supported)"></textarea>
-                                </div>
+                            <div id="editInfoEntries">
+                                <!-- Info entries will be added here -->
                             </div>
+                            <button id="add-edit-info-btn" onclick="addEditInfoEntry()" class="secondary" style="margin-top: 10px;">+ Add Info Entry</button>
                         </div>
 
                                                 <div id="editTransferredInFields" class="border-card" style="display: none;">
@@ -2504,16 +2498,10 @@
                     <!-- Info Section -->
                     <div id="info-section-${storyId}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
                         <h5>Story Information</h5>
-                        <div class="inline-group">
-                            <div class="form-group">
-                                <label for="info-date-${storyId}">Info Date:</label>
-                                <input type="text" id="info-date-${storyId}" placeholder="15/01 or 15/01/25 or 15-01-2025">
-                            </div>
-                            <div class="form-group">
-                                <label for="info-notes-${storyId}">Information Details:</label>
-                                <textarea id="info-notes-${storyId}" placeholder="Additional information about this story (multiple lines supported)" rows="4" style="height: 80px;"></textarea>
-                            </div>
+                        <div id="info-entries-${storyId}">
+                            <!-- Info entries will be added here -->
                         </div>
+                        <button id="add-info-btn-${storyId}" onclick="addInfoEntry('${storyId}')" class="secondary" style="margin-top: 10px;">+ Add Info Entry</button>
                     </div>
 
                     <!-- Transferred In Section -->
@@ -3360,6 +3348,156 @@
 
         function handleInfoChange(storyId) {
             handleStatusChange(storyId, 'info');
+            
+            // Convert single info to multiple instances if needed
+            setTimeout(() => {
+                convertSingleInfoToMultiple(storyId);
+            }, 100);
+        }
+
+        // Add new info entry
+        function addInfoEntry(storyId) {
+            const entriesContainer = document.getElementById(`info-entries-${storyId}`);
+            const entryId = `info-entry-${storyId}-${Date.now()}`;
+            
+            const entryHtml = `
+                <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                        <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                    </div>
+                    <div class="inline-group">
+                        <div class="form-group">
+                            <label for="info-date-${entryId}">Info Date:</label>
+                            <input type="text" id="info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025">
+                        </div>
+                        <div class="form-group">
+                            <label for="info-notes-${entryId}">Information Details:</label>
+                            <textarea id="info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;"></textarea>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            entriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+            
+            // Auto-fill today's date
+            const dateField = document.getElementById(`info-date-${entryId}`);
+            if (dateField) {
+                dateField.value = getTodaysDateEuropean();
+                dateField.focus({ preventScroll: true });
+            }
+            
+            // Add auto-update listener
+            const dateInput = document.getElementById(`info-date-${entryId}`);
+            const notesInput = document.getElementById(`info-notes-${entryId}`);
+            
+            if (dateInput) {
+                dateInput.addEventListener('input', () => generatePreview());
+            }
+            if (notesInput) {
+                notesInput.addEventListener('input', () => generatePreview());
+            }
+        }
+
+        // Remove info entry
+        function removeInfoEntry(entryId) {
+            const entry = document.getElementById(entryId);
+            if (entry) {
+                entry.remove();
+                generatePreview();
+            }
+        }
+
+        // Convert single info entry to multiple instances format
+        function convertSingleInfoToMultiple(storyId) {
+            const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
+            if (!infoEntriesContainer) return;
+            
+            // Check if there are any existing entries
+            const existingEntries = infoEntriesContainer.querySelectorAll('.info-entry');
+            if (existingEntries.length > 0) return; // Already converted or has entries
+            
+            // Check if there's old single info data
+            const oldInfoDateEl = document.getElementById(`info-date-${storyId}`);
+            const oldInfoNotesEl = document.getElementById(`info-notes-${storyId}`);
+            
+            if (oldInfoDateEl && oldInfoNotesEl && (oldInfoDateEl.value || oldInfoNotesEl.value)) {
+                // Convert the old single entry to the new format
+                const entryId = `info-entry-${storyId}-${Date.now()}`;
+                const entryHtml = `
+                    <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                            <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                        </div>
+                        <div class="inline-group">
+                            <div class="form-group">
+                                <label for="info-date-${entryId}">Info Date:</label>
+                                <input type="text" id="info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${oldInfoDateEl.value}">
+                            </div>
+                            <div class="form-group">
+                                <label for="info-notes-${entryId}">Information Details:</label>
+                                <textarea id="info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${oldInfoNotesEl.value}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                infoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                
+                // Add auto-update listeners
+                const dateInput = document.getElementById(`info-date-${entryId}`);
+                const notesInput = document.getElementById(`info-notes-${entryId}`);
+                if (dateInput) dateInput.addEventListener('input', () => generatePreview());
+                if (notesInput) notesInput.addEventListener('input', () => generatePreview());
+                
+                // Clear the old fields
+                oldInfoDateEl.value = '';
+                oldInfoNotesEl.value = '';
+            }
+        }
+
+        // Modal-specific info entry functions
+        let editInfoEntryCounter = 0;
+
+        function addEditInfoEntry() {
+            const entriesContainer = document.getElementById('editInfoEntries');
+            const entryId = `edit-info-entry-${editInfoEntryCounter++}`;
+            
+            const entryHtml = `
+                <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                        <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                    </div>
+                    <div class="inline-group">
+                        <div class="form-group">
+                            <label for="edit-info-date-${entryId}">Info Date:</label>
+                            <input type="text" id="edit-info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-info-notes-${entryId}">Information Details:</label>
+                            <textarea id="edit-info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;"></textarea>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            entriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+            
+            // Auto-fill today's date
+            const dateField = document.getElementById(`edit-info-date-${entryId}`);
+            if (dateField) {
+                dateField.value = getTodaysDateEuropean();
+                dateField.focus({ preventScroll: true });
+            }
+        }
+
+        function removeEditInfoEntry(entryId) {
+            const entry = document.getElementById(entryId);
+            if (entry) {
+                entry.remove();
+            }
         }
 
         function handleTransferredOutChange(storyId) {
@@ -4140,10 +4278,34 @@
             const newStoryNotes = newStoryNotesEl ? newStoryNotesEl.value : '';
             
             // Collect info info (regardless of timeline changes checkbox)  
-            const infoDateEl = document.getElementById(`info-date-${storyId}`);
-            const infoNotesEl = document.getElementById(`info-notes-${storyId}`);
-            const infoDate = infoDateEl ? infoDateEl.value : '';
-            const infoNotes = infoNotesEl ? infoNotesEl.value : '';
+            const infoEntries = [];
+            const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
+            if (infoEntriesContainer) {
+                const entryElements = infoEntriesContainer.querySelectorAll('.info-entry');
+                entryElements.forEach(entry => {
+                    const entryId = entry.id;
+                    const dateEl = document.getElementById(`info-date-${entryId}`);
+                    const notesEl = document.getElementById(`info-notes-${entryId}`);
+                    if (dateEl && notesEl && (dateEl.value || notesEl.value)) {
+                        infoEntries.push({
+                            date: dateEl.value,
+                            notes: notesEl.value
+                        });
+                    }
+                });
+            }
+            
+            // Fallback: check for old single info fields
+            if (infoEntries.length === 0) {
+                const oldInfoDateEl = document.getElementById(`info-date-${storyId}`);
+                const oldInfoNotesEl = document.getElementById(`info-notes-${storyId}`);
+                if (oldInfoDateEl && oldInfoNotesEl && (oldInfoDateEl.value || oldInfoNotesEl.value)) {
+                    infoEntries.push({
+                        date: oldInfoDateEl.value,
+                        notes: oldInfoNotesEl.value
+                    });
+                }
+            }
             
                         // Collect transferred out info (regardless of timeline changes checkbox)
             const transferredOutDateEl = document.getElementById(`transferredout-date-${storyId}`);
@@ -4278,10 +4440,7 @@
                 }
                 
                 if (story.isInfo) {
-                    story.roadmapChanges.infoInfo = {
-                        date: ensureDateHasYear(infoDate) || '',
-                        notes: infoNotes || ''
-                    };
+                    story.roadmapChanges.infoInfo = infoEntries.length > 0 ? infoEntries : null;
                 }
                 
                 if (story.isTransferredOut) {
@@ -4727,8 +4886,18 @@
                                 if (story.roadmapChanges.newStoryInfo && story.roadmapChanges.newStoryInfo.date) {
                                     story.roadmapChanges.newStoryInfo.date = fixDate(story.roadmapChanges.newStoryInfo.date);
                                 }
-                                if (story.roadmapChanges.infoInfo && story.roadmapChanges.infoInfo.date) {
-                                    story.roadmapChanges.infoInfo.date = fixDate(story.roadmapChanges.infoInfo.date);
+                                if (story.roadmapChanges.infoInfo) {
+                                    if (Array.isArray(story.roadmapChanges.infoInfo)) {
+                                        // Multiple info entries
+                                        story.roadmapChanges.infoInfo.forEach(entry => {
+                                            if (entry && entry.date) {
+                                                entry.date = fixDate(entry.date);
+                                            }
+                                        });
+                                    } else if (story.roadmapChanges.infoInfo.date) {
+                                        // Single info entry (backward compatibility)
+                                        story.roadmapChanges.infoInfo.date = fixDate(story.roadmapChanges.infoInfo.date);
+                                    }
                                 }
                                 if (story.roadmapChanges.transferredOutInfo && story.roadmapChanges.transferredOutInfo.date) {
                                     story.roadmapChanges.transferredOutInfo.date = fixDate(story.roadmapChanges.transferredOutInfo.date);
@@ -5873,25 +6042,46 @@
                             // Wait a moment for DOM elements to be created, then load the changes
                             setTimeout(() => {
                                 story.roadmapChanges.changes.forEach(change => {
-                                    addChange(storyId);
+                                    // Create change entry directly without using addChange() to avoid limit restrictions
+                                    changeCounter++;
+                                    const changeId = `${storyId}-change-${Date.now()}-${changeCounter}`;
                                     
-                                    // Find the most recently added change element (container)
-                                    const changeContainers = document.querySelectorAll(`#changes-container-${storyId} > div[id^="change-${storyId}-change-"]`);
-                                    const latestContainer = changeContainers[changeContainers.length - 1];
-                                    if (latestContainer) {
-                                        // Use the full ID pattern that matches collection logic: "1-4-change-1750523457266"
-                                        const fullChangeId = latestContainer.id.replace('change-', '');
-                                        
-                                        const dateEl = document.getElementById(`change-date-${fullChangeId}`);
-                                        const prevEl = document.getElementById(`change-prev-${fullChangeId}`);
-                                        const newEl = document.getElementById(`change-new-${fullChangeId}`);
-                                        const descEl = document.getElementById(`change-desc-${fullChangeId}`);
-                                        
-                                        if (dateEl) dateEl.value = change.date || '';
-                                        if (prevEl) prevEl.value = change.prevEndDate || '';
-                                        if (newEl) newEl.value = change.newEndDate || '';
-                                        if (descEl) descEl.value = change.description || '';
-                                    }
+                                    // Get current story end date for auto-population
+                                    const currentEndDateElement = document.getElementById(`story-end-${storyId}`);
+                                    const currentEndDate = currentEndDateElement ? currentEndDateElement.value : '';
+                                    
+                                    const changeHtml = `
+                                        <div class="form-group" id="change-${changeId}" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                                <strong>Timeline Entry</strong>
+                                                <button class="danger" onclick="removeChange('${changeId}', '${storyId}')" tabindex="-1">Remove</button>
+                                            </div>
+                                            
+                                            <div class="inline-group">
+                                                <div class="form-group">
+                                                    <label>Change Date:</label>
+                                                    <input type="text" id="change-date-${changeId}" placeholder="15/12 or 15/12/24 or 15-12-2024" value="${change.date || ''}">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label>Description:</label>
+                                                    <input type="text" id="change-desc-${changeId}" placeholder="Reason for change" value="${change.description || ''}">
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="inline-group">
+                                                <div class="form-group">
+                                                    <label>Previous End Date:</label>
+                                                    <input type="text" id="change-prev-${changeId}" placeholder="31/03" style="margin-bottom: 1px;" value="${change.prevEndDate || ''}">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label>New End Date:</label>
+                                                    <input type="text" id="change-new-${changeId}" placeholder="15/04" style="margin-bottom: 1px;" value="${change.newEndDate || ''}">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                    
+                                    document.getElementById(`changes-container-${storyId}`).insertAdjacentHTML('beforeend', changeHtml);
                                 });
                                 
                                 // Update button state after loading all changes
@@ -5965,10 +6155,77 @@
                     
                     // Load info info and show info section if needed
                     if (story.roadmapChanges.infoInfo) {
-                        const infoDateEl = document.getElementById(`info-date-${storyId}`);
-                        const infoNotesEl = document.getElementById(`info-notes-${storyId}`);
-                        if (infoDateEl) infoDateEl.value = story.roadmapChanges.infoInfo.date || '';
-                        if (infoNotesEl) infoNotesEl.value = story.roadmapChanges.infoInfo.notes || '';
+                        const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
+                        if (infoEntriesContainer) {
+                            // Clear existing entries
+                            infoEntriesContainer.innerHTML = '';
+                            
+                            if (Array.isArray(story.roadmapChanges.infoInfo)) {
+                                // Multiple info entries
+                                story.roadmapChanges.infoInfo.forEach((entry, index) => {
+                                    const entryId = `info-entry-${storyId}-${Date.now()}-${index}`;
+                                    const entryHtml = `
+                                        <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                                <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                                                <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                                            </div>
+                                            <div class="inline-group">
+                                                <div class="form-group">
+                                                    <label for="info-date-${entryId}">Info Date:</label>
+                                                    <input type="text" id="info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${entry.date || ''}">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="info-notes-${entryId}">Information Details:</label>
+                                                    <textarea id="info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${entry.notes || ''}</textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                    infoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                                    
+                                    // Add auto-update listeners
+                                    const dateInput = document.getElementById(`info-date-${entryId}`);
+                                    const notesInput = document.getElementById(`info-notes-${entryId}`);
+                                    if (dateInput) dateInput.addEventListener('input', () => generatePreview());
+                                    if (notesInput) notesInput.addEventListener('input', () => generatePreview());
+                                });
+                            } else {
+                                // Single info entry (backward compatibility)
+                                const entryId = `info-entry-${storyId}-${Date.now()}`;
+                                const entryHtml = `
+                                    <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                            <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                                            <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                                        </div>
+                                        <div class="inline-group">
+                                            <div class="form-group">
+                                                <label for="info-date-${entryId}">Info Date:</label>
+                                                <input type="text" id="info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${story.roadmapChanges.infoInfo.date || ''}">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="info-notes-${entryId}">Information Details:</label>
+                                                <textarea id="info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${story.roadmapChanges.infoInfo.notes || ''}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                                infoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                                
+                                // Add auto-update listeners
+                                const dateInput = document.getElementById(`info-date-${entryId}`);
+                                const notesInput = document.getElementById(`info-notes-${entryId}`);
+                                if (dateInput) dateInput.addEventListener('input', () => generatePreview());
+                                if (notesInput) notesInput.addEventListener('input', () => generatePreview());
+                                
+                                // Convert the data structure from old single format to new multiple format
+                                story.roadmapChanges.infoInfo = [{
+                                    date: story.roadmapChanges.infoInfo.date,
+                                    notes: story.roadmapChanges.infoInfo.notes
+                                }];
+                            }
+                        }
                         
                         // Show the info section if there's info info
                         if (story.isInfo) {
@@ -6347,8 +6604,135 @@
             document.getElementById('editAtRiskNotes').value = foundStory.atRiskNotes || '';
             document.getElementById('editNewStoryDate').value = foundStory.newStoryDate || '';
             document.getElementById('editNewStoryNotes').value = foundStory.newStoryNotes || '';
-            document.getElementById('editInfoDate').value = foundStory.infoDate || '';
-            document.getElementById('editInfoNotes').value = foundStory.infoNotes || '';
+            // Load info entries (multiple instances)
+            const editInfoEntriesContainer = document.getElementById('editInfoEntries');
+            if (editInfoEntriesContainer) {
+                // Clear existing entries
+                editInfoEntriesContainer.innerHTML = '';
+                editInfoEntryCounter = 0;
+                
+                if (foundStory.roadmapChanges && foundStory.roadmapChanges.infoInfo) {
+                    if (Array.isArray(foundStory.roadmapChanges.infoInfo)) {
+                        // Multiple info entries
+                        foundStory.roadmapChanges.infoInfo.forEach((entry, index) => {
+                            const entryId = `edit-info-entry-${editInfoEntryCounter++}`;
+                            const entryHtml = `
+                                <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                                        <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                                    </div>
+                                    <div class="inline-group">
+                                        <div class="form-group">
+                                            <label for="edit-info-date-${entryId}">Info Date:</label>
+                                            <input type="text" id="edit-info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${entry.date || ''}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="edit-info-notes-${entryId}">Information Details:</label>
+                                            <textarea id="edit-info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${entry.notes || ''}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            editInfoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                        });
+                    } else {
+                        // Single info entry (backward compatibility)
+                        const entryId = `edit-info-entry-${editInfoEntryCounter++}`;
+                        const entryHtml = `
+                            <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                                    <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                                </div>
+                                <div class="inline-group">
+                                    <div class="form-group">
+                                        <label for="edit-info-date-${entryId}">Info Date:</label>
+                                        <input type="text" id="edit-info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${foundStory.roadmapChanges.infoInfo.date || ''}">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-info-notes-${entryId}">Information Details:</label>
+                                        <textarea id="edit-info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${foundStory.roadmapChanges.infoInfo.notes || ''}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        editInfoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                        
+                        // Convert the data structure from old single format to new multiple format
+                        foundStory.roadmapChanges.infoInfo = [{
+                            date: foundStory.roadmapChanges.infoInfo.date,
+                            notes: foundStory.roadmapChanges.infoInfo.notes
+                        }];
+                    }
+                } else {
+                    // Check if data has been converted in the main form
+                    const mainFormInfoEntries = [];
+                    const mainFormInfoContainer = document.getElementById(`info-entries-${foundStory.storyId}`);
+                    if (mainFormInfoContainer) {
+                        const mainFormEntries = mainFormInfoContainer.querySelectorAll('.info-entry');
+                        mainFormEntries.forEach(entry => {
+                            const entryId = entry.id;
+                            const dateEl = document.getElementById(`info-date-${entryId}`);
+                            const notesEl = document.getElementById(`info-notes-${entryId}`);
+                            if (dateEl && notesEl && (dateEl.value || notesEl.value)) {
+                                mainFormInfoEntries.push({
+                                    date: dateEl.value,
+                                    notes: notesEl.value
+                                });
+                            }
+                        });
+                    }
+                    
+                    if (mainFormInfoEntries.length > 0) {
+                        // Use converted data from main form
+                        mainFormInfoEntries.forEach((entry, index) => {
+                            const entryId = `edit-info-entry-${editInfoEntryCounter++}`;
+                            const entryHtml = `
+                                <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                                        <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                                    </div>
+                                    <div class="inline-group">
+                                        <div class="form-group">
+                                            <label for="edit-info-date-${entryId}">Info Date:</label>
+                                            <input type="text" id="edit-info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${entry.date || ''}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="edit-info-notes-${entryId}">Information Details:</label>
+                                            <textarea id="edit-info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${entry.notes || ''}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            editInfoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                        });
+                    } else if (foundStory.infoDate || foundStory.infoNotes) {
+                        // Fallback to old single info format
+                        const entryId = `edit-info-entry-${editInfoEntryCounter++}`;
+                        const entryHtml = `
+                            <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                                    <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                                </div>
+                                <div class="inline-group">
+                                    <div class="form-group">
+                                        <label for="edit-info-date-${entryId}">Info Date:</label>
+                                        <input type="text" id="edit-info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${foundStory.infoDate || ''}">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-info-notes-${entryId}">Information Details:</label>
+                                        <textarea id="edit-info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${foundStory.infoNotes || ''}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        editInfoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                    }
+                }
+            }
             // Backward compatibility: handle both old handedOver and new transferredOut properties
             document.getElementById('editTransferredOutDate').value = foundStory.transferredOutDate || foundStory.handedOverDate || '';
             document.getElementById('editTransferredOutNotes').value = foundStory.transferredOutNotes || foundStory.handedOverNotes || '';
@@ -6368,12 +6752,46 @@
                 
                 // Add each timeline change in chronological order
                 sortedTimelineChanges.forEach(change => {
-                    addEditChange();
+                    // Create change entry directly without using addEditChange() to avoid limit restrictions
+                    editChangeCounter++;
                     const changeId = `edit-change-${editChangeCounter}`;
-                    document.getElementById(`${changeId}-date`).value = change.date || '';
-                    document.getElementById(`${changeId}-desc`).value = change.description || '';
-                    document.getElementById(`${changeId}-prev`).value = change.prevEndDate || '';
-                    document.getElementById(`${changeId}-new`).value = change.newEndDate || '';
+                    
+                    // Get current story end date for auto-population
+                    const currentEndDateElement = document.getElementById('editEnd');
+                    const currentEndDate = currentEndDateElement ? currentEndDateElement.value : '';
+                    
+                    const changeHtml = `
+                        <div class="form-group" id="${changeId}" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px; background-color: #f8f9fa;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <strong>Timeline Entry</strong>
+                                <button type="button" class="danger" onclick="removeEditChange('${changeId}')" style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;" tabindex="-1">Remove</button>
+                            </div>
+                            
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Change Date:</label>
+                                    <input type="text" id="${changeId}-date" placeholder="15/12/24" value="${change.date || ''}">
+                                </div>
+                                <div class="form-group">
+                                    <label>Description:</label>
+                                    <input type="text" id="${changeId}-desc" placeholder="Reason for change" value="${change.description || ''}">
+                                </div>
+                            </div>
+                            
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Previous End Date:</label>
+                                    <input type="text" id="${changeId}-prev" placeholder="31/03" style="margin-bottom: 1px;" value="${change.prevEndDate || ''}">
+                                </div>
+                                <div class="form-group">
+                                    <label>New End Date:</label>
+                                    <input type="text" id="${changeId}-new" placeholder="15/04" style="margin-bottom: 1px;" value="${change.newEndDate || ''}">
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.getElementById('editChangesContainer').insertAdjacentHTML('beforeend', changeHtml);
                 });
                 
                 // Update button state after loading all changes
@@ -6394,7 +6812,7 @@
             // Clear date picker initialization flags to allow re-initialization
             const modalDateFields = [
                 'editStart', 'editEnd', 'editDoneDate', 'editCancelDate', 
-                'editAtRiskDate', 'editNewStoryDate', 'editInfoDate', 'editTransferredOutDate', 'editBTLDateAdded'
+                'editAtRiskDate', 'editNewStoryDate', 'editTransferredOutDate', 'editBTLDateAdded'
             ];
             
             modalDateFields.forEach(fieldId => {
@@ -6542,7 +6960,7 @@
                 if (cancelledChecked) initializeDatePicker(document.getElementById('editCancelDate'), false);
                 if (atRiskChecked) initializeDatePicker(document.getElementById('editAtRiskDate'), false);
                 if (newStoryChecked) initializeDatePicker(document.getElementById('editNewStoryDate'), false);
-                if (infoChecked) initializeDatePicker(document.getElementById('editInfoDate'), false);
+                // Info entries are handled dynamically, no single date picker needed
                 if (transferredOutChecked) initializeDatePicker(document.getElementById('editTransferredOutDate'), false);
                 if (transferredInChecked) initializeDatePicker(document.getElementById('editTransferredInDate'), false);
                 if (proposedChecked) initializeDatePicker(document.getElementById('editProposedDate'), false);
@@ -6577,12 +6995,7 @@
                 }
             }
             
-            if (infoChecked) {
-                const infoDateField = document.getElementById('editInfoDate');
-                if (infoDateField && !infoDateField.value) {
-                    infoDateField.value = getTodaysDateEuropean();
-                }
-            }
+            // Info entries are handled dynamically with addEditInfoEntry function
             
             if (transferredOutChecked) {
                 const transferredOutDateField = document.getElementById('editTransferredOutDate');
@@ -7357,8 +7770,50 @@
                     if (atRiskNotesEl) atRiskNotesEl.value = document.getElementById('editAtRiskNotes').value;
                     if (newStoryDateEl) newStoryDateEl.value = document.getElementById('editNewStoryDate').value;
                     if (newStoryNotesEl) newStoryNotesEl.value = document.getElementById('editNewStoryNotes').value;
-                    if (infoDateEl) infoDateEl.value = document.getElementById('editInfoDate').value;
-                    if (infoNotesEl) infoNotesEl.value = document.getElementById('editInfoNotes').value;
+                    // Handle multiple info entries
+                    const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
+                    if (infoEntriesContainer) {
+                        // Clear existing entries
+                        infoEntriesContainer.innerHTML = '';
+                        
+                        // Collect info entries from modal
+                        const editInfoEntries = document.querySelectorAll('#editInfoEntries > div[id^="edit-info-entry-"]');
+                        editInfoEntries.forEach((editEntryEl) => {
+                            const entryId = editEntryEl.id;
+                            const dateEl = document.getElementById(`edit-info-date-${entryId}`);
+                            const notesEl = document.getElementById(`edit-info-notes-${entryId}`);
+                            
+                            if (dateEl && notesEl && (dateEl.value || notesEl.value)) {
+                                // Create new entry in the main form
+                                const newEntryId = `info-entry-${storyId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                                const entryHtml = `
+                                    <div id="${newEntryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                            <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                                            <button type="button" onclick="removeInfoEntry('${newEntryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                                        </div>
+                                        <div class="inline-group">
+                                            <div class="form-group">
+                                                <label for="info-date-${newEntryId}">Info Date:</label>
+                                                <input type="text" id="info-date-${newEntryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${dateEl.value}">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="info-notes-${newEntryId}">Information Details:</label>
+                                                <textarea id="info-notes-${newEntryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${notesEl.value}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                                infoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                                
+                                // Add auto-update listeners
+                                const dateInput = document.getElementById(`info-date-${newEntryId}`);
+                                const notesInput = document.getElementById(`info-notes-${newEntryId}`);
+                                if (dateInput) dateInput.addEventListener('input', () => generatePreview());
+                                if (notesInput) notesInput.addEventListener('input', () => generatePreview());
+                            }
+                        });
+                    }
                     if (transferredOutDateEl) transferredOutDateEl.value = document.getElementById('editTransferredOutDate').value;
                     if (transferredOutNotesEl) transferredOutNotesEl.value = document.getElementById('editTransferredOutNotes').value;
                     if (transferredInDateEl) transferredInDateEl.value = document.getElementById('editTransferredInDate').value;
@@ -7398,23 +7853,42 @@
                         
                         // Add sorted timeline changes to the main form
                         modalTimelineChanges.forEach((change) => {
-                            addChange(storyId);
+                            // Create change entry directly without using addChange() to avoid limit restrictions
+                            changeCounter++;
+                            const changeId = `${storyId}-change-${Date.now()}-${changeCounter}`;
                             
-                            // IMMEDIATE population without setTimeout to avoid race conditions
-                            const changeContainers = document.querySelectorAll(`#changes-container-${storyId} > div[id^="change-${storyId}-change-"]`);
-                            const latestContainer = changeContainers[changeContainers.length - 1];
-                            if (latestContainer) {
-                                const fullChangeId = latestContainer.id.replace('change-', '');
-                                const dateEl = document.getElementById(`change-date-${fullChangeId}`);
-                                const descEl = document.getElementById(`change-desc-${fullChangeId}`);
-                                const prevEl = document.getElementById(`change-prev-${fullChangeId}`);
-                                const newEl = document.getElementById(`change-new-${fullChangeId}`);
-                                
-                                if (dateEl) dateEl.value = change.date;
-                                if (descEl) descEl.value = change.description;
-                                if (prevEl) prevEl.value = change.prevEndDate;
-                                if (newEl) newEl.value = change.newEndDate;
-                            }
+                            const changeHtml = `
+                                <div class="form-group" id="change-${changeId}" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <strong>Timeline Entry</strong>
+                                        <button class="danger" onclick="removeChange('${changeId}', '${storyId}')" tabindex="-1">Remove</button>
+                                    </div>
+                                    
+                                    <div class="inline-group">
+                                        <div class="form-group">
+                                            <label>Change Date:</label>
+                                            <input type="text" id="change-date-${changeId}" placeholder="15/12 or 15/12/24 or 15-12-2024" value="${change.date || ''}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Description:</label>
+                                            <input type="text" id="change-desc-${changeId}" placeholder="Reason for change" value="${change.description || ''}">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="inline-group">
+                                        <div class="form-group">
+                                            <label>Previous End Date:</label>
+                                            <input type="text" id="change-prev-${changeId}" placeholder="31/03" style="margin-bottom: 1px;" value="${change.prevEndDate || ''}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>New End Date:</label>
+                                            <input type="text" id="change-new-${changeId}" placeholder="15/04" style="margin-bottom: 1px;" value="${change.newEndDate || ''}">
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            document.getElementById(`changes-container-${storyId}`).insertAdjacentHTML('beforeend', changeHtml);
                         });
                         
                         // Update story's actual end date to reflect the most recent timeline change from modal
