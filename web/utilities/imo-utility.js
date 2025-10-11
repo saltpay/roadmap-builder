@@ -268,7 +268,6 @@ class IMOUtility {
         const q = query.toString().trim().toLowerCase();
         if (!q) return [];
         
-        console.log('🔍 Leadership search debug:', { query: q, roadmapFilesCount: roadmapFiles.length });
         
         return roadmapFiles.filter(f => {
             const td = f.teamData || {};
@@ -279,13 +278,7 @@ class IMOUtility {
             const matches = dvp.includes(q) || em.includes(q) || pm.includes(q);
             
             if (matches) {
-                console.log('✅ Match found:', { 
-                    teamName: td.teamName, 
-                    directorVP: td.directorVP, 
-                    em: td.em, 
-                    pm: td.pm,
-                    query: q 
-                });
+                // Match found for leadership search
             }
             
             return matches;

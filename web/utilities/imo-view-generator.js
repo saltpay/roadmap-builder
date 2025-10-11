@@ -28,6 +28,12 @@ class IMOViewGenerator {
                         across <strong>${teamsCount}</strong> ${teamsCount === 1 ? 'team' : 'teams'} 
                         for "<strong>${this.escapeHtml(searchQuery)}</strong>"
                     </div>
+                    <div class="search-results-controls" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
+                        <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; font-size: 14px;">
+                            <input type="checkbox" id="search-force-text-below-toggle" style="width: auto; flex-shrink: 0;" onchange="handleSearchForceTextBelowToggle()">
+                            Force all text boxes below stories
+                        </label>
+                    </div>
                 </div>
                 
                 <div class="search-results-content">
@@ -1075,7 +1081,7 @@ class IMOViewGenerator {
             roadmapYear: currentYear,
             em: '',
             pm: '',
-            description: `Search results for "${searchQuery}" - ${totalStories} ${totalStories === 1 ? 'story' : 'stories'} across ${teamCount} ${teamCount === 1 ? 'team' : 'teams'} (${teamNames})`,
+            description: '', // Remove description to avoid duplicate search results info
             epics: epics,
             // Provide empty BTL data to prevent automatic generation
             btlSwimlane: { stories: [] },
