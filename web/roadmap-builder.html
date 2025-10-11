@@ -1112,8 +1112,8 @@
                             </div>
                         </div>
                         
-                        <div id="editInfoFields" class="border-card" style="display: none;">
-                            <h5>Story Information</h5>
+                        <div id="editInfoFields" class="border-card" style="display: none; margin-bottom: 5px;">
+                            <h5 style="margin-top: 0; margin-bottom: 10px;">Story Information</h5>
                             <div id="editInfoEntries">
                                 <!-- Info entries will be added here -->
                             </div>
@@ -1164,8 +1164,8 @@
                     </div>
                     
                     <!-- Story Timeline Section -->
-                    <div id="editTimelineChangesSection" class="border-section" style="display: none; margin-top: 20px;">
-                        <h4>Story Timeline</h4>
+                    <div id="editTimelineChangesSection" class="border-section" style="display: none; margin-top: 0px;">
+                        <h4 style="margin-top: 0; margin-bottom: 10px;">Story Timeline</h4>
                         <div id="editChangesContainer">
                             <!-- Story timeline entries will be added here -->
                         </div>
@@ -2785,14 +2785,6 @@
             }
         };
 
-        function removeBTLStory(storyId) {
-            const elementToRemove = document.getElementById(`story-${storyId}`);
-            if (elementToRemove) {
-                elementToRemove.remove();
-                updateBTLAddButton();
-                generatePreview();
-            }
-        }
         
         function updateBTLAddButton() {
             const existingBTLStories = document.querySelectorAll('#btl-stories-container .story-section');
@@ -3252,24 +3244,39 @@
             const checkbox = document.getElementById(checkboxId);
             const section = document.getElementById(sectionId);
             
+            
             if (!checkbox || !section) return;
             
             if (checkbox.checked) {
                 // Show the section
                 section.style.display = 'block';
                 
-                // Auto-fill today's date if date field is empty
-                const dateField = document.getElementById(dateFieldId);
-                if (dateField && !dateField.value) {
-                    dateField.value = getTodaysDateEuropean();
-                }
-                
-                // Focus on the date field for convenience
-                setTimeout(() => {
-                    if (dateField) {
-                        dateField.focus({ preventScroll: true });
+                // Special handling for info status
+                if (statusType === 'info') {
+                    // For info, create the first entry automatically if none exist
+                    setTimeout(() => {
+                        const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
+                        if (infoEntriesContainer) {
+                            const existingEntries = infoEntriesContainer.querySelectorAll('.info-entry');
+                            if (existingEntries.length === 0) {
+                                addInfoEntry(storyId);
+                            }
+                        }
+                    }, 100);
+                } else {
+                    // Auto-fill today's date if date field is empty
+                    const dateField = document.getElementById(dateFieldId);
+                    if (dateField && !dateField.value) {
+                        dateField.value = getTodaysDateEuropean();
                     }
-                }, 100);
+                    
+                    // Focus on the date field for convenience
+                    setTimeout(() => {
+                        if (dateField) {
+                            dateField.focus({ preventScroll: true });
+                        }
+                    }, 100);
+                }
             } else {
                 // Hide the section
                 section.style.display = 'none';
@@ -3347,7 +3354,29 @@
         }
 
         function handleInfoChange(storyId) {
-            handleStatusChange(storyId, 'info');
+            const checkbox = document.getElementById(`story-info-${storyId}`);
+            const section = document.getElementById(`info-section-${storyId}`);
+            
+            if (!checkbox || !section) return;
+            
+            if (checkbox.checked) {
+                // Show the section
+                section.style.display = 'block';
+                
+                // For info, create the first entry automatically if none exist
+                setTimeout(() => {
+                    const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
+                    if (infoEntriesContainer) {
+                        const existingEntries = infoEntriesContainer.querySelectorAll('.info-entry');
+                        if (existingEntries.length === 0) {
+                            addInfoEntry(storyId);
+                        }
+                    }
+                }, 100);
+            } else {
+                // Hide the section
+                section.style.display = 'none';
+            }
             
             // Convert single info to multiple instances if needed
             setTimeout(() => {
@@ -3360,10 +3389,14 @@
             const entriesContainer = document.getElementById(`info-entries-${storyId}`);
             const entryId = `info-entry-${storyId}-${Date.now()}`;
             
+            // Count existing entries to get the next number
+            const existingEntries = entriesContainer.querySelectorAll('.info-entry');
+            const entryNumber = existingEntries.length + 1;
+            
             const entryHtml = `
                 <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                        <strong>Info Entry #${entryNumber}</strong>
                         <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
                     </div>
                     <div class="inline-group">
@@ -3405,6 +3438,20 @@
             const entry = document.getElementById(entryId);
             if (entry) {
                 entry.remove();
+                
+                // Renumber remaining entries
+                const storyId = entryId.split('-')[2]; // Extract storyId from entryId
+                const entriesContainer = document.getElementById(`info-entries-${storyId}`);
+                if (entriesContainer) {
+                    const remainingEntries = entriesContainer.querySelectorAll('.info-entry');
+                    remainingEntries.forEach((entry, index) => {
+                        const header = entry.querySelector('strong');
+                        if (header) {
+                            header.textContent = `Info Entry #${index + 1}`;
+                        }
+                    });
+                }
+                
                 generatePreview();
             }
         }
@@ -3428,7 +3475,7 @@
                 const entryHtml = `
                     <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                            <strong>Info Entry #${entryNumber}</strong>
                             <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
                         </div>
                         <div class="inline-group">
@@ -3464,10 +3511,14 @@
             const entriesContainer = document.getElementById('editInfoEntries');
             const entryId = `edit-info-entry-${editInfoEntryCounter++}`;
             
+            // Count existing entries to get the next number
+            const existingEntries = entriesContainer.querySelectorAll('.info-entry');
+            const entryNumber = existingEntries.length + 1;
+            
             const entryHtml = `
                 <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                        <strong>Info Entry #${entryNumber}</strong>
                         <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
                     </div>
                     <div class="inline-group">
@@ -3525,13 +3576,16 @@
             const currentEndDateElement = document.getElementById(`story-end-${storyId}`);
             const currentEndDate = currentEndDateElement ? currentEndDateElement.value : '';
             
+            // Count existing changes to get the next number
+            const entryNumber = existingChanges.length + 1;
+            
             changeCounter++;
             const changeId = `${storyId}-change-${Date.now()}-${changeCounter}`;
             
             const changeHtml = `
                 <div class="form-group" id="change-${changeId}" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <strong>Timeline Entry</strong>
+                        <strong>Timeline #${entryNumber}</strong>
                         <button class="danger" onclick="removeChange('${changeId}', '${storyId}')" tabindex="-1">Remove</button>
                     </div>
                     
@@ -3589,6 +3643,18 @@
         
         function removeChange(changeId, storyId) {
             document.getElementById(`change-${changeId}`).remove();
+            
+            // Renumber remaining timeline entries
+            const container = document.getElementById(`changes-container-${storyId}`);
+            if (container) {
+                const remainingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
+                remainingChanges.forEach((change, index) => {
+                    const header = change.querySelector('strong');
+                    if (header) {
+                        header.textContent = `Timeline #${index + 1}`;
+                    }
+                });
+            }
             
             // Update the Add Change button state
             updateChangeButton(storyId);
@@ -4286,10 +4352,11 @@
                     const entryId = entry.id;
                     const dateEl = document.getElementById(`info-date-${entryId}`);
                     const notesEl = document.getElementById(`info-notes-${entryId}`);
-                    if (dateEl && notesEl && (dateEl.value || notesEl.value)) {
+                    if (dateEl && notesEl) {
+                        // Include entry even if empty, but only if the entry exists
                         infoEntries.push({
-                            date: dateEl.value,
-                            notes: notesEl.value
+                            date: dateEl.value || '',
+                            notes: notesEl.value || ''
                         });
                     }
                 });
@@ -4440,7 +4507,7 @@
                 }
                 
                 if (story.isInfo) {
-                    story.roadmapChanges.infoInfo = infoEntries.length > 0 ? infoEntries : null;
+                    story.roadmapChanges.infoInfo = infoEntries.length > 0 ? infoEntries : [];
                 }
                 
                 if (story.isTransferredOut) {
@@ -6041,47 +6108,32 @@
                             
                             // Wait a moment for DOM elements to be created, then load the changes
                             setTimeout(() => {
-                                story.roadmapChanges.changes.forEach(change => {
-                                    // Create change entry directly without using addChange() to avoid limit restrictions
-                                    changeCounter++;
-                                    const changeId = `${storyId}-change-${Date.now()}-${changeCounter}`;
+                                story.roadmapChanges.changes.forEach((change, index) => {
+                                    addChange(storyId);
                                     
-                                    // Get current story end date for auto-population
-                                    const currentEndDateElement = document.getElementById(`story-end-${storyId}`);
-                                    const currentEndDate = currentEndDateElement ? currentEndDateElement.value : '';
-                                    
-                                    const changeHtml = `
-                                        <div class="form-group" id="change-${changeId}" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
-                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                                <strong>Timeline Entry</strong>
-                                                <button class="danger" onclick="removeChange('${changeId}', '${storyId}')" tabindex="-1">Remove</button>
-                                            </div>
-                                            
-                                            <div class="inline-group">
-                                                <div class="form-group">
-                                                    <label>Change Date:</label>
-                                                    <input type="text" id="change-date-${changeId}" placeholder="15/12 or 15/12/24 or 15-12-2024" value="${change.date || ''}">
-                                                </div>
-                                                <div class="form-group">
-                                                    <label>Description:</label>
-                                                    <input type="text" id="change-desc-${changeId}" placeholder="Reason for change" value="${change.description || ''}">
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="inline-group">
-                                                <div class="form-group">
-                                                    <label>Previous End Date:</label>
-                                                    <input type="text" id="change-prev-${changeId}" placeholder="31/03" style="margin-bottom: 1px;" value="${change.prevEndDate || ''}">
-                                                </div>
-                                                <div class="form-group">
-                                                    <label>New End Date:</label>
-                                                    <input type="text" id="change-new-${changeId}" placeholder="15/04" style="margin-bottom: 1px;" value="${change.newEndDate || ''}">
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `;
-                                    
-                                    document.getElementById(`changes-container-${storyId}`).insertAdjacentHTML('beforeend', changeHtml);
+                                    // Find the most recently added change element (container)
+                                    const changeContainers = document.querySelectorAll(`#changes-container-${storyId} > div[id^="change-${storyId}-change-"]`);
+                                    const latestContainer = changeContainers[changeContainers.length - 1];
+                                    if (latestContainer) {
+                                        // Use the full ID pattern that matches collection logic: "1-4-change-1750523457266"
+                                        const fullChangeId = latestContainer.id.replace('change-', '');
+                                        
+                                        const dateEl = document.getElementById(`change-date-${fullChangeId}`);
+                                        const prevEl = document.getElementById(`change-prev-${fullChangeId}`);
+                                        const newEl = document.getElementById(`change-new-${fullChangeId}`);
+                                        const descEl = document.getElementById(`change-desc-${fullChangeId}`);
+                                        
+                                        if (dateEl) dateEl.value = change.date || '';
+                                        if (prevEl) prevEl.value = change.prevEndDate || '';
+                                        if (newEl) newEl.value = change.newEndDate || '';
+                                        if (descEl) descEl.value = change.description || '';
+                                        
+                                        // Update the header to show the correct number
+                                        const header = latestContainer.querySelector('strong');
+                                        if (header) {
+                                            header.textContent = `Timeline #${index + 1}`;
+                                        }
+                                    }
                                 });
                                 
                                 // Update button state after loading all changes
@@ -6167,7 +6219,7 @@
                                     const entryHtml = `
                                         <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
                                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                                <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                                                <strong>Info Entry #${index + 1}</strong>
                                                 <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
                                             </div>
                                             <div class="inline-group">
@@ -6196,7 +6248,7 @@
                                 const entryHtml = `
                                     <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                            <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                                            <strong>Info Entry #1</strong>
                                             <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
                                         </div>
                                         <div class="inline-group">
@@ -6619,7 +6671,7 @@
                             const entryHtml = `
                                 <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                        <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                                        <strong>Info Entry #${index + 1}</strong>
                                         <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
                                     </div>
                                     <div class="inline-group">
@@ -6642,7 +6694,7 @@
                         const entryHtml = `
                             <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                                    <strong>Info Entry #1</strong>
                                     <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
                                 </div>
                                 <div class="inline-group">
@@ -6691,7 +6743,7 @@
                             const entryHtml = `
                                 <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                        <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                                        <strong>Info Entry #${index + 1}</strong>
                                         <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
                                     </div>
                                     <div class="inline-group">
@@ -6714,7 +6766,7 @@
                         const entryHtml = `
                             <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                    <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                                    <strong>Info Entry #1</strong>
                                     <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
                                 </div>
                                 <div class="inline-group">
@@ -6752,46 +6804,12 @@
                 
                 // Add each timeline change in chronological order
                 sortedTimelineChanges.forEach(change => {
-                    // Create change entry directly without using addEditChange() to avoid limit restrictions
-                    editChangeCounter++;
+                    addEditChange();
                     const changeId = `edit-change-${editChangeCounter}`;
-                    
-                    // Get current story end date for auto-population
-                    const currentEndDateElement = document.getElementById('editEnd');
-                    const currentEndDate = currentEndDateElement ? currentEndDateElement.value : '';
-                    
-                    const changeHtml = `
-                        <div class="form-group" id="${changeId}" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px; background-color: #f8f9fa;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                <strong>Timeline Entry</strong>
-                                <button type="button" class="danger" onclick="removeEditChange('${changeId}')" style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;" tabindex="-1">Remove</button>
-                            </div>
-                            
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label>Change Date:</label>
-                                    <input type="text" id="${changeId}-date" placeholder="15/12/24" value="${change.date || ''}">
-                                </div>
-                                <div class="form-group">
-                                    <label>Description:</label>
-                                    <input type="text" id="${changeId}-desc" placeholder="Reason for change" value="${change.description || ''}">
-                                </div>
-                            </div>
-                            
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label>Previous End Date:</label>
-                                    <input type="text" id="${changeId}-prev" placeholder="31/03" style="margin-bottom: 1px;" value="${change.prevEndDate || ''}">
-                                </div>
-                                <div class="form-group">
-                                    <label>New End Date:</label>
-                                    <input type="text" id="${changeId}-new" placeholder="15/04" style="margin-bottom: 1px;" value="${change.newEndDate || ''}">
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    
-                    document.getElementById('editChangesContainer').insertAdjacentHTML('beforeend', changeHtml);
+                    document.getElementById(`${changeId}-date`).value = change.date || '';
+                    document.getElementById(`${changeId}-desc`).value = change.description || '';
+                    document.getElementById(`${changeId}-prev`).value = change.prevEndDate || '';
+                    document.getElementById(`${changeId}-new`).value = change.newEndDate || '';
                 });
                 
                 // Update button state after loading all changes
@@ -6996,6 +7014,18 @@
             }
             
             // Info entries are handled dynamically with addEditInfoEntry function
+            if (infoChecked) {
+                // Auto-create first info entry if none exist
+                setTimeout(() => {
+                    const editInfoEntriesContainer = document.getElementById('editInfoEntries');
+                    if (editInfoEntriesContainer) {
+                        const existingEntries = editInfoEntriesContainer.querySelectorAll('.info-entry');
+                        if (existingEntries.length === 0) {
+                            addEditInfoEntry();
+                        }
+                    }
+                }, 100);
+            }
             
             if (transferredOutChecked) {
                 const transferredOutDateField = document.getElementById('editTransferredOutDate');
@@ -7119,12 +7149,15 @@
             
             editChangeCounter++;
             const changeId = `edit-change-${editChangeCounter}`;
+            
+            // Count existing changes to get the next number
+            const entryNumber = existingChanges.length + 1;
 
             
             const changeHtml = `
                 <div class="form-group" id="${changeId}" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px; background-color: #f8f9fa;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <strong>Timeline Entry</strong>
+                        <strong>Timeline #${entryNumber}</strong>
                         <button type="button" class="danger" onclick="removeEditChange('${changeId}')" style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;" tabindex="-1">Remove</button>
                     </div>
                     
@@ -7778,7 +7811,7 @@
                         
                         // Collect info entries from modal
                         const editInfoEntries = document.querySelectorAll('#editInfoEntries > div[id^="edit-info-entry-"]');
-                        editInfoEntries.forEach((editEntryEl) => {
+                        editInfoEntries.forEach((editEntryEl, index) => {
                             const entryId = editEntryEl.id;
                             const dateEl = document.getElementById(`edit-info-date-${entryId}`);
                             const notesEl = document.getElementById(`edit-info-notes-${entryId}`);
@@ -7786,10 +7819,11 @@
                             if (dateEl && notesEl && (dateEl.value || notesEl.value)) {
                                 // Create new entry in the main form
                                 const newEntryId = `info-entry-${storyId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                                const entryNumber = index + 1;
                                 const entryHtml = `
                                     <div id="${newEntryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                            <h6 style="margin: 0; color: #333;">Info Entry</h6>
+                                            <strong>Info Entry #${entryNumber}</strong>
                                             <button type="button" onclick="removeInfoEntry('${newEntryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
                                         </div>
                                         <div class="inline-group">
@@ -7853,42 +7887,23 @@
                         
                         // Add sorted timeline changes to the main form
                         modalTimelineChanges.forEach((change) => {
-                            // Create change entry directly without using addChange() to avoid limit restrictions
-                            changeCounter++;
-                            const changeId = `${storyId}-change-${Date.now()}-${changeCounter}`;
+                            addChange(storyId);
                             
-                            const changeHtml = `
-                                <div class="form-group" id="change-${changeId}" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                                        <strong>Timeline Entry</strong>
-                                        <button class="danger" onclick="removeChange('${changeId}', '${storyId}')" tabindex="-1">Remove</button>
-                                    </div>
-                                    
-                                    <div class="inline-group">
-                                        <div class="form-group">
-                                            <label>Change Date:</label>
-                                            <input type="text" id="change-date-${changeId}" placeholder="15/12 or 15/12/24 or 15-12-2024" value="${change.date || ''}">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Description:</label>
-                                            <input type="text" id="change-desc-${changeId}" placeholder="Reason for change" value="${change.description || ''}">
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="inline-group">
-                                        <div class="form-group">
-                                            <label>Previous End Date:</label>
-                                            <input type="text" id="change-prev-${changeId}" placeholder="31/03" style="margin-bottom: 1px;" value="${change.prevEndDate || ''}">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>New End Date:</label>
-                                            <input type="text" id="change-new-${changeId}" placeholder="15/04" style="margin-bottom: 1px;" value="${change.newEndDate || ''}">
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                            
-                            document.getElementById(`changes-container-${storyId}`).insertAdjacentHTML('beforeend', changeHtml);
+                            // IMMEDIATE population without setTimeout to avoid race conditions
+                            const changeContainers = document.querySelectorAll(`#changes-container-${storyId} > div[id^="change-${storyId}-change-"]`);
+                            const latestContainer = changeContainers[changeContainers.length - 1];
+                            if (latestContainer) {
+                                const fullChangeId = latestContainer.id.replace('change-', '');
+                                const dateEl = document.getElementById(`change-date-${fullChangeId}`);
+                                const descEl = document.getElementById(`change-desc-${fullChangeId}`);
+                                const prevEl = document.getElementById(`change-prev-${fullChangeId}`);
+                                const newEl = document.getElementById(`change-new-${fullChangeId}`);
+                                
+                                if (dateEl) dateEl.value = change.date;
+                                if (descEl) descEl.value = change.description;
+                                if (prevEl) prevEl.value = change.prevEndDate;
+                                if (newEl) newEl.value = change.newEndDate;
+                            }
                         });
                         
                         // Update story's actual end date to reflect the most recent timeline change from modal
