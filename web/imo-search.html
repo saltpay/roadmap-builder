@@ -919,15 +919,8 @@
                         
                         <div id="viewInfoFields" class="border-card" style="display: none;">
                             <h5>Story Information</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label>Info Date:</label>
-                                    <div class="readonly-field" id="viewInfoDate"></div>
-                                </div>
-                                <div class="form-group">
-                                    <label>Info Notes:</label>
-                                    <div class="readonly-field" id="viewInfoNotes"></div>
-                                </div>
+                            <div id="viewInfoEntries">
+                                <!-- Info entries will be added here -->
                             </div>
                         </div>
 
@@ -1797,31 +1790,100 @@
                 const infoInfo = storyData.infoInfo || {};
                 const roadmapInfoInfo = storyData.roadmapChanges?.infoInfo || {};
                 
-                let infoDate = 'Not specified';
-                let infoNotes = 'None';
-                
-                if (Array.isArray(roadmapInfoInfo) && roadmapInfoInfo.length > 0) {
-                    // Multiple info entries - show the first one or combine them
-                    const firstEntry = roadmapInfoInfo[0];
-                    infoDate = firstEntry.date || 'Not specified';
-                    if (roadmapInfoInfo.length === 1) {
-                        infoNotes = firstEntry.notes || 'None';
-                    } else {
-                        infoNotes = `${firstEntry.notes || 'None'} (${roadmapInfoInfo.length} entries total)`;
-                    }
-                } else if (roadmapInfoInfo && roadmapInfoInfo.date) {
-                    // Single info entry (backward compatibility)
-                    infoDate = roadmapInfoInfo.date;
-                    infoNotes = roadmapInfoInfo.notes || 'None';
-                } else {
-                    // Fallback to old format
-                    infoDate = infoInfo.date || storyData.infoDate || 'Not specified';
-                    infoNotes = infoInfo.notes || storyData.infoNotes || 'None';
+                // Clear existing info entries
+                const infoContainer = document.getElementById('viewInfoEntries');
+                if (infoContainer) {
+                    infoContainer.innerHTML = '';
                 }
                 
-                document.getElementById('viewInfoDate').textContent = infoDate;
-                document.getElementById('viewInfoNotes').textContent = infoNotes;
-                document.getElementById('viewInfoFields').style.display = 'block';
+                if (Array.isArray(roadmapInfoInfo) && roadmapInfoInfo.length > 0) {
+                    // Multiple info entries - display all of them
+                    roadmapInfoInfo.forEach((entry, index) => {
+                        if (entry && (entry.date || entry.notes)) {
+                            const entryDiv = document.createElement('div');
+                            entryDiv.style.marginBottom = '15px';
+                            entryDiv.style.padding = '10px';
+                            entryDiv.style.border = '1px solid #ddd';
+                            entryDiv.style.borderRadius = '4px';
+                            entryDiv.style.backgroundColor = '#f9f9f9';
+                            
+                            entryDiv.innerHTML = `
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <strong>Info Entry #${index + 1}</strong>
+                                </div>
+                                <div class="inline-group">
+                                    <div class="form-group">
+                                        <label>Info Date:</label>
+                                        <div class="readonly-field">${entry.date || 'Not specified'}</div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Information Details:</label>
+                                        <div class="readonly-field">${entry.notes || 'None'}</div>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            infoContainer.appendChild(entryDiv);
+                        }
+                    });
+                    
+                    // Show the info section
+                    document.getElementById('viewInfoFields').style.display = 'block';
+                } else if (roadmapInfoInfo && roadmapInfoInfo.date) {
+                    // Single info entry (backward compatibility)
+                    const entryDiv = document.createElement('div');
+                    entryDiv.style.marginBottom = '15px';
+                    entryDiv.style.padding = '10px';
+                    entryDiv.style.border = '1px solid #ddd';
+                    entryDiv.style.borderRadius = '4px';
+                    entryDiv.style.backgroundColor = '#f9f9f9';
+                    
+                    entryDiv.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <strong>Info Entry #1</strong>
+                        </div>
+                        <div class="inline-group">
+                            <div class="form-group">
+                                <label>Info Date:</label>
+                                <div class="readonly-field">${roadmapInfoInfo.date || 'Not specified'}</div>
+                            </div>
+                            <div class="form-group">
+                                <label>Information Details:</label>
+                                <div class="readonly-field">${roadmapInfoInfo.notes || 'None'}</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    infoContainer.appendChild(entryDiv);
+                    document.getElementById('viewInfoFields').style.display = 'block';
+                } else {
+                    // Fallback to old format
+                    const entryDiv = document.createElement('div');
+                    entryDiv.style.marginBottom = '15px';
+                    entryDiv.style.padding = '10px';
+                    entryDiv.style.border = '1px solid #ddd';
+                    entryDiv.style.borderRadius = '4px';
+                    entryDiv.style.backgroundColor = '#f9f9f9';
+                    
+                    entryDiv.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <strong>Info Entry #1</strong>
+                        </div>
+                        <div class="inline-group">
+                            <div class="form-group">
+                                <label>Info Date:</label>
+                                <div class="readonly-field">${infoInfo.date || storyData.infoDate || 'Not specified'}</div>
+                            </div>
+                            <div class="form-group">
+                                <label>Information Details:</label>
+                                <div class="readonly-field">${infoInfo.notes || storyData.infoNotes || 'None'}</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    infoContainer.appendChild(entryDiv);
+                    document.getElementById('viewInfoFields').style.display = 'block';
+                }
             } else {
                 document.getElementById('viewInfoFields').style.display = 'none';
             }
@@ -1896,7 +1958,7 @@
                     changeDiv.style.backgroundColor = '#f9f9f9';
                     
                     changeDiv.innerHTML = `
-                        <h5 style="margin: 0 0 10px 0;">Timeline Change ${index + 1}</h5>
+                        <h5 style="margin: 0 0 10px 0;">Timeline #${index + 1}</h5>
                         <div class="inline-group">
                             <div class="form-group">
                                 <label>Change Date:</label>
