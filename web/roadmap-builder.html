@@ -4884,6 +4884,8 @@
                 breakdown.innerHTML = renderOntimeBreakdown(stats, activeStories);
             } else if (breakdownType === 'accelerated') {
                 breakdown.innerHTML = renderAcceleratedBreakdown(stats, activeStories);
+            } else if (breakdownType === 'cancelled') {
+                breakdown.innerHTML = renderCancelledBreakdown(stats);
             }
 
             // Insert directly after the clicked container
@@ -4972,6 +4974,24 @@
                 '</div>'
             );
         }
+
+        function renderCancelledBreakdown(stats) {
+            const cancelled = Array.isArray(stats.cancelledStories) ? stats.cancelledStories : [];
+            if (cancelled.length === 0) {
+                return '<div style="color:#6b7280;">No cancelled projects</div>';
+            }
+            const items = cancelled.map(s => {
+                const title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const epic = (s.epicName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const team = (s.teamName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<div style="font-size:12px; color:#374151; padding:2px 0;">' +
+                    (team ? '<span style="color:#6b7280;">[' + team + ']</span> ' : '') +
+                    (epic ? '<span style="color:#6b7280;">[' + epic + ']</span> ' : '') +
+                    title +
+                '</div>';
+            }).join('');
+            return '<div style="display:block; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #dc3545;">' + items + '</div>';
+        }
         
         function renderDelayBreakdown(stats, totalActive) {
             const counts = stats.delayBreakdown || {};
@@ -5042,13 +5062,30 @@
             );
         }
 
+        function compareByTeamEpicTitle(a, b) {
+            const ta = (a.teamName || '').toLowerCase();
+            const tb = (b.teamName || '').toLowerCase();
+            if (ta !== tb) return ta < tb ? -1 : 1;
+            const ea = (a.epicName || '').toLowerCase();
+            const eb = (b.epicName || '').toLowerCase();
+            if (ea !== eb) return ea < eb ? -1 : 1;
+            const sa = (a.title || '').toLowerCase();
+            const sb = (b.title || '').toLowerCase();
+            if (sa !== sb) return sa < sb ? -1 : 1;
+            return 0;
+        }
+
         function renderDelayDetails(stories) {
             if (!stories || !stories.length) return '<div style="color:#6b7280;">No items</div>';
-            return stories.map(s => {
+            const sorted = [...stories].sort(compareByTeamEpicTitle);
+            return sorted.map(s => {
                 const title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 const epic = (s.epicName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const team = (s.teamName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 return '<div style="font-size:12px; color:#374151; padding:2px 0;">' +
-                    '<span style="color:#6b7280;">[' + epic + ']</span> ' + title +
+                    (team ? '<span style="color:#6b7280;">[' + team + ']</span> ' : '') +
+                    (epic ? '<span style="color:#6b7280;">[' + epic + ']</span> ' : '') +
+                    title +
                 '</div>';
             }).join('');
         }
@@ -5102,7 +5139,8 @@
                 delayBreakdown: {}, // Track exact delay counts
                 delayStories: {},
                 acceleratedStories: { done: [], notDone: [] },
-                onTimeStories: { done: [], notDone: [] }
+                onTimeStories: { done: [], notDone: [] },
+                cancelledStories: []
             };
             if (!teamData || !Array.isArray(teamData.epics)) return result;
             result.totalEpics = teamData.epics.length;
@@ -5112,6 +5150,8 @@
                     result.totalStories++;
                     if (story.isCancelled) {
                         result.cancelled++;
+                        const teamName = (teamData && teamData.teamName) ? teamData.teamName : '';
+                        result.cancelledStories.push({ title: story.title, epicName: epic.name, teamName });
                         continue;
                     }
                     const changes = story.roadmapChanges?.changes || [];
@@ -5211,10 +5251,10 @@
                         `${s.totalStories} Total Stories across ${s.totalEpics} EPICs` +
                     '</div>' +
                     '<div style="max-width: 600px; margin: 0 auto;">' +
-                        barChart('On-time Projects', s.onTime, activeStories, '#28a745', s, 'ontime') +
-                        barChart('Delayed Projects', s.totalDelayed, activeStories, '#dc3545', s, 'delayed') +
-                        barChart('Accelerated Projects', s.accelerated, activeStories, '#17a2b8', s, 'accelerated') +
-                        barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', null, null) +
+                        barChart('On-time Projects', s.onTime, s.totalStories, '#28a745', s, 'ontime') +
+                        barChart('Delayed Projects', s.totalDelayed, s.totalStories, '#dc3545', s, 'delayed') +
+                        barChart('Accelerated Projects', s.accelerated, s.totalStories, '#17a2b8', s, 'accelerated') +
+                        barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', s, 'cancelled') +
                     '</div>' +
                 '</div>'
             );

@@ -1070,6 +1070,7 @@
                 delayStories: {},
                 acceleratedStories: { done: [], notDone: [] },
                 onTimeStories: { done: [], notDone: [] },
+                cancelledStories: [],
                 teams: new Set()
             };
             
@@ -1085,6 +1086,11 @@
                 
                 if (story.isCancelled) {
                     result.cancelled++;
+                    result.cancelledStories.push({
+                        title: story.title || 'Untitled',
+                        teamName: story.teamName || 'Unknown Team',
+                        epicName: story.epicName || ''
+                    });
                     continue;
                 }
                 
@@ -1175,10 +1181,10 @@
                         `${s.totalStories} Stories across ${s.totalTeams} Teams` +
                     '</div>' +
                     '<div style="max-width: 600px; margin: 0 auto;">' +
-                        barChart('On-time Projects', s.onTime, activeStories, '#28a745', s, 'ontime') +
-                        barChart('Delayed Projects', s.totalDelayed, activeStories, '#dc3545', s, 'delayed') +
-                        barChart('Accelerated Projects', s.accelerated, activeStories, '#17a2b8', s, 'accelerated') +
-                        barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', null, null) +
+                        barChart('On-time Projects', s.onTime, s.totalStories, '#28a745', s, 'ontime') +
+                        barChart('Delayed Projects', s.totalDelayed, s.totalStories, '#dc3545', s, 'delayed') +
+                        barChart('Accelerated Projects', s.accelerated, s.totalStories, '#17a2b8', s, 'accelerated') +
+                        barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', s, 'cancelled') +
                     '</div>' +
                 '</div>'
             );
@@ -1291,6 +1297,8 @@
                 breakdown.innerHTML = renderSearchOntimeBreakdown(stats, activeStories);
             } else if (breakdownType === 'accelerated') {
                 breakdown.innerHTML = renderSearchAcceleratedBreakdown(stats, activeStories);
+            } else if (breakdownType === 'cancelled') {
+                breakdown.innerHTML = renderSearchCancelledBreakdown(stats);
             }
 
             // Insert directly after the clicked container
@@ -1449,15 +1457,44 @@
             );
         }
         
+        function compareByTeamThenTitle(a, b) {
+            const ta = (a.teamName || '').toLowerCase();
+            const tb = (b.teamName || '').toLowerCase();
+            if (ta !== tb) return ta < tb ? -1 : 1;
+            const sa = (a.title || '').toLowerCase();
+            const sb = (b.title || '').toLowerCase();
+            if (sa !== sb) return sa < sb ? -1 : 1;
+            return 0;
+        }
+
         function renderSearchDelayDetails(stories) {
             if (!stories || !stories.length) return '<div style="color:#6b7280;">No items</div>';
-            return stories.map(s => {
+            const sorted = [...stories].sort(compareByTeamThenTitle);
+            return sorted.map(s => {
                 const title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 const team = (s.teamName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 return '<div style="font-size:12px; color:#374151; padding:2px 0;">' +
-                    '<span style="color:#6b7280;">[' + team + ']</span> ' + title +
+                    (team ? '<span style="color:#6b7280;">[' + team + ']</span> ' : '') +
+                    title +
                 '</div>';
             }).join('');
+        }
+
+        function renderSearchCancelledBreakdown(stats) {
+            const cancelled = Array.isArray(stats.cancelledStories) ? stats.cancelledStories : [];
+            if (cancelled.length === 0) {
+                return '<div style="color:#6b7280;">No cancelled projects</div>';
+            }
+            const sorted = [...cancelled].sort(compareByTeamThenTitle);
+            const items = sorted.map(s => {
+                const title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const team = (s.teamName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<div style="font-size:12px; color:#374151; padding:2px 0;">' +
+                    (team ? '<span style="color:#6b7280;">[' + team + ']</span> ' : '') +
+                    title +
+                '</div>';
+            }).join('');
+            return '<div style="display:block; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #dc3545;">' + items + '</div>';
         }
         
         function setupSearchDelayBreakdownInteractions() {
