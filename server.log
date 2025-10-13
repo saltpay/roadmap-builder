@@ -1,8 +1,0 @@
-Server running at http://localhost:8000
-Serving static files from: /Users/patrick.franklin/roadmap-builder/web
-Available endpoints:
-  GET    / - Roadmap
-[2025-10-11T09:47:13.759Z] GET / - ::1
-/ GET
-(node:51129) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
-(Use `node --trace-deprecation ...` to show where the warning was created)

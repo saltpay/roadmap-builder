@@ -984,15 +984,15 @@
 
     <!-- Search Stats Modal -->
     <div id="searchStatsModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
+        <div class="modal-content" style="width: 80vw; max-width: 600px; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="flex-shrink: 0;">
                 <h3>📊 Search Results Statistics</h3>
-                <span class="close" onclick="closeSearchStatsModal()">&times;</span>
+                <span class="close" onclick="closeSearchStatsModal()" style="padding: 4px;">&times;</span>
             </div>
-            <div class="modal-body" id="searchStatsModalBody">
+            <div class="modal-body" id="searchStatsModalBody" style="flex: 1; min-height: 0; overflow-y: auto;">
                 <!-- Stats content will be injected here -->
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer" style="flex-shrink: 0;">
                 <button type="button" class="secondary" onclick="closeSearchStatsModal()">Close</button>
             </div>
         </div>

@@ -306,11 +306,11 @@ class RoadmapGenerator {
     getStoryTitleWithStartInfo(story) {
         let title = this.formatText(story.title);
         
-        if (story._startsInPreviousYear && story._actualStartYear && story.startDate) {
+        if (story._startsInPreviousYear && story._actualStartYear && story._originalStartDate) {
             try {
-                let isoStartDate = story.startDate;
-                if (story.startDate.match(/^\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?$/)) {
-                    isoStartDate = this.convertEuropeanToISO(story.startDate);
+                let isoStartDate = story._originalStartDate;
+                if (story._originalStartDate.match(/^\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?$/)) {
+                    isoStartDate = this.convertEuropeanToISO(story._originalStartDate);
                 }
                 const startDate = new Date(isoStartDate);
                 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -1365,7 +1365,14 @@ class RoadmapGenerator {
                 if (hasCancelInfo) totalItems += 1;
                 if (hasAtRiskInfo) totalItems += 1;
                 if (hasNewStoryInfo) totalItems += 1;
-                if (hasInfoInfo) totalItems += 1;
+                if (hasInfoInfo) {
+                    // Count each info entry individually, not just as 1
+                    if (Array.isArray(story.roadmapChanges.infoInfo)) {
+                        totalItems += story.roadmapChanges.infoInfo.length;
+                    } else {
+                        totalItems += 1; // Single info entry (backward compatibility)
+                    }
+                }
                 if (hasTransferredOutInfo) totalItems += 1;
                 if (hasTransferredInInfo) totalItems += 1;
                 if (hasProposedInfo) totalItems += 1;
