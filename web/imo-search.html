@@ -919,15 +919,8 @@
                         
                         <div id="viewInfoFields" class="border-card" style="display: none;">
                             <h5>Story Information</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label>Info Date:</label>
-                                    <div class="readonly-field" id="viewInfoDate"></div>
-                                </div>
-                                <div class="form-group">
-                                    <label>Info Notes:</label>
-                                    <div class="readonly-field" id="viewInfoNotes"></div>
-                                </div>
+                            <div id="viewInfoEntries">
+                                <!-- Info entries will be added here -->
                             </div>
                         </div>
 
@@ -991,15 +984,15 @@
 
     <!-- Search Stats Modal -->
     <div id="searchStatsModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
+        <div class="modal-content" style="width: 80vw; max-width: 600px; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="flex-shrink: 0;">
                 <h3>📊 Search Results Statistics</h3>
-                <span class="close" onclick="closeSearchStatsModal()">&times;</span>
+                <span class="close" onclick="closeSearchStatsModal()" style="padding: 4px;">&times;</span>
             </div>
-            <div class="modal-body" id="searchStatsModalBody">
+            <div class="modal-body" id="searchStatsModalBody" style="flex: 1; min-height: 0; overflow-y: auto;">
                 <!-- Stats content will be injected here -->
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer" style="flex-shrink: 0;">
                 <button type="button" class="secondary" onclick="closeSearchStatsModal()">Close</button>
             </div>
         </div>
@@ -1070,6 +1063,7 @@
                 delayStories: {},
                 acceleratedStories: { done: [], notDone: [] },
                 onTimeStories: { done: [], notDone: [] },
+                cancelledStories: [],
                 teams: new Set()
             };
             
@@ -1085,6 +1079,11 @@
                 
                 if (story.isCancelled) {
                     result.cancelled++;
+                    result.cancelledStories.push({
+                        title: story.title || 'Untitled',
+                        teamName: story.teamName || 'Unknown Team',
+                        epicName: story.epicName || ''
+                    });
                     continue;
                 }
                 
@@ -1165,7 +1164,7 @@
         }
         
         function renderSearchStatsHtml(s) {
-            const pct = (num, den) => (den ? Math.round((num / den) * 100) : 0);
+            const pct = (num, den) => (den ? ((num / den) * 100).toFixed(1) : 0);
             const activeStories = s.totalStories - s.cancelled;
             
             return (
@@ -1175,17 +1174,17 @@
                         `${s.totalStories} Stories across ${s.totalTeams} Teams` +
                     '</div>' +
                     '<div style="max-width: 600px; margin: 0 auto;">' +
-                        barChart('On-time Projects', s.onTime, activeStories, '#28a745', s, 'ontime') +
-                        barChart('Delayed Projects', s.totalDelayed, activeStories, '#dc3545', s, 'delayed') +
-                        barChart('Accelerated Projects', s.accelerated, activeStories, '#17a2b8', s, 'accelerated') +
-                        barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', null, null) +
+                        barChart('On-time Projects', s.onTime, s.totalStories, '#28a745', s, 'ontime') +
+                        barChart('Delayed Projects', s.totalDelayed, s.totalStories, '#dc3545', s, 'delayed') +
+                        barChart('Accelerated Projects', s.accelerated, s.totalStories, '#17a2b8', s, 'accelerated') +
+                        barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', s, 'cancelled') +
                     '</div>' +
                 '</div>'
             );
         }
         
         function barChart(label, value, total, color, stats, breakdownType) {
-            const percentage = total ? Math.round((value / total) * 100) : 0;
+            const percentage = total ? ((value / total) * 100).toFixed(1) : 0;
             
             let tooltipContent = '';
             let expandIcon = '';
@@ -1286,11 +1285,13 @@
             `;
             
             if (breakdownType === 'delayed') {
-                breakdown.innerHTML = renderSearchDelayBreakdown(stats, activeStories);
+                breakdown.innerHTML = renderSearchDelayBreakdown(stats, stats.totalStories);
             } else if (breakdownType === 'ontime') {
-                breakdown.innerHTML = renderSearchOntimeBreakdown(stats, activeStories);
+                breakdown.innerHTML = renderSearchOntimeBreakdown(stats, stats.totalStories);
             } else if (breakdownType === 'accelerated') {
-                breakdown.innerHTML = renderSearchAcceleratedBreakdown(stats, activeStories);
+                breakdown.innerHTML = renderSearchAcceleratedBreakdown(stats, stats.totalStories);
+            } else if (breakdownType === 'cancelled') {
+                breakdown.innerHTML = renderSearchCancelledBreakdown(stats);
             }
 
             // Insert directly after the clicked container
@@ -1300,7 +1301,7 @@
             setupSearchDelayBreakdownInteractions();
         }
         
-        function renderSearchOntimeBreakdown(stats, totalActive) {
+        function renderSearchOntimeBreakdown(stats, totalStories) {
             const done = stats.onTimeDone || 0;
             const notDone = stats.onTimeNotDone || 0;
             const doneStories = (stats.onTimeStories && stats.onTimeStories.done) || [];
@@ -1310,8 +1311,8 @@
                 return '<div style="color:#6b7280;">No on-time projects</div>';
             }
             
-            const donePct = totalActive ? Math.round((done / totalActive) * 100) : 0;
-            const notDonePct = totalActive ? Math.round((notDone / totalActive) * 100) : 0;
+            const donePct = totalStories ? ((done / totalStories) * 100).toFixed(1) : 0;
+            const notDonePct = totalStories ? ((notDone / totalStories) * 100).toFixed(1) : 0;
             
             return (
                 '<div class="delay-row" id="search-ontime-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
@@ -1335,7 +1336,7 @@
             );
         }
         
-        function renderSearchAcceleratedBreakdown(stats, totalActive) {
+        function renderSearchAcceleratedBreakdown(stats, totalStories) {
             const acceleratedStories = stats.acceleratedStories || { done: [], notDone: [] };
             
             // Handle backward compatibility: if acceleratedStories is an array (old format), convert it
@@ -1354,9 +1355,8 @@
                 return '<div style="color:#6b7280;">No accelerated projects</div>';
             }
             
-            const total = done + notDone;
-            const donePct = total ? Math.round((done / total) * 100) : 0;
-            const notDonePct = total ? Math.round((notDone / total) * 100) : 0;
+            const donePct = totalStories ? ((done / totalStories) * 100).toFixed(1) : 0;
+            const notDonePct = totalStories ? ((notDone / totalStories) * 100).toFixed(1) : 0;
             
             return (
                 '<div class="delay-row" id="search-accelerated-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
@@ -1380,7 +1380,7 @@
             );
         }
         
-        function renderSearchDelayBreakdown(stats, totalActive) {
+        function renderSearchDelayBreakdown(stats, totalStories) {
             const counts = stats.delayBreakdown || {};
             const sorted = Object.keys(counts).map(n => parseInt(n, 10)).sort((a, b) => a - b);
             if (sorted.length === 0) {
@@ -1389,7 +1389,7 @@
             
             const rows = sorted.map(delayCount => {
                 const value = counts[delayCount] || 0;
-                const pct = totalActive ? Math.round((value / totalActive) * 100) : 0;
+                const pct = totalStories ? ((value / totalStories) * 100).toFixed(1) : 0;
                 const delayGroup = (stats.delayStories && stats.delayStories[delayCount]) || { done: [], notDone: [] };
                 const doneCount = delayGroup.done ? delayGroup.done.length : 0;
                 const notDoneCount = delayGroup.notDone ? delayGroup.notDone.length : 0;
@@ -1424,8 +1424,8 @@
             const doneCount = doneStories.length;
             const notDoneCount = notDoneStories.length;
             
-            const donePct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
-            const notDonePct = totalCount ? Math.round((notDoneCount / totalCount) * 100) : 0;
+            const donePct = totalCount ? ((doneCount / totalCount) * 100).toFixed(1) : 0;
+            const notDonePct = totalCount ? ((notDoneCount / totalCount) * 100).toFixed(1) : 0;
             
             return (
                 '<div class="delay-row" id="search-delay-' + delayCount + '-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
@@ -1449,15 +1449,44 @@
             );
         }
         
+        function compareByTeamThenTitle(a, b) {
+            const ta = (a.teamName || '').toLowerCase();
+            const tb = (b.teamName || '').toLowerCase();
+            if (ta !== tb) return ta < tb ? -1 : 1;
+            const sa = (a.title || '').toLowerCase();
+            const sb = (b.title || '').toLowerCase();
+            if (sa !== sb) return sa < sb ? -1 : 1;
+            return 0;
+        }
+
         function renderSearchDelayDetails(stories) {
             if (!stories || !stories.length) return '<div style="color:#6b7280;">No items</div>';
-            return stories.map(s => {
+            const sorted = [...stories].sort(compareByTeamThenTitle);
+            return sorted.map(s => {
                 const title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 const team = (s.teamName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 return '<div style="font-size:12px; color:#374151; padding:2px 0;">' +
-                    '<span style="color:#6b7280;">[' + team + ']</span> ' + title +
+                    (team ? '<span style="color:#6b7280;">[' + team + ']</span> ' : '') +
+                    title +
                 '</div>';
             }).join('');
+        }
+
+        function renderSearchCancelledBreakdown(stats) {
+            const cancelled = Array.isArray(stats.cancelledStories) ? stats.cancelledStories : [];
+            if (cancelled.length === 0) {
+                return '<div style="color:#6b7280;">No cancelled projects</div>';
+            }
+            const sorted = [...cancelled].sort(compareByTeamThenTitle);
+            const items = sorted.map(s => {
+                const title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const team = (s.teamName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<div style="font-size:12px; color:#374151; padding:2px 0;">' +
+                    (team ? '<span style="color:#6b7280;">[' + team + ']</span> ' : '') +
+                    title +
+                '</div>';
+            }).join('');
+            return '<div style="display:block; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #dc3545;">' + items + '</div>';
         }
         
         function setupSearchDelayBreakdownInteractions() {
@@ -1610,7 +1639,6 @@
                         checkbox.style.setProperty('background-color', 'transparent', 'important');
                         checkbox.style.setProperty('border', '1px solid #ccc', 'important');
                         checkbox.style.setProperty('outline', 'none', 'important');
-                        console.log('Applied blue styling with !important to:', id);
                     }
                 });
             }, 100);
@@ -1762,12 +1790,100 @@
                 const infoInfo = storyData.infoInfo || {};
                 const roadmapInfoInfo = storyData.roadmapChanges?.infoInfo || {};
                 
-                const infoDate = infoInfo.date || roadmapInfoInfo.date || storyData.infoDate || 'Not specified';
-                const infoNotes = infoInfo.notes || roadmapInfoInfo.notes || storyData.infoNotes || 'None';
+                // Clear existing info entries
+                const infoContainer = document.getElementById('viewInfoEntries');
+                if (infoContainer) {
+                    infoContainer.innerHTML = '';
+                }
                 
-                document.getElementById('viewInfoDate').textContent = infoDate;
-                document.getElementById('viewInfoNotes').textContent = infoNotes;
-                document.getElementById('viewInfoFields').style.display = 'block';
+                if (Array.isArray(roadmapInfoInfo) && roadmapInfoInfo.length > 0) {
+                    // Multiple info entries - display all of them
+                    roadmapInfoInfo.forEach((entry, index) => {
+                        if (entry && (entry.date || entry.notes)) {
+                            const entryDiv = document.createElement('div');
+                            entryDiv.style.marginBottom = '15px';
+                            entryDiv.style.padding = '10px';
+                            entryDiv.style.border = '1px solid #ddd';
+                            entryDiv.style.borderRadius = '4px';
+                            entryDiv.style.backgroundColor = '#f9f9f9';
+                            
+                            entryDiv.innerHTML = `
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <strong>Info Entry #${index + 1}</strong>
+                                </div>
+                                <div class="inline-group">
+                                    <div class="form-group">
+                                        <label>Info Date:</label>
+                                        <div class="readonly-field">${entry.date || 'Not specified'}</div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Information Details:</label>
+                                        <div class="readonly-field">${entry.notes || 'None'}</div>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            infoContainer.appendChild(entryDiv);
+                        }
+                    });
+                    
+                    // Show the info section
+                    document.getElementById('viewInfoFields').style.display = 'block';
+                } else if (roadmapInfoInfo && roadmapInfoInfo.date) {
+                    // Single info entry (backward compatibility)
+                    const entryDiv = document.createElement('div');
+                    entryDiv.style.marginBottom = '15px';
+                    entryDiv.style.padding = '10px';
+                    entryDiv.style.border = '1px solid #ddd';
+                    entryDiv.style.borderRadius = '4px';
+                    entryDiv.style.backgroundColor = '#f9f9f9';
+                    
+                    entryDiv.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <strong>Info Entry #1</strong>
+                        </div>
+                        <div class="inline-group">
+                            <div class="form-group">
+                                <label>Info Date:</label>
+                                <div class="readonly-field">${roadmapInfoInfo.date || 'Not specified'}</div>
+                            </div>
+                            <div class="form-group">
+                                <label>Information Details:</label>
+                                <div class="readonly-field">${roadmapInfoInfo.notes || 'None'}</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    infoContainer.appendChild(entryDiv);
+                    document.getElementById('viewInfoFields').style.display = 'block';
+                } else {
+                    // Fallback to old format
+                    const entryDiv = document.createElement('div');
+                    entryDiv.style.marginBottom = '15px';
+                    entryDiv.style.padding = '10px';
+                    entryDiv.style.border = '1px solid #ddd';
+                    entryDiv.style.borderRadius = '4px';
+                    entryDiv.style.backgroundColor = '#f9f9f9';
+                    
+                    entryDiv.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <strong>Info Entry #1</strong>
+                        </div>
+                        <div class="inline-group">
+                            <div class="form-group">
+                                <label>Info Date:</label>
+                                <div class="readonly-field">${infoInfo.date || storyData.infoDate || 'Not specified'}</div>
+                            </div>
+                            <div class="form-group">
+                                <label>Information Details:</label>
+                                <div class="readonly-field">${infoInfo.notes || storyData.infoNotes || 'None'}</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    infoContainer.appendChild(entryDiv);
+                    document.getElementById('viewInfoFields').style.display = 'block';
+                }
             } else {
                 document.getElementById('viewInfoFields').style.display = 'none';
             }
@@ -1842,7 +1958,7 @@
                     changeDiv.style.backgroundColor = '#f9f9f9';
                     
                     changeDiv.innerHTML = `
-                        <h5 style="margin: 0 0 10px 0;">Timeline Change ${index + 1}</h5>
+                        <h5 style="margin: 0 0 10px 0;">Timeline #${index + 1}</h5>
                         <div class="inline-group">
                             <div class="form-group">
                                 <label>Change Date:</label>
@@ -2058,11 +2174,48 @@
             }
         }
         
+        // Temporary variable for search results force text below (one-time action)
+        let searchTempForceTextBelow = false;
+        let lastSearchQuery = null;
+        
+        /**
+         * Handle force text below toggle in search results
+         */
+        function handleSearchForceTextBelowToggle() {
+            const toggle = document.getElementById('search-force-text-below-toggle');
+            if (toggle) {
+                // Use temporary variable instead of saving to localStorage
+                searchTempForceTextBelow = toggle.checked;
+                // Regenerate the search results to apply placement
+                displaySearchResults(currentResults, lastSearchQuery);
+                
+                // Restore checkbox state after regeneration
+                setTimeout(() => {
+                    const newToggle = document.getElementById('search-force-text-below-toggle');
+                    if (newToggle) {
+                        newToggle.checked = searchTempForceTextBelow;
+                    }
+                }, 100);
+            }
+        }
+        
         /**
          * Display search results using roadmap format
          */
         function displaySearchResults(stories, searchQuery, searchRange = null) {
             try {
+                // Only reset search force text below checkbox for new searches (not regenerations)
+                if (searchQuery !== lastSearchQuery) {
+                    const searchToggle = document.getElementById('search-force-text-below-toggle');
+                    if (searchToggle) {
+                        searchToggle.checked = false;
+                        searchTempForceTextBelow = false;
+                    }
+                }
+                
+                // Update lastSearchQuery for next comparison
+                lastSearchQuery = searchQuery;
+                
                 // Sort stories by dates in ascending order (oldest first)  
                 stories.sort((a, b) => {
                     // Use consistent year for all stories - roadmap year if available, otherwise current year
@@ -2121,8 +2274,24 @@
                 const contentArea = document.getElementById('contentArea');
                 const queryLabelSafe = (searchQuery || '').toString();
                 contentArea.innerHTML = `
-                    <div class="results-container">
-                        ${cleanedHtml}
+                    <div class="results-container" style="margin-bottom: 0; padding-bottom: 0;">
+                        <div class="search-results-header" style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #007cba;">
+                            <h2 style="margin: 0 0 10px 0; color: #007cba; font-size: 24px;">🔍 Search Results</h2>
+                            <div class="search-summary" style="color: #666; font-size: 14px; margin: 5px 0;">
+                                Found <strong>${stories.length}</strong> ${stories.length === 1 ? 'story' : 'stories'} 
+                                across <strong>${new Set(stories.map(s => s.teamName)).size}</strong> ${new Set(stories.map(s => s.teamName)).size === 1 ? 'team' : 'teams'} 
+                                for "<strong>${queryLabelSafe}</strong>": (${Array.from(new Set(stories.map(s => s.teamName))).join(', ')})
+                            </div>
+                            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
+                                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; font-size: 14px;">
+                                    <input type="checkbox" id="search-force-text-below-toggle" style="width: auto; flex-shrink: 0;" onchange="handleSearchForceTextBelowToggle()" ${searchTempForceTextBelow ? 'checked' : ''}>
+                                    Force all text boxes below stories
+                                </label>
+                            </div>
+                        </div>
+                        <div style="margin-bottom: 0; padding-bottom: 0;">
+                            ${cleanedHtml}
+                        </div>
                     </div>
                 `;
                 
@@ -2138,7 +2307,7 @@
             }
         }
 
-        // Insert Stats button inside the header box (with logo and title) without affecting layout
+        // Insert Stats button inside the search results header
         function insertStatsButtonNearHeader() {
             try {
                 const container = document.querySelector('.results-container');
@@ -2147,18 +2316,10 @@
                 // Avoid duplicates
                 if (container.querySelector('#inlineSearchStatsBtn')) return;
                 
-                const headerEl = container.querySelector('.header');
+                // Look for the search results header instead of the old roadmap header
+                const headerEl = container.querySelector('.search-results-header');
                 if (!headerEl) {
-                    // Fallback: If no header found, insert button at the top of results container
-                    const bar = document.createElement('div');
-                    bar.style.cssText = 'text-align: right; margin-bottom: 10px; padding: 10px;';
-                    bar.innerHTML = '<button id="inlineSearchStatsBtn" class="search-button" style="min-width: 120px;">📊 Stats</button>';
-                    container.insertBefore(bar, container.firstChild);
-                    
-                    const btn = bar.querySelector('#inlineSearchStatsBtn');
-                    if (btn) {
-                        btn.addEventListener('click', openSearchStatsModal);
-                    }
+                    // If no search results header found, don't add the button
                     return;
                 }
                 
@@ -2168,13 +2329,9 @@
                     headerEl.style.position = 'relative';
                 }
 
-                // Get header height to position button appropriately
-                const headerHeight = headerEl.offsetHeight;
-                const buttonTop = Math.min(108, headerHeight - 40) - 5; // Use 108px or adapt to small headers, moved up 5px total
-
-                // Create absolutely positioned button inside header (top-right)
+                // Position button in top-right of search results header
                 const bar = document.createElement('div');
-                bar.style.cssText = `position:absolute; right: 12px; top: ${buttonTop}px; transform: translate(18px, 22px); z-index: 2;`;
+                bar.style.cssText = `position: absolute; right: 5px; top: 5px; z-index: 2;`;
                 bar.innerHTML = '<button id="inlineSearchStatsBtn" class="search-button" style="min-width: 120px;">📊 Stats</button>';
 
                 headerEl.appendChild(bar);
@@ -2204,6 +2361,19 @@
             
             // Remove any swimlane with min-height: 172px (BTL specific height)
             cleaned = cleaned.replace(/min-height:\s*172px;?/g, '');
+            
+            // Remove the roadmap header to avoid duplicate headers in search results
+            cleaned = cleaned.replace(/<div class="header">[\s\S]*?<\/div>/g, '');
+            
+            // Remove any potential duplicate "Search Results" or similar headers
+            cleaned = cleaned.replace(/<h[1-6][^>]*>.*?Search Results.*?<\/h[1-6]>/gi, '');
+            cleaned = cleaned.replace(/<h[1-6][^>]*>.*?🔍.*?<\/h[1-6]>/gi, '');
+            cleaned = cleaned.replace(/<h[1-6][^>]*>.*?Cross-Team.*?<\/h[1-6]>/gi, '');
+            
+            // Remove extra bottom padding/margins that cause white space
+            cleaned = cleaned.replace(/margin-bottom:\s*[^;]+;?/g, '');
+            cleaned = cleaned.replace(/padding-bottom:\s*[^;]+;?/g, '');
+            cleaned = cleaned.replace(/<div[^>]*style="[^"]*margin-bottom[^"]*"[^>]*>[\s\S]*?<\/div>/g, '');
             
             return cleaned;
         }

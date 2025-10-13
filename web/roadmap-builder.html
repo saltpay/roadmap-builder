@@ -709,16 +709,16 @@
             </div>
             
             <!-- Stats Modal -->
-            <div id="statsModal" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 10000; align-items: center; justify-content: center;">
-                <div style="background: #fff; border-radius: 10px; width: 520px; max-width: 92vw; box-shadow: 0 10px 30px rgba(0,0,0,0.25);">
-                    <div style="display:flex; align-items:center; justify-content:space-between; padding: 12px 16px; border-bottom: 1px solid #e5e7eb;">
+            <div id="statsModal" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
+                <div style="background: #fff; border-radius: 10px; width: 80vw; max-width: 600px; max-height: 90vh; box-shadow: 0 10px 30px rgba(0,0,0,0.25); display: flex; flex-direction: column;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;">
                         <h3 style="margin:0; font-size: 18px;">Roadmap Statistics</h3>
-                        <button onclick="closeStatsModal()" class="secondary" style="border:none; background:none; font-size: 20px; line-height: 1; cursor:pointer;">×</button>
+                        <button onclick="closeStatsModal()" class="secondary" style="border:none; background:none; font-size: 20px; line-height: 1; cursor:pointer; color: #666; padding: 4px;">×</button>
                     </div>
-                    <div id="statsModalBody" style="padding: 16px;">
+                    <div id="statsModalBody" style="padding: 16px; overflow-y: auto; flex: 1; min-height: 0;">
                         <!-- Stats content injected here -->
                     </div>
-                    <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb; text-align: right;">
+                    <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb; text-align: right; flex-shrink: 0;">
                         <button onclick="closeStatsModal()" class="secondary">Close</button>
                     </div>
                 </div>
@@ -1112,18 +1112,12 @@
                             </div>
                         </div>
                         
-                        <div id="editInfoFields" class="border-card" style="display: none;">
-                            <h5>Story Information</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editInfoDate">Info Date:</label>
-                                    <input type="text" id="editInfoDate" placeholder="15/3/25">
+                        <div id="editInfoFields" class="border-card" style="display: none; margin-bottom: 5px;">
+                            <h5 style="margin-top: 0; margin-bottom: 10px;">Story Information</h5>
+                            <div id="editInfoEntries">
+                                <!-- Info entries will be added here -->
                                 </div>
-                                <div class="form-group">
-                                    <label for="editInfoNotes">Info Notes:</label>
-                                    <textarea id="editInfoNotes" rows="4" style="height: 80px;" placeholder="Additional information about this story (multiple lines supported)"></textarea>
-                                </div>
-                            </div>
+                            <button id="add-edit-info-btn" onclick="addEditInfoEntry()" class="secondary" style="margin-top: 10px;">+ Add Info Entry</button>
                         </div>
 
                                                 <div id="editTransferredInFields" class="border-card" style="display: none;">
@@ -1170,8 +1164,8 @@
                     </div>
                     
                     <!-- Story Timeline Section -->
-                    <div id="editTimelineChangesSection" class="border-section" style="display: none; margin-top: 20px;">
-                        <h4>Story Timeline</h4>
+                    <div id="editTimelineChangesSection" class="border-section" style="display: none; margin-top: 0px;">
+                        <h4 style="margin-top: 0; margin-bottom: 10px;">Story Timeline</h4>
                         <div id="editChangesContainer">
                             <!-- Story timeline entries will be added here -->
                         </div>
@@ -1921,10 +1915,14 @@
             }
         }
 
+        // Temporary variable for force text below (one-time action)
+        let tempForceTextBelow = false;
+        
         function handleForceTextBelowToggle() {
             const toggle = document.getElementById('force-text-below-toggle');
             if (toggle) {
-                getConfigUtility().setForceTextBelow(toggle.checked);
+                // Use temporary variable instead of saving to localStorage
+                tempForceTextBelow = toggle.checked;
                 // Regenerate the preview to apply placement
                 generatePreview();
             }
@@ -2504,16 +2502,10 @@
                     <!-- Info Section -->
                     <div id="info-section-${storyId}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
                         <h5>Story Information</h5>
-                        <div class="inline-group">
-                            <div class="form-group">
-                                <label for="info-date-${storyId}">Info Date:</label>
-                                <input type="text" id="info-date-${storyId}" placeholder="15/01 or 15/01/25 or 15-01-2025">
+                        <div id="info-entries-${storyId}">
+                            <!-- Info entries will be added here -->
                             </div>
-                            <div class="form-group">
-                                <label for="info-notes-${storyId}">Information Details:</label>
-                                <textarea id="info-notes-${storyId}" placeholder="Additional information about this story (multiple lines supported)" rows="4" style="height: 80px;"></textarea>
-                            </div>
-                        </div>
+                        <button id="add-info-btn-${storyId}" onclick="addInfoEntry('${storyId}')" class="secondary" style="margin-top: 10px;">+ Add Info Entry</button>
                     </div>
 
                     <!-- Transferred In Section -->
@@ -2797,14 +2789,6 @@
             }
         };
 
-        function removeBTLStory(storyId) {
-            const elementToRemove = document.getElementById(`story-${storyId}`);
-            if (elementToRemove) {
-                elementToRemove.remove();
-                updateBTLAddButton();
-                generatePreview();
-            }
-        }
         
         function updateBTLAddButton() {
             const existingBTLStories = document.querySelectorAll('#btl-stories-container .story-section');
@@ -3264,12 +3248,26 @@
             const checkbox = document.getElementById(checkboxId);
             const section = document.getElementById(sectionId);
             
+            
             if (!checkbox || !section) return;
             
             if (checkbox.checked) {
                 // Show the section
                 section.style.display = 'block';
                 
+                // Special handling for info status
+                if (statusType === 'info') {
+                    // For info, create the first entry automatically if none exist
+                    setTimeout(() => {
+                        const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
+                        if (infoEntriesContainer) {
+                            const existingEntries = infoEntriesContainer.querySelectorAll('.info-entry');
+                            if (existingEntries.length === 0) {
+                                addInfoEntry(storyId);
+                            }
+                        }
+                    }, 100);
+                } else {
                 // Auto-fill today's date if date field is empty
                 const dateField = document.getElementById(dateFieldId);
                 if (dateField && !dateField.value) {
@@ -3282,6 +3280,7 @@
                         dateField.focus({ preventScroll: true });
                     }
                 }, 100);
+                }
             } else {
                 // Hide the section
                 section.style.display = 'none';
@@ -3359,7 +3358,201 @@
         }
 
         function handleInfoChange(storyId) {
-            handleStatusChange(storyId, 'info');
+            const checkbox = document.getElementById(`story-info-${storyId}`);
+            const section = document.getElementById(`info-section-${storyId}`);
+            
+            if (!checkbox || !section) return;
+            
+            if (checkbox.checked) {
+                // Show the section
+                section.style.display = 'block';
+                
+                // For info, create the first entry automatically if none exist
+                setTimeout(() => {
+                    const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
+                    if (infoEntriesContainer) {
+                        const existingEntries = infoEntriesContainer.querySelectorAll('.info-entry');
+                        if (existingEntries.length === 0) {
+                            addInfoEntry(storyId);
+                        }
+                    }
+                }, 100);
+            } else {
+                // Hide the section
+                section.style.display = 'none';
+            }
+            
+            // Convert single info to multiple instances if needed
+            setTimeout(() => {
+                convertSingleInfoToMultiple(storyId);
+            }, 100);
+        }
+
+        // Add new info entry
+        function addInfoEntry(storyId) {
+            const entriesContainer = document.getElementById(`info-entries-${storyId}`);
+            const entryId = `info-entry-${storyId}-${Date.now()}`;
+            
+            // Count existing entries to get the next number
+            const existingEntries = entriesContainer.querySelectorAll('.info-entry');
+            const entryNumber = existingEntries.length + 1;
+            
+            const entryHtml = `
+                <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <strong>Info Entry #${entryNumber}</strong>
+                        <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                    </div>
+                    <div class="inline-group">
+                        <div class="form-group">
+                            <label for="info-date-${entryId}">Info Date:</label>
+                            <input type="text" id="info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025">
+                        </div>
+                        <div class="form-group">
+                            <label for="info-notes-${entryId}">Information Details:</label>
+                            <textarea id="info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;"></textarea>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            entriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+            
+            // Auto-fill today's date
+            const dateField = document.getElementById(`info-date-${entryId}`);
+            if (dateField) {
+                dateField.value = getTodaysDateEuropean();
+                dateField.focus({ preventScroll: true });
+            }
+            
+            // Add auto-update listener
+            const dateInput = document.getElementById(`info-date-${entryId}`);
+            const notesInput = document.getElementById(`info-notes-${entryId}`);
+            
+            if (dateInput) {
+                dateInput.addEventListener('input', () => generatePreview());
+            }
+            if (notesInput) {
+                notesInput.addEventListener('input', () => generatePreview());
+            }
+        }
+
+        // Remove info entry
+        function removeInfoEntry(entryId) {
+            const entry = document.getElementById(entryId);
+            if (entry) {
+                entry.remove();
+                
+                // Renumber remaining entries
+                const storyId = entryId.split('-')[2]; // Extract storyId from entryId
+                const entriesContainer = document.getElementById(`info-entries-${storyId}`);
+                if (entriesContainer) {
+                    const remainingEntries = entriesContainer.querySelectorAll('.info-entry');
+                    remainingEntries.forEach((entry, index) => {
+                        const header = entry.querySelector('strong');
+                        if (header) {
+                            header.textContent = `Info Entry #${index + 1}`;
+                        }
+                    });
+                }
+                
+                generatePreview();
+            }
+        }
+
+        // Convert single info entry to multiple instances format
+        function convertSingleInfoToMultiple(storyId) {
+            const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
+            if (!infoEntriesContainer) return;
+            
+            // Check if there are any existing entries
+            const existingEntries = infoEntriesContainer.querySelectorAll('.info-entry');
+            if (existingEntries.length > 0) return; // Already converted or has entries
+            
+            // Check if there's old single info data
+            const oldInfoDateEl = document.getElementById(`info-date-${storyId}`);
+            const oldInfoNotesEl = document.getElementById(`info-notes-${storyId}`);
+            
+            if (oldInfoDateEl && oldInfoNotesEl && (oldInfoDateEl.value || oldInfoNotesEl.value)) {
+                // Convert the old single entry to the new format
+                const entryId = `info-entry-${storyId}-${Date.now()}`;
+                const entryHtml = `
+                    <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <strong>Info Entry #${entryNumber}</strong>
+                            <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                        </div>
+                        <div class="inline-group">
+                            <div class="form-group">
+                                <label for="info-date-${entryId}">Info Date:</label>
+                                <input type="text" id="info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${oldInfoDateEl.value}">
+                            </div>
+                            <div class="form-group">
+                                <label for="info-notes-${entryId}">Information Details:</label>
+                                <textarea id="info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${oldInfoNotesEl.value}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                infoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                
+                // Add auto-update listeners
+                const dateInput = document.getElementById(`info-date-${entryId}`);
+                const notesInput = document.getElementById(`info-notes-${entryId}`);
+                if (dateInput) dateInput.addEventListener('input', () => generatePreview());
+                if (notesInput) notesInput.addEventListener('input', () => generatePreview());
+                
+                // Clear the old fields
+                oldInfoDateEl.value = '';
+                oldInfoNotesEl.value = '';
+            }
+        }
+
+        // Modal-specific info entry functions
+        let editInfoEntryCounter = 0;
+
+        function addEditInfoEntry() {
+            const entriesContainer = document.getElementById('editInfoEntries');
+            const entryId = `edit-info-entry-${editInfoEntryCounter++}`;
+            
+            // Count existing entries to get the next number
+            const existingEntries = entriesContainer.querySelectorAll('.info-entry');
+            const entryNumber = existingEntries.length + 1;
+            
+            const entryHtml = `
+                <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <strong>Info Entry #${entryNumber}</strong>
+                        <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                    </div>
+                    <div class="inline-group">
+                        <div class="form-group">
+                            <label for="edit-info-date-${entryId}">Info Date:</label>
+                            <input type="text" id="edit-info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-info-notes-${entryId}">Information Details:</label>
+                            <textarea id="edit-info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;"></textarea>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            entriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+            
+            // Auto-fill today's date
+            const dateField = document.getElementById(`edit-info-date-${entryId}`);
+            if (dateField) {
+                dateField.value = getTodaysDateEuropean();
+                dateField.focus({ preventScroll: true });
+            }
+        }
+
+        function removeEditInfoEntry(entryId) {
+            const entry = document.getElementById(entryId);
+            if (entry) {
+                entry.remove();
+            }
         }
 
         function handleTransferredOutChange(storyId) {
@@ -3377,9 +3570,9 @@
         function addChange(storyId) {
             const container = document.getElementById(`changes-container-${storyId}`);
             
-            // Check if we've reached the maximum of 3 changes
+            // Check if we've reached the maximum of 5 changes (allowing for 4th delay)
             const existingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
-            if (existingChanges.length >= 3) {
+            if (existingChanges.length >= 5) {
                 return; // Don't add more changes if limit is reached
             }
             
@@ -3387,13 +3580,16 @@
             const currentEndDateElement = document.getElementById(`story-end-${storyId}`);
             const currentEndDate = currentEndDateElement ? currentEndDateElement.value : '';
             
+            // Count existing changes to get the next number
+            const entryNumber = existingChanges.length + 1;
+            
             changeCounter++;
             const changeId = `${storyId}-change-${Date.now()}-${changeCounter}`;
             
             const changeHtml = `
                 <div class="form-group" id="change-${changeId}" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <strong>Timeline Entry</strong>
+                        <strong>Timeline #${entryNumber}</strong>
                         <button class="danger" onclick="removeChange('${changeId}', '${storyId}')" tabindex="-1">Remove</button>
                     </div>
                     
@@ -3452,6 +3648,18 @@
         function removeChange(changeId, storyId) {
             document.getElementById(`change-${changeId}`).remove();
             
+            // Renumber remaining timeline entries
+            const container = document.getElementById(`changes-container-${storyId}`);
+            if (container) {
+                const remainingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
+                remainingChanges.forEach((change, index) => {
+                    const header = change.querySelector('strong');
+                    if (header) {
+                        header.textContent = `Timeline #${index + 1}`;
+                    }
+                });
+            }
+            
             // Update the Add Change button state
             updateChangeButton(storyId);
         }
@@ -3464,9 +3672,9 @@
             
             const existingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
             
-            if (existingChanges.length >= 3) {
+            if (existingChanges.length >= 4) {
                 addButton.disabled = true;
-                addButton.textContent = '+ Add Change (Max 3 reached)';
+                addButton.textContent = '+ Add Change (Max 4 reached)';
                 addButton.style.opacity = '0.5';
                 addButton.style.cursor = 'not-allowed';
             } else {
@@ -4140,10 +4348,35 @@
             const newStoryNotes = newStoryNotesEl ? newStoryNotesEl.value : '';
             
             // Collect info info (regardless of timeline changes checkbox)  
-            const infoDateEl = document.getElementById(`info-date-${storyId}`);
-            const infoNotesEl = document.getElementById(`info-notes-${storyId}`);
-            const infoDate = infoDateEl ? infoDateEl.value : '';
-            const infoNotes = infoNotesEl ? infoNotesEl.value : '';
+            const infoEntries = [];
+            const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
+            if (infoEntriesContainer) {
+                const entryElements = infoEntriesContainer.querySelectorAll('.info-entry');
+                entryElements.forEach(entry => {
+                    const entryId = entry.id;
+                    const dateEl = document.getElementById(`info-date-${entryId}`);
+                    const notesEl = document.getElementById(`info-notes-${entryId}`);
+                    if (dateEl && notesEl) {
+                        // Include entry even if empty, but only if the entry exists
+                        infoEntries.push({
+                            date: dateEl.value || '',
+                            notes: notesEl.value || ''
+                        });
+                    }
+                });
+            }
+            
+            // Fallback: check for old single info fields
+            if (infoEntries.length === 0) {
+                const oldInfoDateEl = document.getElementById(`info-date-${storyId}`);
+                const oldInfoNotesEl = document.getElementById(`info-notes-${storyId}`);
+                if (oldInfoDateEl && oldInfoNotesEl && (oldInfoDateEl.value || oldInfoNotesEl.value)) {
+                    infoEntries.push({
+                        date: oldInfoDateEl.value,
+                        notes: oldInfoNotesEl.value
+                    });
+                }
+            }
             
                         // Collect transferred out info (regardless of timeline changes checkbox)
             const transferredOutDateEl = document.getElementById(`transferredout-date-${storyId}`);
@@ -4278,10 +4511,7 @@
                 }
                 
                 if (story.isInfo) {
-                    story.roadmapChanges.infoInfo = {
-                        date: ensureDateHasYear(infoDate) || '',
-                        notes: infoNotes || ''
-                    };
+                    story.roadmapChanges.infoInfo = infoEntries.length > 0 ? infoEntries : [];
                 }
                 
                 if (story.isTransferredOut) {
@@ -4727,8 +4957,18 @@
                                 if (story.roadmapChanges.newStoryInfo && story.roadmapChanges.newStoryInfo.date) {
                                     story.roadmapChanges.newStoryInfo.date = fixDate(story.roadmapChanges.newStoryInfo.date);
                                 }
-                                if (story.roadmapChanges.infoInfo && story.roadmapChanges.infoInfo.date) {
+                                if (story.roadmapChanges.infoInfo) {
+                                    if (Array.isArray(story.roadmapChanges.infoInfo)) {
+                                        // Multiple info entries
+                                        story.roadmapChanges.infoInfo.forEach(entry => {
+                                            if (entry && entry.date) {
+                                                entry.date = fixDate(entry.date);
+                                            }
+                                        });
+                                    } else if (story.roadmapChanges.infoInfo.date) {
+                                        // Single info entry (backward compatibility)
                                     story.roadmapChanges.infoInfo.date = fixDate(story.roadmapChanges.infoInfo.date);
+                                    }
                                 }
                                 if (story.roadmapChanges.transferredOutInfo && story.roadmapChanges.transferredOutInfo.date) {
                                     story.roadmapChanges.transferredOutInfo.date = fixDate(story.roadmapChanges.transferredOutInfo.date);
@@ -4879,11 +5119,13 @@
             `;
             
             if (breakdownType === 'delayed') {
-                breakdown.innerHTML = renderDelayBreakdown(stats, activeStories);
+                breakdown.innerHTML = renderDelayBreakdown(stats, stats.totalStories);
             } else if (breakdownType === 'ontime') {
-                breakdown.innerHTML = renderOntimeBreakdown(stats, activeStories);
+                breakdown.innerHTML = renderOntimeBreakdown(stats, stats.totalStories);
             } else if (breakdownType === 'accelerated') {
-                breakdown.innerHTML = renderAcceleratedBreakdown(stats, activeStories);
+                breakdown.innerHTML = renderAcceleratedBreakdown(stats, stats.totalStories);
+            } else if (breakdownType === 'cancelled') {
+                breakdown.innerHTML = renderCancelledBreakdown(stats);
             }
 
             // Insert directly after the clicked container
@@ -4893,7 +5135,7 @@
             setupDelayBreakdownInteractions();
         }
 
-        function renderOntimeBreakdown(stats, totalActive) {
+        function renderOntimeBreakdown(stats, totalStories) {
             const done = stats.onTimeDone || 0;
             const notDone = stats.onTimeNotDone || 0;
             const doneStories = (stats.onTimeStories && stats.onTimeStories.done) || [];
@@ -4903,8 +5145,8 @@
                 return '<div style="color:#6b7280;">No on-time projects</div>';
             }
             
-            const donePct = totalActive ? Math.round((done / totalActive) * 100) : 0;
-            const notDonePct = totalActive ? Math.round((notDone / totalActive) * 100) : 0;
+            const donePct = totalStories ? ((done / totalStories) * 100).toFixed(1) : 0;
+            const notDonePct = totalStories ? ((notDone / totalStories) * 100).toFixed(1) : 0;
             
             return (
                 '<div class="delay-row" id="ontime-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
@@ -4928,7 +5170,7 @@
             );
         }
         
-        function renderAcceleratedBreakdown(stats, totalActive) {
+        function renderAcceleratedBreakdown(stats, totalStories) {
             const acceleratedStories = stats.acceleratedStories || { done: [], notDone: [] };
             
             // Handle backward compatibility: if acceleratedStories is an array (old format), convert it
@@ -4947,9 +5189,8 @@
                 return '<div style="color:#6b7280;">No accelerated projects</div>';
             }
             
-            const total = done + notDone;
-            const donePct = total ? Math.round((done / total) * 100) : 0;
-            const notDonePct = total ? Math.round((notDone / total) * 100) : 0;
+            const donePct = totalStories ? ((done / totalStories) * 100).toFixed(1) : 0;
+            const notDonePct = totalStories ? ((notDone / totalStories) * 100).toFixed(1) : 0;
             
             return (
                 '<div class="delay-row" id="accelerated-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
@@ -4972,8 +5213,26 @@
                 '</div>'
             );
         }
+
+        function renderCancelledBreakdown(stats) {
+            const cancelled = Array.isArray(stats.cancelledStories) ? stats.cancelledStories : [];
+            if (cancelled.length === 0) {
+                return '<div style="color:#6b7280;">No cancelled projects</div>';
+            }
+            const items = cancelled.map(s => {
+                const title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const epic = (s.epicName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const team = (s.teamName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<div style="font-size:12px; color:#374151; padding:2px 0;">' +
+                    (team ? '<span style="color:#6b7280;">[' + team + ']</span> ' : '') +
+                    (epic ? '<span style="color:#6b7280;">[' + epic + ']</span> ' : '') +
+                    title +
+                '</div>';
+            }).join('');
+            return '<div style="display:block; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #dc3545;">' + items + '</div>';
+        }
         
-        function renderDelayBreakdown(stats, totalActive) {
+        function renderDelayBreakdown(stats, totalStories) {
             const counts = stats.delayBreakdown || {};
             const sorted = Object.keys(counts).map(n => parseInt(n, 10)).sort((a, b) => a - b);
             if (sorted.length === 0) {
@@ -4982,7 +5241,7 @@
             
             const rows = sorted.map(delayCount => {
                 const value = counts[delayCount] || 0;
-                const pct = totalActive ? Math.round((value / totalActive) * 100) : 0;
+                const pct = totalStories ? ((value / totalStories) * 100).toFixed(1) : 0;
                 const delayGroup = (stats.delayStories && stats.delayStories[delayCount]) || { done: [], notDone: [] };
                 const doneCount = delayGroup.done ? delayGroup.done.length : 0;
                 const notDoneCount = delayGroup.notDone ? delayGroup.notDone.length : 0;
@@ -5017,8 +5276,8 @@
             const doneCount = doneStories.length;
             const notDoneCount = notDoneStories.length;
             
-            const donePct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
-            const notDonePct = totalCount ? Math.round((notDoneCount / totalCount) * 100) : 0;
+            const donePct = totalCount ? ((doneCount / totalCount) * 100).toFixed(1) : 0;
+            const notDonePct = totalCount ? ((notDoneCount / totalCount) * 100).toFixed(1) : 0;
             
             return (
                 '<div class="delay-row" id="delay-' + delayCount + '-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
@@ -5042,13 +5301,30 @@
             );
         }
 
+        function compareByTeamEpicTitle(a, b) {
+            const ta = (a.teamName || '').toLowerCase();
+            const tb = (b.teamName || '').toLowerCase();
+            if (ta !== tb) return ta < tb ? -1 : 1;
+            const ea = (a.epicName || '').toLowerCase();
+            const eb = (b.epicName || '').toLowerCase();
+            if (ea !== eb) return ea < eb ? -1 : 1;
+            const sa = (a.title || '').toLowerCase();
+            const sb = (b.title || '').toLowerCase();
+            if (sa !== sb) return sa < sb ? -1 : 1;
+            return 0;
+        }
+
         function renderDelayDetails(stories) {
             if (!stories || !stories.length) return '<div style="color:#6b7280;">No items</div>';
-            return stories.map(s => {
+            const sorted = [...stories].sort(compareByTeamEpicTitle);
+            return sorted.map(s => {
                 const title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 const epic = (s.epicName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const team = (s.teamName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 return '<div style="font-size:12px; color:#374151; padding:2px 0;">' +
-                    '<span style="color:#6b7280;">[' + epic + ']</span> ' + title +
+                    (team ? '<span style="color:#6b7280;">[' + team + ']</span> ' : '') +
+                    (epic ? '<span style="color:#6b7280;">[' + epic + ']</span> ' : '') +
+                    title +
                 '</div>';
             }).join('');
         }
@@ -5102,7 +5378,8 @@
                 delayBreakdown: {}, // Track exact delay counts
                 delayStories: {},
                 acceleratedStories: { done: [], notDone: [] },
-                onTimeStories: { done: [], notDone: [] }
+                onTimeStories: { done: [], notDone: [] },
+                cancelledStories: []
             };
             if (!teamData || !Array.isArray(teamData.epics)) return result;
             result.totalEpics = teamData.epics.length;
@@ -5112,6 +5389,8 @@
                     result.totalStories++;
                     if (story.isCancelled) {
                         result.cancelled++;
+                        const teamName = (teamData && teamData.teamName) ? teamData.teamName : '';
+                        result.cancelledStories.push({ title: story.title, epicName: epic.name, teamName });
                         continue;
                     }
                     const changes = story.roadmapChanges?.changes || [];
@@ -5201,7 +5480,7 @@
         }
 
         function renderStatsHtml(s) {
-            const pct = (num, den) => (den ? Math.round((num / den) * 100) : 0);
+            const pct = (num, den) => (den ? ((num / den) * 100).toFixed(1) : 0);
             const activeStories = s.totalStories - s.cancelled;
             
             return (
@@ -5211,17 +5490,17 @@
                         `${s.totalStories} Total Stories across ${s.totalEpics} EPICs` +
                     '</div>' +
                     '<div style="max-width: 600px; margin: 0 auto;">' +
-                        barChart('On-time Projects', s.onTime, activeStories, '#28a745', s, 'ontime') +
-                        barChart('Delayed Projects', s.totalDelayed, activeStories, '#dc3545', s, 'delayed') +
-                        barChart('Accelerated Projects', s.accelerated, activeStories, '#17a2b8', s, 'accelerated') +
-                        barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', null, null) +
+                        barChart('On-time Projects', s.onTime, s.totalStories, '#28a745', s, 'ontime') +
+                        barChart('Delayed Projects', s.totalDelayed, s.totalStories, '#dc3545', s, 'delayed') +
+                        barChart('Accelerated Projects', s.accelerated, s.totalStories, '#17a2b8', s, 'accelerated') +
+                        barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', s, 'cancelled') +
                     '</div>' +
                 '</div>'
             );
         }
         
         function barChart(label, value, total, color, stats, breakdownType) {
-            const percentage = total ? Math.round((value / total) * 100) : 0;
+            const percentage = total ? ((value / total) * 100).toFixed(1) : 0;
             
             let tooltipContent = '';
             let expandIcon = '';
@@ -5485,6 +5764,8 @@
                 if (startToggle) startToggle.checked = false;
                 if (endToggle) endToggle.checked = false;
                 if (textBelowToggle) textBelowToggle.checked = false;
+                // Reset temporary force text below variable
+                tempForceTextBelow = false;
                 // Persist cleared state
                 getConfigUtility().setSortStories(false);
                 getConfigUtility().setSortByStart(false);
@@ -5833,7 +6114,7 @@
                             
                             // Wait a moment for DOM elements to be created, then load the changes
                             setTimeout(() => {
-                                story.roadmapChanges.changes.forEach(change => {
+                                story.roadmapChanges.changes.forEach((change, index) => {
                                     addChange(storyId);
                                     
                                     // Find the most recently added change element (container)
@@ -5852,6 +6133,12 @@
                                         if (prevEl) prevEl.value = change.prevEndDate || '';
                                         if (newEl) newEl.value = change.newEndDate || '';
                                         if (descEl) descEl.value = change.description || '';
+                                        
+                                        // Update the header to show the correct number
+                                        const header = latestContainer.querySelector('strong');
+                                        if (header) {
+                                            header.textContent = `Timeline #${index + 1}`;
+                                        }
                                     }
                                 });
                                 
@@ -5926,10 +6213,77 @@
                     
                     // Load info info and show info section if needed
                     if (story.roadmapChanges.infoInfo) {
-                        const infoDateEl = document.getElementById(`info-date-${storyId}`);
-                        const infoNotesEl = document.getElementById(`info-notes-${storyId}`);
-                        if (infoDateEl) infoDateEl.value = story.roadmapChanges.infoInfo.date || '';
-                        if (infoNotesEl) infoNotesEl.value = story.roadmapChanges.infoInfo.notes || '';
+                        const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
+                        if (infoEntriesContainer) {
+                            // Clear existing entries
+                            infoEntriesContainer.innerHTML = '';
+                            
+                            if (Array.isArray(story.roadmapChanges.infoInfo)) {
+                                // Multiple info entries
+                                story.roadmapChanges.infoInfo.forEach((entry, index) => {
+                                    const entryId = `info-entry-${storyId}-${Date.now()}-${index}`;
+                                    const entryHtml = `
+                                        <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                                <strong>Info Entry #${index + 1}</strong>
+                                                <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                                            </div>
+                                            <div class="inline-group">
+                                                <div class="form-group">
+                                                    <label for="info-date-${entryId}">Info Date:</label>
+                                                    <input type="text" id="info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${entry.date || ''}">
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="info-notes-${entryId}">Information Details:</label>
+                                                    <textarea id="info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${entry.notes || ''}</textarea>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                    infoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                                    
+                                    // Add auto-update listeners
+                                    const dateInput = document.getElementById(`info-date-${entryId}`);
+                                    const notesInput = document.getElementById(`info-notes-${entryId}`);
+                                    if (dateInput) dateInput.addEventListener('input', () => generatePreview());
+                                    if (notesInput) notesInput.addEventListener('input', () => generatePreview());
+                                });
+                            } else {
+                                // Single info entry (backward compatibility)
+                                const entryId = `info-entry-${storyId}-${Date.now()}`;
+                                const entryHtml = `
+                                    <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                            <strong>Info Entry #1</strong>
+                                            <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                                        </div>
+                                        <div class="inline-group">
+                                            <div class="form-group">
+                                                <label for="info-date-${entryId}">Info Date:</label>
+                                                <input type="text" id="info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${story.roadmapChanges.infoInfo.date || ''}">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="info-notes-${entryId}">Information Details:</label>
+                                                <textarea id="info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${story.roadmapChanges.infoInfo.notes || ''}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                                infoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                                
+                                // Add auto-update listeners
+                                const dateInput = document.getElementById(`info-date-${entryId}`);
+                                const notesInput = document.getElementById(`info-notes-${entryId}`);
+                                if (dateInput) dateInput.addEventListener('input', () => generatePreview());
+                                if (notesInput) notesInput.addEventListener('input', () => generatePreview());
+                                
+                                // Convert the data structure from old single format to new multiple format
+                                story.roadmapChanges.infoInfo = [{
+                                    date: story.roadmapChanges.infoInfo.date,
+                                    notes: story.roadmapChanges.infoInfo.notes
+                                }];
+                            }
+                        }
                         
                         // Show the info section if there's info info
                         if (story.isInfo) {
@@ -6308,8 +6662,135 @@
             document.getElementById('editAtRiskNotes').value = foundStory.atRiskNotes || '';
             document.getElementById('editNewStoryDate').value = foundStory.newStoryDate || '';
             document.getElementById('editNewStoryNotes').value = foundStory.newStoryNotes || '';
-            document.getElementById('editInfoDate').value = foundStory.infoDate || '';
-            document.getElementById('editInfoNotes').value = foundStory.infoNotes || '';
+            // Load info entries (multiple instances)
+            const editInfoEntriesContainer = document.getElementById('editInfoEntries');
+            if (editInfoEntriesContainer) {
+                // Clear existing entries
+                editInfoEntriesContainer.innerHTML = '';
+                editInfoEntryCounter = 0;
+                
+                if (foundStory.roadmapChanges && foundStory.roadmapChanges.infoInfo) {
+                    if (Array.isArray(foundStory.roadmapChanges.infoInfo)) {
+                        // Multiple info entries
+                        foundStory.roadmapChanges.infoInfo.forEach((entry, index) => {
+                            const entryId = `edit-info-entry-${editInfoEntryCounter++}`;
+                            const entryHtml = `
+                                <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <strong>Info Entry #${index + 1}</strong>
+                                        <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                                    </div>
+                                    <div class="inline-group">
+                                        <div class="form-group">
+                                            <label for="edit-info-date-${entryId}">Info Date:</label>
+                                            <input type="text" id="edit-info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${entry.date || ''}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="edit-info-notes-${entryId}">Information Details:</label>
+                                            <textarea id="edit-info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${entry.notes || ''}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            editInfoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                        });
+                    } else {
+                        // Single info entry (backward compatibility)
+                        const entryId = `edit-info-entry-${editInfoEntryCounter++}`;
+                        const entryHtml = `
+                            <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <strong>Info Entry #1</strong>
+                                    <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                                </div>
+                                <div class="inline-group">
+                                    <div class="form-group">
+                                        <label for="edit-info-date-${entryId}">Info Date:</label>
+                                        <input type="text" id="edit-info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${foundStory.roadmapChanges.infoInfo.date || ''}">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-info-notes-${entryId}">Information Details:</label>
+                                        <textarea id="edit-info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${foundStory.roadmapChanges.infoInfo.notes || ''}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        editInfoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                        
+                        // Convert the data structure from old single format to new multiple format
+                        foundStory.roadmapChanges.infoInfo = [{
+                            date: foundStory.roadmapChanges.infoInfo.date,
+                            notes: foundStory.roadmapChanges.infoInfo.notes
+                        }];
+                    }
+                } else {
+                    // Check if data has been converted in the main form
+                    const mainFormInfoEntries = [];
+                    const mainFormInfoContainer = document.getElementById(`info-entries-${foundStory.storyId}`);
+                    if (mainFormInfoContainer) {
+                        const mainFormEntries = mainFormInfoContainer.querySelectorAll('.info-entry');
+                        mainFormEntries.forEach(entry => {
+                            const entryId = entry.id;
+                            const dateEl = document.getElementById(`info-date-${entryId}`);
+                            const notesEl = document.getElementById(`info-notes-${entryId}`);
+                            if (dateEl && notesEl && (dateEl.value || notesEl.value)) {
+                                mainFormInfoEntries.push({
+                                    date: dateEl.value,
+                                    notes: notesEl.value
+                                });
+                            }
+                        });
+                    }
+                    
+                    if (mainFormInfoEntries.length > 0) {
+                        // Use converted data from main form
+                        mainFormInfoEntries.forEach((entry, index) => {
+                            const entryId = `edit-info-entry-${editInfoEntryCounter++}`;
+                            const entryHtml = `
+                                <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                        <strong>Info Entry #${index + 1}</strong>
+                                        <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                                    </div>
+                                    <div class="inline-group">
+                                        <div class="form-group">
+                                            <label for="edit-info-date-${entryId}">Info Date:</label>
+                                            <input type="text" id="edit-info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${entry.date || ''}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="edit-info-notes-${entryId}">Information Details:</label>
+                                            <textarea id="edit-info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${entry.notes || ''}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            editInfoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                        });
+                    } else if (foundStory.infoDate || foundStory.infoNotes) {
+                        // Fallback to old single info format
+                        const entryId = `edit-info-entry-${editInfoEntryCounter++}`;
+                        const entryHtml = `
+                            <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <strong>Info Entry #1</strong>
+                                    <button type="button" onclick="removeEditInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                                </div>
+                                <div class="inline-group">
+                                    <div class="form-group">
+                                        <label for="edit-info-date-${entryId}">Info Date:</label>
+                                        <input type="text" id="edit-info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${foundStory.infoDate || ''}">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-info-notes-${entryId}">Information Details:</label>
+                                        <textarea id="edit-info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${foundStory.infoNotes || ''}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        editInfoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                    }
+                }
+            }
             // Backward compatibility: handle both old handedOver and new transferredOut properties
             document.getElementById('editTransferredOutDate').value = foundStory.transferredOutDate || foundStory.handedOverDate || '';
             document.getElementById('editTransferredOutNotes').value = foundStory.transferredOutNotes || foundStory.handedOverNotes || '';
@@ -6355,7 +6836,7 @@
             // Clear date picker initialization flags to allow re-initialization
             const modalDateFields = [
                 'editStart', 'editEnd', 'editDoneDate', 'editCancelDate', 
-                'editAtRiskDate', 'editNewStoryDate', 'editInfoDate', 'editTransferredOutDate', 'editBTLDateAdded'
+                'editAtRiskDate', 'editNewStoryDate', 'editTransferredOutDate', 'editBTLDateAdded'
             ];
             
             modalDateFields.forEach(fieldId => {
@@ -6503,7 +6984,7 @@
                 if (cancelledChecked) initializeDatePicker(document.getElementById('editCancelDate'), false);
                 if (atRiskChecked) initializeDatePicker(document.getElementById('editAtRiskDate'), false);
                 if (newStoryChecked) initializeDatePicker(document.getElementById('editNewStoryDate'), false);
-                if (infoChecked) initializeDatePicker(document.getElementById('editInfoDate'), false);
+                // Info entries are handled dynamically, no single date picker needed
                 if (transferredOutChecked) initializeDatePicker(document.getElementById('editTransferredOutDate'), false);
                 if (transferredInChecked) initializeDatePicker(document.getElementById('editTransferredInDate'), false);
                 if (proposedChecked) initializeDatePicker(document.getElementById('editProposedDate'), false);
@@ -6538,11 +7019,18 @@
                 }
             }
             
+            // Info entries are handled dynamically with addEditInfoEntry function
             if (infoChecked) {
-                const infoDateField = document.getElementById('editInfoDate');
-                if (infoDateField && !infoDateField.value) {
-                    infoDateField.value = getTodaysDateEuropean();
-                }
+                // Auto-create first info entry if none exist
+                setTimeout(() => {
+                    const editInfoEntriesContainer = document.getElementById('editInfoEntries');
+                    if (editInfoEntriesContainer) {
+                        const existingEntries = editInfoEntriesContainer.querySelectorAll('.info-entry');
+                        if (existingEntries.length === 0) {
+                            addEditInfoEntry();
+                        }
+                    }
+                }, 100);
             }
             
             if (transferredOutChecked) {
@@ -6655,9 +7143,9 @@
         function addEditChange() {
             const container = document.getElementById('editChangesContainer');
             
-            // Check if we've reached the maximum of 3 changes
+            // Check if we've reached the maximum of 5 changes (allowing for 4th delay)
             const existingChanges = container.querySelectorAll('div[id^="edit-change-"]');
-            if (existingChanges.length >= 3) {
+            if (existingChanges.length >= 5) {
                 return; // Don't add more changes if limit is reached
             }
             
@@ -6667,12 +7155,15 @@
             
             editChangeCounter++;
             const changeId = `edit-change-${editChangeCounter}`;
+            
+            // Count existing changes to get the next number
+            const entryNumber = existingChanges.length + 1;
 
             
             const changeHtml = `
                 <div class="form-group" id="${changeId}" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px; background-color: #f8f9fa;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <strong>Timeline Entry</strong>
+                        <strong>Timeline #${entryNumber}</strong>
                         <button type="button" class="danger" onclick="removeEditChange('${changeId}')" style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;" tabindex="-1">Remove</button>
                     </div>
                     
@@ -6757,9 +7248,9 @@
             
             const existingChanges = container.querySelectorAll('div[id^="edit-change-"]');
             
-            if (existingChanges.length >= 3) {
+            if (existingChanges.length >= 5) {
                 addButton.disabled = true;
-                addButton.textContent = '+ Add Timeline Entry (Max 3 reached)';
+                addButton.textContent = '+ Add Timeline Entry (Max 5 reached)';
                 addButton.style.opacity = '0.5';
                 addButton.style.cursor = 'not-allowed';
             } else {
@@ -7318,8 +7809,51 @@
                     if (atRiskNotesEl) atRiskNotesEl.value = document.getElementById('editAtRiskNotes').value;
                     if (newStoryDateEl) newStoryDateEl.value = document.getElementById('editNewStoryDate').value;
                     if (newStoryNotesEl) newStoryNotesEl.value = document.getElementById('editNewStoryNotes').value;
-                    if (infoDateEl) infoDateEl.value = document.getElementById('editInfoDate').value;
-                    if (infoNotesEl) infoNotesEl.value = document.getElementById('editInfoNotes').value;
+                    // Handle multiple info entries
+                    const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
+                    if (infoEntriesContainer) {
+                        // Clear existing entries
+                        infoEntriesContainer.innerHTML = '';
+                        
+                        // Collect info entries from modal
+                        const editInfoEntries = document.querySelectorAll('#editInfoEntries > div[id^="edit-info-entry-"]');
+                        editInfoEntries.forEach((editEntryEl, index) => {
+                            const entryId = editEntryEl.id;
+                            const dateEl = document.getElementById(`edit-info-date-${entryId}`);
+                            const notesEl = document.getElementById(`edit-info-notes-${entryId}`);
+                            
+                            if (dateEl && notesEl && (dateEl.value || notesEl.value)) {
+                                // Create new entry in the main form
+                                const newEntryId = `info-entry-${storyId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                                const entryNumber = index + 1;
+                                const entryHtml = `
+                                    <div id="${newEntryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                            <strong>Info Entry #${entryNumber}</strong>
+                                            <button type="button" onclick="removeInfoEntry('${newEntryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
+                                        </div>
+                                        <div class="inline-group">
+                                            <div class="form-group">
+                                                <label for="info-date-${newEntryId}">Info Date:</label>
+                                                <input type="text" id="info-date-${newEntryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${dateEl.value}">
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="info-notes-${newEntryId}">Information Details:</label>
+                                                <textarea id="info-notes-${newEntryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${notesEl.value}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                                infoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
+                                
+                                // Add auto-update listeners
+                                const dateInput = document.getElementById(`info-date-${newEntryId}`);
+                                const notesInput = document.getElementById(`info-notes-${newEntryId}`);
+                                if (dateInput) dateInput.addEventListener('input', () => generatePreview());
+                                if (notesInput) notesInput.addEventListener('input', () => generatePreview());
+                            }
+                        });
+                    }
                     if (transferredOutDateEl) transferredOutDateEl.value = document.getElementById('editTransferredOutDate').value;
                     if (transferredOutNotesEl) transferredOutNotesEl.value = document.getElementById('editTransferredOutNotes').value;
                     if (transferredInDateEl) transferredInDateEl.value = document.getElementById('editTransferredInDate').value;
@@ -8212,8 +8746,9 @@
             if (endToggle) {
                 endToggle.checked = !!getConfigUtility().shouldSortByEnd();
             }
+            // Force text below is a one-time action, don't restore from saved state
             if (textBelowToggle) {
-                textBelowToggle.checked = !!getConfigUtility().shouldForceTextBelow();
+                textBelowToggle.checked = false;
             }
             
             if (!('showDirectoryPicker' in window)) {
