@@ -1601,6 +1601,7 @@ class RoadmapGenerator {
         if (teamData.ktloSwimlane && ktloPosition === 'top') {
             ktloHTML = this.generateKTLOSwimlane(teamData.ktloSwimlane, 0, embedded, ktloPosition); // Pass 0 for top position
         }
+        // Skip KTLO generation entirely if position is 'hidden'
         
         const epicsHTML = teamData.epics.map((epic, index) => {
             const separatorHTML = index === 0 ? '' : '<div class="swimlane-separator"></div>'; // Skip separator before first epic
@@ -1610,7 +1611,7 @@ class RoadmapGenerator {
         // Generate BTL and KTLO at bottom
         let bottomHTML = '';
         
-        // Add KTLO at bottom if positioned there
+        // Add KTLO at bottom if positioned there (skip if hidden)
         if (teamData.ktloSwimlane && ktloPosition === 'bottom') {
             bottomHTML += '<div class="swimlane-separator"></div>';
             bottomHTML += this.generateKTLOSwimlane(teamData.ktloSwimlane, teamData.epics.length, embedded, ktloPosition);
