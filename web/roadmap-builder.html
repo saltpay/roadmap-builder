@@ -1770,6 +1770,23 @@
             }
         }
         
+        function hideKTLOSection() {
+            // Find the KTLO section header and content
+            const ktloHeader = [...document.querySelectorAll('h2')].find(h2 => h2.textContent.includes('KTLO (Keep The Lights On)'));
+            const ktloDiv = ktloHeader ? ktloHeader.nextElementSibling : null;
+            
+            if (ktloHeader) ktloHeader.style.display = 'none';
+            if (ktloDiv) ktloDiv.style.display = 'none';
+        }
+        
+        function showKTLOSection() {
+            // Find the KTLO section header and content
+            const ktloHeader = [...document.querySelectorAll('h2')].find(h2 => h2.textContent.includes('KTLO (Keep The Lights On)'));
+            const ktloDiv = ktloHeader ? ktloHeader.nextElementSibling : null;
+            
+            if (ktloHeader) ktloHeader.style.display = '';
+            if (ktloDiv) ktloDiv.style.display = '';
+        }
 
         
         function repositionKTLOSection() {
@@ -1841,8 +1858,15 @@
         function toggleKTLOPosition() {
             const ktloToggle = document.getElementById('ktlo-position-toggle');
             if (ktloToggle) {
-                // Toggle the checkbox state
-                ktloToggle.checked = !ktloToggle.checked;
+                // If currently hidden, clear the hidden state and set to top
+                if (ktloToggle.dataset.originalPosition === 'hidden') {
+                    delete ktloToggle.dataset.originalPosition;
+                    ktloToggle.checked = true; // Set to top
+                    showKTLOSection(); // Make KTLO visible in builder
+                } else {
+                    // Normal toggle between top and bottom
+                    ktloToggle.checked = !ktloToggle.checked;
+                }
                 
                 // Reposition the KTLO section in the builder form
                 repositionKTLOSection();
@@ -2133,6 +2157,9 @@
             const ktloToggle = document.getElementById('ktlo-position-toggle');
             if (ktloToggle) {
                 ktloToggle.addEventListener('change', function() {
+                    // Clear hidden state when manually toggling checkbox
+                    delete ktloToggle.dataset.originalPosition;
+                    showKTLOSection(); // Make KTLO visible in builder
                     repositionKTLOSection();
                     generatePreview(); // Immediate update for position changes
                 });
@@ -4547,7 +4574,14 @@
             const ktloTitle = ktloTitleEl ? ktloTitleEl.value || 'KTLO' : 'KTLO';
             const ktloBulletsText = ktloBulletsEl ? ktloBulletsEl.value || 'Keep the Lights On\nOperational Excellence\nInfrastructure Maintenance' : 'Keep the Lights On\nOperational Excellence\nInfrastructure Maintenance';
             const ktloBullets = ktloBulletsText.split('\n').filter(line => line.trim());
-            const ktloPosition = ktloPositionEl ? (ktloPositionEl.checked ? 'top' : 'bottom') : 'bottom';
+            
+            // Preserve 'hidden' position if it was set via JSON, otherwise use checkbox state
+            let ktloPosition;
+            if (ktloPositionEl && ktloPositionEl.dataset.originalPosition === 'hidden') {
+                ktloPosition = 'hidden'; // Preserve hidden state
+            } else {
+                ktloPosition = ktloPositionEl ? (ktloPositionEl.checked ? 'top' : 'bottom') : 'bottom';
+            }
             
             // Save currently displayed month before collecting data
             saveCurrentKTLOData();
@@ -4754,7 +4788,12 @@
             // Reset KTLO to defaults but keep it
             document.getElementById('ktlo-title').value = 'Keep the lights on';
             document.getElementById('ktlo-bullets').value = '';
-            document.getElementById('ktlo-position-toggle').checked = false; // Default to bottom
+            const ktloToggle = document.getElementById('ktlo-position-toggle');
+            if (ktloToggle) {
+                ktloToggle.checked = false; // Default to bottom
+                delete ktloToggle.dataset.originalPosition; // Clear any hidden state
+            }
+            showKTLOSection(); // Ensure KTLO section is visible in builder
             
             // Set default KTLO monthly data (10 and 25 for each month)
             ktloMonthlyData = {
@@ -5871,10 +5910,12 @@
                 // Set default KTLO position to 'bottom' when no KTLO data exists
                 const positionToggle = document.getElementById('ktlo-position-toggle');
                 if (positionToggle) {
-                    positionToggle.checked = false;
+                    positionToggle.checked = false; // Unchecked = bottom
+                    delete positionToggle.dataset.originalPosition; // Clear any hidden state
                     // Reposition the KTLO section to default position
                     setTimeout(repositionKTLOSection, 50);
                 }
+                showKTLOSection(); // Ensure KTLO section is visible in builder
             }
             
             // Load BTL data if it exists
@@ -5905,11 +5946,22 @@
 
         function loadKTLOData(ktloData) {
             try {
-                // Load KTLO position setting
+                // Load KTLO position setting (support 'hidden' from JSON but map to bottom in UI)
                 const position = ktloData.position || 'bottom';
                 const positionToggle = document.getElementById('ktlo-position-toggle');
                 if (positionToggle) {
+                    // Map position to checkbox (hidden is treated as bottom in UI)
                     positionToggle.checked = (position === 'top');
+                    // Store the original position if it's hidden (to preserve when saving)
+                    if (position === 'hidden') {
+                        positionToggle.dataset.originalPosition = 'hidden';
+                        // Hide the entire KTLO section in the builder
+                        hideKTLOSection();
+                    } else {
+                        delete positionToggle.dataset.originalPosition;
+                        // Show the KTLO section in the builder
+                        showKTLOSection();
+                    }
                     // Reposition the KTLO section in the builder based on loaded data
                     setTimeout(repositionKTLOSection, 50);
                 }
