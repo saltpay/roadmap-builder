@@ -1208,6 +1208,9 @@ class RoadmapGenerator {
         if (ktloPosition === 'top') {
             // Order: KTLO (0), EPIC1 (1), EPIC2 (2), ..., BTL (totalEpics + 1)
             btlVisualPosition = totalEpics + 1;
+        } else if (ktloPosition === 'hidden') {
+            // Order: EPIC1 (0), EPIC2 (1), ..., BTL (totalEpics) - KTLO is not rendered
+            btlVisualPosition = totalEpics;
         } else {
             // Order: EPIC1 (0), EPIC2 (1), ..., KTLO (totalEpics), BTL (totalEpics + 1)
             btlVisualPosition = totalEpics + 1;
@@ -1701,31 +1704,8 @@ class RoadmapGenerator {
                     
 
                     
-                    // Add keyboard shortcut for toggling KTLO position (Ctrl+Shift+K)
-                    document.addEventListener('keydown', function(e) {
-                        if (e.ctrlKey && e.shiftKey && e.key === 'K') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            toggleKTLOPosition();
-                        }
-                    });
                 });
                 
-                // Function to toggle KTLO position and reload the page
-                function toggleKTLOPosition() {
-                    // Get current URL and parse parameters
-                    const url = new URL(window.location.href);
-                    const currentKtloPosition = url.searchParams.get('ktloPosition') || 'bottom';
-                    
-                    // Toggle the position
-                    const newKtloPosition = currentKtloPosition === 'top' ? 'bottom' : 'top';
-                    
-                    // Update URL parameter
-                    url.searchParams.set('ktloPosition', newKtloPosition);
-                    
-                    // Reload page with new KTLO position
-                    window.location.href = url.toString();
-                }
                 
                 function editStory() {
                     if (!selectedStory) return;

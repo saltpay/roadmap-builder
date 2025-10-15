@@ -983,17 +983,17 @@
     </div>
 
     <!-- Search Stats Modal -->
-    <div id="searchStatsModal" class="modal" style="display: none;">
-        <div class="modal-content" style="width: 80vw; max-width: 600px; max-height: 90vh; display: flex; flex-direction: column;">
-            <div class="modal-header" style="flex-shrink: 0;">
-                <h3>📊 Search Results Statistics</h3>
-                <span class="close" onclick="closeSearchStatsModal()" style="padding: 4px;">&times;</span>
+    <div id="searchStatsModal" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
+        <div style="background: #fff; border-radius: 10px; width: 60vw; max-width: 500px; max-height: 90vh; box-shadow: 0 10px 30px rgba(0,0,0,0.25); display: flex; flex-direction: column;">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;">
+                <h3 style="margin:0; font-size: 18px;">📊 Search Results Statistics</h3>
+                <button onclick="closeSearchStatsModal()" style="border:none; background:none; font-size: 20px; line-height: 1; cursor:pointer; color: #666; padding: 4px;">×</button>
             </div>
-            <div class="modal-body" id="searchStatsModalBody" style="flex: 1; min-height: 0; overflow-y: auto;">
+            <div id="searchStatsModalBody" style="padding: 16px; overflow-y: auto; flex: 1; min-height: 0;">
                 <!-- Stats content will be injected here -->
             </div>
-            <div class="modal-footer" style="flex-shrink: 0;">
-                <button type="button" class="secondary" onclick="closeSearchStatsModal()">Close</button>
+            <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb; text-align: right; flex-shrink: 0;">
+                <button onclick="closeSearchStatsModal()" class="secondary">Close</button>
             </div>
         </div>
     </div>
@@ -2009,8 +2009,30 @@
          * Handle Escape key to close modal
          */
         document.addEventListener('keydown', function(event) {
+            // Check if user is currently typing in an editable element
+            const activeElement = document.activeElement;
+            const isEditable = activeElement && (
+                activeElement.tagName === 'INPUT' ||
+                activeElement.tagName === 'TEXTAREA' ||
+                activeElement.contentEditable === 'true'
+            );
+            
+            // Always allow Escape key to work (to close modals)
             if (event.key === 'Escape') {
                 closeStoryDetailsModal();
+                closeSearchStatsModal();
+                return;
+            }
+            
+            // Don't handle other shortcuts when user is typing in an editable field
+            if (isEditable) {
+                return;
+            }
+            
+            // Shift-S to open stats dialog
+            if (event.shiftKey && event.key === 'S') {
+                event.preventDefault();
+                openSearchStatsModal();
             }
         });
         
