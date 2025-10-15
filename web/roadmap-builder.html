@@ -233,6 +233,11 @@
             display: none;
         }
         
+        /* Hide filename display when builder is collapsed */
+        .builder-panel.collapsed #currentFilenameDisplay {
+            display: none !important;
+        }
+        
         /* When builder collapsed, expand preview */
         .builder-panel.collapsed + .preview-panel {
             height: calc(100vh - 80px);
@@ -710,7 +715,7 @@
             
             <!-- Stats Modal -->
             <div id="statsModal" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
-                <div style="background: #fff; border-radius: 10px; width: 80vw; max-width: 600px; max-height: 90vh; box-shadow: 0 10px 30px rgba(0,0,0,0.25); display: flex; flex-direction: column;">
+                <div style="background: #fff; border-radius: 10px; width: 60vw; max-width: 500px; max-height: 90vh; box-shadow: 0 10px 30px rgba(0,0,0,0.25); display: flex; flex-direction: column;">
                     <div style="display:flex; align-items:center; justify-content:space-between; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;">
                         <h3 style="margin:0; font-size: 18px;">Roadmap Statistics</h3>
                         <button onclick="closeStatsModal()" class="secondary" style="border:none; background:none; font-size: 20px; line-height: 1; cursor:pointer; color: #666; padding: 4px;">×</button>
@@ -1850,6 +1855,13 @@
             
             // Check for Shift+K
             if (event.shiftKey && event.key === 'K') {
+                // Check if KTLO is hidden (can only happen by editing JSON directly)
+                const ktloToggle = document.getElementById('ktlo-position-toggle');
+                if (ktloToggle && ktloToggle.dataset.originalPosition === 'hidden') {
+                    // KTLO is hidden, do nothing
+                    return;
+                }
+                
                 event.preventDefault();
                 toggleKTLOPosition();
             }
@@ -6523,6 +6535,12 @@
             if (event.shiftKey && event.key === 'F') {
                 event.preventDefault();
                 toggleFileBrowser();
+            }
+            
+            // Shift-S to open stats dialog
+            if (event.shiftKey && event.key === 'S') {
+                event.preventDefault();
+                openStatsModal();
             }
         });
 
