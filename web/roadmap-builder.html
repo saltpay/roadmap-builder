@@ -929,7 +929,6 @@
             <iframe id="fullscreen-preview" src="about:blank"></iframe>
         </div>
     </div>
-
     <!-- Edit Story Modal -->
     <div id="editStoryModal" class="modal" style="display: none;">
         <div class="modal-content">
@@ -2081,7 +2080,6 @@
                 }
             }, 2000);
         }
-
         function showKTLOPositionNotification(isTop) {
             const notification = document.createElement('div');
             notification.innerHTML = `KTLO moved to ${isTop ? 'TOP' : 'BOTTOM'} (Shift+K to toggle)`;
@@ -2861,7 +2859,6 @@
                 story.parentNode.insertBefore(nextStory, story);
             }
         }
-        
         function toggleChanges(storyId) {
             const checkbox = document.getElementById(`story-changes-${storyId}`);
             const section = document.getElementById(`changes-section-${storyId}`);
@@ -3605,7 +3602,6 @@
         function handleProposedChange(storyId) {
             handleStatusChange(storyId, 'proposed');
         }
-        
         function addChange(storyId) {
             const container = document.getElementById(`changes-container-${storyId}`);
             
@@ -3795,24 +3791,17 @@
                 console.error('Could not find EPIC:', epicName);
                 return;
             }
-            
-            // Get all story elements in this EPIC
-            const storyElements = targetEpicElement.querySelectorAll('.story-section');
-            if (storyIndex <= 0 || storyIndex >= storyElements.length) {
-                return;
-            }
-            
-            // Get the story element to move and the one before it
-            const storyToMove = storyElements[storyIndex];
-            const previousStory = storyElements[storyIndex - 1];
-            
-            // Move the story up by inserting it before the previous story
-            storyToMove.parentNode.insertBefore(storyToMove, previousStory);
-            
-            // Update story numbers
+            const storiesContainer = targetEpicElement.querySelector('[id^="stories-container-"]');
+            if (!storiesContainer) return;
+            const stories = Array.from(storiesContainer.children).filter(el => el.classList && el.classList.contains('story-section'));
+            if (storyIndex <= 0 || storyIndex >= stories.length) return;
+            // Swap current with previous in array
+            const tmp = stories[storyIndex - 1];
+            stories[storyIndex - 1] = stories[storyIndex];
+            stories[storyIndex] = tmp;
+            // Re-append in new order (moves nodes, no cloning)
+            stories.forEach(node => storiesContainer.appendChild(node));
             updateStoryNumbers(targetEpicElement);
-            
-            // Regenerate preview after a short delay
             setTimeout(generatePreview, 100);
         }
         
@@ -3820,7 +3809,6 @@
             // Find the EPIC section by name
             const epicElements = document.querySelectorAll('.epic-section');
             let targetEpicElement = null;
-            
             epicElements.forEach(epicEl => {
                 const epicId = epicEl.id.split('-')[1];
                 const epicNameEl = document.getElementById(`epic-name-${epicId}`);
@@ -3828,29 +3816,33 @@
                     targetEpicElement = epicEl;
                 }
             });
-            
-            if (!targetEpicElement) {
-                return;
-            }
-            
-            // Get all story elements in this EPIC
+            if (!targetEpicElement) return;
+
+            // Find the story element by index (static snapshot is fine)
             const storyElements = targetEpicElement.querySelectorAll('.story-section');
-            if (storyIndex < 0 || storyIndex >= storyElements.length - 1) {
-                return;
-            }
-            
-            // Get the story element to move and the one after it
+            if (storyIndex < 0 || storyIndex >= storyElements.length - 1) return;
+
             const storyToMove = storyElements[storyIndex];
-            const nextStory = storyElements[storyIndex + 1];
-            
-            // Move the story down by inserting it after the next story
-            const afterNext = nextStory.nextElementSibling;
-            if (afterNext) {
-                storyToMove.parentNode.insertBefore(storyToMove, afterNext);
-            } else {
-                storyToMove.parentNode.appendChild(storyToMove);
+            if (!storyToMove) return;
+
+            // Work within the same container and move after the next story-section sibling
+            const container = storyToMove.parentNode;
+            if (!container) return;
+
+            // Find the next sibling that is a story-section (skip non-story nodes)
+            let nextSibling = storyToMove.nextElementSibling;
+            while (nextSibling && !nextSibling.classList.contains('story-section')) {
+                nextSibling = nextSibling.nextElementSibling;
             }
-            
+            if (!nextSibling) return; // nothing to move past
+
+            const afterNext = nextSibling.nextElementSibling;
+            if (afterNext) {
+                container.insertBefore(storyToMove, afterNext);
+            } else {
+                container.appendChild(storyToMove);
+            }
+
             // Update story numbers
             updateStoryNumbers(targetEpicElement);
             
@@ -4276,7 +4268,6 @@
             
             return teamData;
         }
-        
         function collectStoryData(storyId) {
             const titleEl = document.getElementById(`story-title-${storyId}`);
             const storyUniqueIdEl = document.getElementById(`story-id-${storyId}`);
@@ -5036,7 +5027,6 @@
                 });
             }
         }
-
         function handleFileLoad(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -5796,7 +5786,6 @@
                 if (callback) callback(); // Call callback even on error to prevent hanging
             }
         }
-        
                 function loadTeamData(teamData) {
             // Clear existing EPICs first
             document.getElementById('epics-container').innerHTML = '';
@@ -6542,8 +6531,19 @@
                 event.preventDefault();
                 openStatsModal();
             }
+            
+            // Cmd-S (Mac) or Ctrl-S (Windows/Linux) to save roadmap
+            if ((event.metaKey || event.ctrlKey) && event.key === 's') {
+                event.preventDefault();
+                saveRoadmap();
+            }
+            
+            // Cmd-L (Mac) or Ctrl-L (Windows/Linux) to load roadmap
+            if ((event.metaKey || event.ctrlKey) && event.key === 'l') {
+                event.preventDefault();
+                loadRoadmap();
+            }
         });
-
         // Modal functions
         let currentEditingStory = null;
         let modalFocusTrap = null;
@@ -7330,7 +7330,6 @@
                 addButton.style.cursor = 'pointer';
             }
         }
-        
         // Monthly KTLO Edit Modal Functions
         let currentEditingMonth = null;
         
@@ -7689,7 +7688,7 @@
                 return;
             }
             
-            try {
+            try{
                 // Find the story in the form
                 const foundStory = findStoryInForm(currentEditingStory.epicName, currentEditingStory.storyTitle, currentEditingStory.storyIndex);
                 if (!foundStory) {
@@ -8132,7 +8131,6 @@
                 alert('Could not find EPIC for story');
             }
         }
-
         // Close modal when clicking outside
         document.addEventListener('click', function(event) {
             const modal = document.getElementById('editStoryModal');
