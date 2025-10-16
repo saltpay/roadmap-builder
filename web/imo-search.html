@@ -2302,7 +2302,7 @@
                             <div class="search-summary" style="color: #666; font-size: 14px; margin: 5px 0;">
                                 Found <strong>${stories.length}</strong> ${stories.length === 1 ? 'story' : 'stories'} 
                                 across <strong>${new Set(stories.map(s => s.teamName)).size}</strong> ${new Set(stories.map(s => s.teamName)).size === 1 ? 'team' : 'teams'} 
-                                for "<strong>${queryLabelSafe}</strong>": (${Array.from(new Set(stories.map(s => s.teamName))).join(', ')})
+                                for "<strong>${queryLabelSafe}</strong>": (${Array.from(new Set(stories.map(s => s.teamName))).sort().join(', ')})
                             </div>
                             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
                                 <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; font-size: 14px;">
