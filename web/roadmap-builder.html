@@ -1774,6 +1774,188 @@
             }
         }
         
+        function toggleStoryCollapse(storyId) {
+            const contentDiv = document.getElementById(`story-content-${storyId}`);
+            const collapseBtn = document.getElementById(`story-collapse-btn-${storyId}`);
+            const headerTitle = document.getElementById(`story-header-title-${storyId}`);
+            const storySection = document.getElementById(`story-${storyId}`);
+            
+            if (contentDiv.style.display === 'none') {
+                // Expand
+                contentDiv.style.display = 'block';
+                collapseBtn.textContent = '▼';
+                collapseBtn.title = 'Collapse Story';
+                collapseBtn.classList.remove('collapse-btn-collapsed');
+                collapseBtn.style.background = '';
+                collapseBtn.style.color = '';
+                // Remove title suffix when expanded
+                updateStoryHeaderTitle(storyId);
+                // Disable dragging when expanded
+                if (storySection) {
+                    storySection.setAttribute('draggable', 'false');
+                    headerTitle.style.cursor = 'default';
+                }
+            } else {
+                // Collapse
+                contentDiv.style.display = 'none';
+                collapseBtn.textContent = '▶';
+                collapseBtn.title = 'Expand Story';
+                collapseBtn.classList.add('collapse-btn-collapsed');
+                collapseBtn.style.background = '#007cba';
+                collapseBtn.style.color = 'white';
+                // Add title suffix when collapsed
+                updateStoryHeaderTitle(storyId, true);
+                // Enable dragging when collapsed
+                if (storySection) {
+                    storySection.setAttribute('draggable', 'true');
+                    headerTitle.style.cursor = 'move';
+                }
+            }
+        }
+        
+        function updateStoryHeaderTitle(storyId, showTitle = false) {
+            const headerTitle = document.getElementById(`story-header-title-${storyId}`);
+            if (!headerTitle) return;
+            
+            // Get the story number from the header
+            const storyNumberMatch = headerTitle.textContent.match(/Story (\d+)/);
+            if (!storyNumberMatch) return;
+            const storyNumber = storyNumberMatch[1];
+            
+            if (showTitle) {
+                // Get the story title from the input field
+                let titleInputId;
+                if (storyId.startsWith('btl-')) {
+                    titleInputId = `btl-title-${storyId}`;
+                } else {
+                    titleInputId = `story-title-${storyId}`;
+                }
+                const titleInput = document.getElementById(titleInputId);
+                const title = titleInput ? titleInput.value.trim() : '';
+                
+                if (title) {
+                    headerTitle.textContent = `📋 Story ${storyNumber} (${title})`;
+                } else {
+                    headerTitle.textContent = `📋 Story ${storyNumber}`;
+                }
+            } else {
+                // Just show the story number when expanded
+                headerTitle.textContent = `📋 Story ${storyNumber}`;
+            }
+        }
+        
+        // Drag and drop handlers for story reordering
+        let draggedStoryElement = null;
+        
+        function handleStoryDragStart(event, storyId) {
+            // Only allow dragging if story is collapsed
+            const contentDiv = document.getElementById(`story-content-${storyId}`);
+            const isCollapsed = contentDiv && contentDiv.style.display === 'none';
+            
+            if (!isCollapsed) {
+                // Story is expanded, don't allow dragging
+                event.preventDefault();
+                return false;
+            }
+            
+            draggedStoryElement = document.getElementById(`story-${storyId}`);
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/html', draggedStoryElement.innerHTML);
+            
+            // Add visual feedback
+            setTimeout(() => {
+                if (draggedStoryElement) {
+                    draggedStoryElement.style.opacity = '0.4';
+                }
+            }, 0);
+        }
+        
+        function handleStoryDragOver(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            
+            const targetStory = event.currentTarget;
+            if (targetStory && targetStory.classList.contains('story-section') && targetStory !== draggedStoryElement) {
+                // Check if both stories are in the same epic
+                const draggedEpic = draggedStoryElement.closest('.epic-section');
+                const targetEpic = targetStory.closest('.epic-section');
+                
+                if (draggedEpic !== targetEpic) {
+                    return false; // Can't drag between epics
+                }
+                
+                const container = targetStory.parentNode;
+                const allStories = Array.from(container.querySelectorAll('.story-section'));
+                const draggedIndex = allStories.indexOf(draggedStoryElement);
+                const targetIndex = allStories.indexOf(targetStory);
+                
+                if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) {
+                    return false;
+                }
+                
+                // Determine if we should insert before or after based on mouse position
+                const rect = targetStory.getBoundingClientRect();
+                const midpoint = rect.top + rect.height / 2;
+                const insertBefore = event.clientY < midpoint;
+                
+                // Perform live reordering
+                if (insertBefore) {
+                    if (draggedIndex < targetIndex) {
+                        // Moving down, insert before target
+                        container.insertBefore(draggedStoryElement, targetStory);
+                    } else if (draggedIndex > targetIndex) {
+                        // Moving up, insert before target
+                        container.insertBefore(draggedStoryElement, targetStory);
+                    }
+                } else {
+                    if (draggedIndex < targetIndex) {
+                        // Moving down, insert after target
+                        container.insertBefore(draggedStoryElement, targetStory.nextSibling);
+                    } else if (draggedIndex > targetIndex) {
+                        // Moving up, insert after target
+                        container.insertBefore(draggedStoryElement, targetStory.nextSibling);
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
+        function handleStoryDrop(event, targetStoryId) {
+            event.stopPropagation();
+            event.preventDefault();
+            
+            // Reordering already happened during dragover
+            // Just update the story numbers and refresh preview
+            if (draggedStoryElement) {
+                const draggedEpic = draggedStoryElement.closest('.epic-section');
+                if (draggedEpic) {
+                    updateStoryNumbers(draggedEpic);
+                    setTimeout(generatePreview, 100);
+                }
+            }
+            
+            return false;
+        }
+        
+        function handleStoryDragEnd(event) {
+            // Reset opacity
+            if (draggedStoryElement) {
+                draggedStoryElement.style.opacity = '1';
+            }
+            
+            // Clear all drop zone indicators
+            const allStories = document.querySelectorAll('.story-section');
+            allStories.forEach(story => {
+                story.style.borderTop = '';
+                story.style.borderBottom = '';
+                story.style.marginTop = '';
+                story.style.marginBottom = '';
+            });
+            
+            draggedStoryElement = null;
+        }
+        
         function hideKTLOSection() {
             // Find the KTLO section header and content
             const ktloHeader = [...document.querySelectorAll('h2')].find(h2 => h2.textContent.includes('KTLO (Keep The Lights On)'));
@@ -2403,9 +2585,12 @@
             const storyUniqueId = createStoryId();
             
             const storyHtml = `
-                <div class="story-section" id="story-${storyId}" data-story-id="${storyUniqueId}">
+                <div class="story-section" id="story-${storyId}" data-story-id="${storyUniqueId}" draggable="true" ondragstart="handleStoryDragStart(event, '${storyId}')" ondragover="handleStoryDragOver(event)" ondrop="handleStoryDrop(event, '${storyId}')" ondragend="handleStoryDragEnd(event)">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h4 style="margin: 0;">📋 Story ${storyCounters[epicId]}</h4>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button id="story-collapse-btn-${storyId}" class="collapse-btn-collapsed" onclick="toggleStoryCollapse('${storyId}')" title="Expand Story" style="background: #007cba; color: white;">▶</button>
+                            <h4 id="story-header-title-${storyId}" style="margin: 0; cursor: default;">📋 Story ${storyCounters[epicId]}</h4>
+                        </div>
                         <div style="display: flex; gap: 5px; align-items: center;">
                             <button onclick="moveStoryUp('${storyId}')" style="background: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px;" title="Move story up" tabindex="-1">▲</button>
                             <button onclick="moveStoryDown('${storyId}')" style="background: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px;" title="Move story down" tabindex="-1">▼</button>
@@ -2413,6 +2598,7 @@
                         </div>
                     </div>
                     
+                    <div id="story-content-${storyId}" style="display: none;">
                     <div class="form-group">
                         <label for="story-title-${storyId}">Story Title:</label>
                         <input type="text" id="story-title-${storyId}" placeholder="Story title">
@@ -2598,10 +2784,14 @@
                         </div>
                         <button id="add-change-btn-${storyId}" onclick="addChange('${storyId}')" class="secondary">+ Add Timeline Entry</button>
                     </div>
+                    </div>
                 </div>
             `;
             
             document.getElementById(`stories-container-${epicId}`).insertAdjacentHTML('beforeend', storyHtml);
+            
+            // Initialize the collapsed title display
+            updateStoryHeaderTitle(storyId, true);
             
             // Add auto-update listeners to the new story elements
             const storyFields = [
@@ -2634,6 +2824,18 @@
                     addListenersToElement(element);
                 }
             });
+            
+            // Add listener to story title to update header when collapsed
+            const titleInput = document.getElementById(`story-title-${storyId}`);
+            if (titleInput) {
+                titleInput.addEventListener('input', function() {
+                    const contentDiv = document.getElementById(`story-content-${storyId}`);
+                    if (contentDiv && contentDiv.style.display === 'none') {
+                        // Story is collapsed, update the header title
+                        updateStoryHeaderTitle(storyId, true);
+                    }
+                });
+            }
             
             // Date pickers will be initialized when EPIC is expanded
             
@@ -2727,9 +2929,12 @@
             const storyId = `btl-${btlStoryCounter}`;
             
             const storyHtml = `
-                <div class="story-section" id="story-${storyId}">
+                <div class="story-section" id="story-${storyId}" draggable="true" ondragstart="handleStoryDragStart(event, '${storyId}')" ondragover="handleStoryDragOver(event)" ondrop="handleStoryDrop(event, '${storyId}')" ondragend="handleStoryDragEnd(event)">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h4 style="margin: 0;">📋 Story ${btlStoryCounter}</h4>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button id="story-collapse-btn-${storyId}" class="collapse-btn-collapsed" onclick="toggleStoryCollapse('${storyId}')" title="Expand Story" style="background: #007cba; color: white;">▶</button>
+                            <h4 id="story-header-title-${storyId}" style="margin: 0; cursor: default;">📋 Story ${btlStoryCounter}</h4>
+                        </div>
                         <div style="display: flex; gap: 5px; align-items: center;">
                             <button onclick="moveBTLStoryUp('${storyId}')" style="background: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px;" title="Move story up" tabindex="-1">▲</button>
                             <button onclick="moveBTLStoryDown('${storyId}')" style="background: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px;" title="Move story down" tabindex="-1">▼</button>
@@ -2737,6 +2942,7 @@
                         </div>
                     </div>
                     
+                    <div id="story-content-${storyId}" style="display: none;">
                     <div class="form-group">
                         <label for="btl-title-${storyId}">Story Title:</label>
                         <input type="text" id="btl-title-${storyId}" placeholder="Story title">
@@ -2772,10 +2978,14 @@
                         <label for="btl-imo-${storyId}">IMO <span style="font-style: italic; color: #888;">(optional)</span>:</label>
                         <input type="text" id="btl-imo-${storyId}" placeholder="0001">
                     </div>
+                    </div>
                 </div>
             `;
             
             document.getElementById('btl-stories-container').insertAdjacentHTML('beforeend', storyHtml);
+            
+            // Initialize the collapsed title display
+            updateStoryHeaderTitle(storyId, true);
             
             // Add auto-update listeners to the new BTL story elements
             const btlFields = [
@@ -2794,6 +3004,18 @@
                     addListenersToElement(element);
                 }
             });
+            
+            // Add listener to BTL story title to update header when collapsed
+            const btlTitleInput = document.getElementById(`btl-title-${storyId}`);
+            if (btlTitleInput) {
+                btlTitleInput.addEventListener('input', function() {
+                    const contentDiv = document.getElementById(`story-content-${storyId}`);
+                    if (contentDiv && contentDiv.style.display === 'none') {
+                        // Story is collapsed, update the header title
+                        updateStoryHeaderTitle(storyId, true);
+                    }
+                });
+            }
             
             // Initialize date pickers for BTL date fields immediately since BTL is always expanded
             initializeDatePicker(document.getElementById(`btl-start-${storyId}`), true);
@@ -3766,9 +3988,21 @@
             const stories = epicElement.querySelectorAll('.story-section');
             stories.forEach((story, index) => {
                 const storyNumber = index + 1;
+                const storyId = story.id.replace('story-', '');
                 const titleElement = story.querySelector('h4');
                 if (titleElement) {
-                    titleElement.textContent = `📋 Story ${storyNumber}`;
+                    // Check if story is collapsed
+                    const contentDiv = document.getElementById(`story-content-${storyId}`);
+                    const isCollapsed = contentDiv && contentDiv.style.display === 'none';
+                    
+                    if (isCollapsed) {
+                        // Story is collapsed, preserve the title suffix
+                        titleElement.textContent = `📋 Story ${storyNumber}`;
+                        updateStoryHeaderTitle(storyId, true);
+                    } else {
+                        // Story is expanded, just show number
+                        titleElement.textContent = `📋 Story ${storyNumber}`;
+                    }
                 }
             });
         }
@@ -6033,7 +6267,11 @@
                         const dateAddedEl = document.getElementById(`btl-dateadded-${currentStoryId}`);
                         const descriptionEl = document.getElementById(`btl-description-${currentStoryId}`);
                         
-                        if (titleEl) titleEl.value = story.title || '';
+                        if (titleEl) {
+                            titleEl.value = story.title || '';
+                            // Update the BTL story header to show title when collapsed
+                            updateStoryHeaderTitle(currentStoryId, true);
+                        }
                         
                         if (startEl) {
                             if (story.startDate) {
@@ -6097,6 +6335,8 @@
                 const titleEl = document.getElementById(`story-title-${storyId}`);
                 if (titleEl) {
                     titleEl.value = story.title || '';
+                    // Update the story header to show title when collapsed
+                    updateStoryHeaderTitle(storyId, true);
                 } else {
                     console.error(`Title element not found for story ${storyId}`);
                 }
