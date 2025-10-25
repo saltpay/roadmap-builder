@@ -4127,14 +4127,26 @@
                 const previewHtml = generator.generateRoadmap(teamData, true, true); // embedded=true, enableEditing=true
                 
                 const iframe = document.getElementById('preview-area');
+
+                // Save scroll position
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                const savedScrollTop = iframeDoc?.documentElement?.scrollTop || iframeDoc?.body?.scrollTop || 0;
+                const savedScrollLeft = iframeDoc?.documentElement?.scrollLeft || iframeDoc?.body?.scrollLeft || 0;
+
                 iframe.srcdoc = previewHtml;
                 
                 // Setup iframe interaction after it loads
                 iframe.onload = function() {
-                    // Add a longer delay to ensure all content is fully rendered
-                    setTimeout(() => {
-                        initializeIframeInteraction(iframe);
-                    }, 100);
+                    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+                    if (doc?.documentElement) {
+                        doc.documentElement.scrollTop = savedScrollTop;
+                        doc.documentElement.scrollLeft = savedScrollLeft;
+                        if (doc.body) {
+                            doc.body.scrollTop = savedScrollTop;
+                            doc.body.scrollLeft = savedScrollLeft;
+                        }
+                    }
+                    initializeIframeInteraction(iframe);
                 };
                 
                 // Store the teamData for fullscreen generation when needed, but don't generate it now
