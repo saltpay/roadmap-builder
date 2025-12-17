@@ -265,6 +265,12 @@ body {
     pointer-events: auto;
 }
 
+/*Highlight hovered items*/
+.story-item:hover,.monthly-box:hover .monthly-box-content, .ktlo-story:hover {
+    border: #ccca35 2px solid;
+    background-color: #fffea8;
+}
+
 /* KTLO Zoom States */
 .ktlo-story.story-zoom-large:hover {
     transform: translateX(-4px) scale(1.20);
