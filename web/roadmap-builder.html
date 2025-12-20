@@ -264,7 +264,31 @@
             height: 1000px;
             border: none;
         }
-        
+
+        /* Fullscreen mode - make preview fill the screen */
+        .preview-panel:fullscreen {
+            width: 100vw;
+            height: 100vh;
+            background: white;
+        }
+
+        .preview-panel:fullscreen #preview-area {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Webkit browsers (Chrome, Safari) */
+        .preview-panel:-webkit-full-screen {
+            width: 100vw;
+            height: 100vh;
+            background: white;
+        }
+
+        .preview-panel:-webkit-full-screen #preview-area {
+            width: 100%;
+            height: 100%;
+        }
+
         /* In preview-first layout, make iframe responsive to container height */
         .builder-container.preview-first-layout #preview-area {
             height: 100%;
