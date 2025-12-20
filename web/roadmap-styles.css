@@ -172,7 +172,6 @@ body {
     white-space: nowrap;
     width: 200px;
     text-align: center;
-    z-index: 10;
 }
 
 /* Swimlane Content */
@@ -263,6 +262,12 @@ body {
 .ktlo-story .task-bullets,
 .ktlo-story .edit-icon {
     pointer-events: auto;
+}
+
+/*Highlight hovered items*/
+.story-item:hover,.monthly-box:hover .monthly-box-content, .ktlo-story:hover {
+    border: #ccca35 2px solid;
+    background-color: #fffea8;
 }
 
 /* KTLO Zoom States */
