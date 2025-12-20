@@ -619,21 +619,6 @@
                     </div>
                 </div>
 
-                <!-- Director/VP/EM/PM Search -->
-                <div class="search-section">
-                    <h3 class="search-section-title">👤 Leadership Search</h3>
-                    <div class="search-input-group">
-                        <input type="text"
-                               class="search-input imo-input"
-                               id="directorSearchInput"
-                               placeholder="Enter Director/VP, EM, or PM name (partial match)"
-                               onkeypress="handleDirectorSearchKeyPress(event)">
-                        <button class="search-button" id="directorSearchBtn" onclick="performDirectorSearch()" disabled>
-                            👤 Search Leadership
-                        </button>
-                    </div>
-                </div>
-
                 <!-- Director/VP ID Search -->
                 <div class="search-section">
                     <h3 class="search-section-title">🏷️ Director/VP ID Search</h3>
@@ -1164,6 +1149,10 @@
         let currentResults = [];
         let lastSearchStories = [];
         let lastRoadmapFiles = [];
+        
+        // Get roadmap year from URL parameter (passed from Roadmap Builder)
+        const urlParams = new URLSearchParams(window.location.search);
+        const builderRoadmapYear = urlParams.get('year') ? parseInt(urlParams.get('year')) : null;
         
         // Track tri-state checkbox states: 'none', 'include', 'exclude'
         const statusFilterStates = {
@@ -2850,8 +2839,20 @@
         function evaluateFilterExpression(expression, story) {
             if (!expression || !expression.trim()) return null;
             
+            // Pre-process: handle LEADERSHIP="name" syntax before tokenizing
+            let processedExpr = expression;
+            const leadershipRegex = /LEADERSHIP="([^"]+)"/gi;
+            processedExpr = processedExpr.replace(leadershipRegex, (match, name) => {
+                const nameLower = name.toLowerCase();
+                const directorVP = (story._directorVP || '').toLowerCase();
+                const em = (story._em || '').toLowerCase();
+                const pm = (story._pm || '').toLowerCase();
+                const matches = directorVP.includes(nameLower) || em.includes(nameLower) || pm.includes(nameLower);
+                return matches ? 'TRUE' : 'FALSE';
+            });
+            
             // Tokenize the expression
-            const tokens = expression
+            const tokens = processedExpr
                 .replace(/\(/g, ' ( ')
                 .replace(/\)/g, ' ) ')
                 .replace(/&&/g, ' && ')
@@ -2921,7 +2922,10 @@
                     'Proposed': story.isProposed,
                     'Info': story.isInfo,
                     'TransferredIn': story.isTransferredIn,
-                    'TransferredOut': story.isTransferredOut
+                    'TransferredOut': story.isTransferredOut,
+                    // Special tokens for pre-processed LEADERSHIP expressions
+                    'TRUE': true,
+                    'FALSE': false
                 };
                 
                 // Case-insensitive lookup
@@ -3014,16 +3018,16 @@
          * Handle date range picker change
          */
         /**
-         * Set date range to current year (01/01 to 31/12)
+         * Set date range to roadmap year (01/01 to 31/12)
          */
         function setCurrentYearRange() {
-            const currentYear = new Date().getFullYear();
+            const year = builderRoadmapYear || new Date().getFullYear();
             const startDateInput = document.getElementById('startDateInput');
             const endDateInput = document.getElementById('endDateInput');
             
             // Set to ISO format for date inputs (YYYY-MM-DD)
-            startDateInput.value = `${currentYear}-01-01`;
-            endDateInput.value = `${currentYear}-12-31`;
+            startDateInput.value = `${year}-01-01`;
+            endDateInput.value = `${year}-12-31`;
             
             // Enable the search button
             updateSearchButtonStates();
@@ -3040,14 +3044,12 @@
             const imoSearchBtn = document.getElementById('imoSearchBtn');
             const titleSearchBtn = document.getElementById('titleSearchBtn');
             const dateRangeSearchBtn = document.getElementById('dateRangeSearchBtn');
-            const directorSearchBtn = document.getElementById('directorSearchBtn');
             const directorVPIdSearchBtn = document.getElementById('directorVPIdSearchBtn');
             const countryFlagSearchBtn = document.getElementById('countryFlagSearchBtn');
             
             const hasDirectory = !!selectedDirectory;
             const hasImoInput = document.getElementById('searchInput').value.trim().length > 0;
             const hasTitleInput = document.getElementById('titleSearchInput').value.trim().length > 0;
-            const hasDirectorInput = document.getElementById('directorSearchInput').value.trim().length > 0;
             const hasDirectorVPIdInput = document.getElementById('directorVPIdSearchInput').value.trim().length > 0;
             const hasCountryFlagInput = getSelectedCountryFlags().length > 0;
             const hasStartDate = document.getElementById('startDateInput').value.length > 0;
@@ -3057,7 +3059,6 @@
             imoSearchBtn.disabled = !hasDirectory || !hasImoInput;
             titleSearchBtn.disabled = !hasDirectory || !hasTitleInput;
             dateRangeSearchBtn.disabled = !hasDirectory || !hasAnyDate;
-            directorSearchBtn.disabled = !hasDirectory || !hasDirectorInput;
             directorVPIdSearchBtn.disabled = !hasDirectory || !hasDirectorVPIdInput;
             countryFlagSearchBtn.disabled = !hasDirectory || !hasCountryFlagInput;
         }
@@ -3074,9 +3075,9 @@
             } else if (searchMode === 'exact-7days') {
                 helpElement.textContent = 'Exact +/- 7 Days: Start date to +7 days forward only, end date +/- 7 days buffer.';
             } else if (searchMode === 'current-year') {
-                const currentYear = new Date().getFullYear();
-                helpElement.textContent = `Current Year: Searches all stories in ${currentYear} (auto-fills 01/01/${currentYear} to 31/12/${currentYear}).`;
-                // Auto-populate with current year dates
+                const year = builderRoadmapYear || new Date().getFullYear();
+                helpElement.textContent = `Roadmap Year: Searches all stories in ${year} (auto-fills 01/01/${year} to 31/12/${year}).`;
+                // Auto-populate with roadmap year dates
                 setCurrentYearRange();
             } else {
                 helpElement.textContent = 'Range: Stories must start on or after start date AND end on or before end date.';
@@ -3239,14 +3240,15 @@
             }
         }
 
-        async function performDirectorSearch() {
+        async function performDirectorSearch(leadershipName = null) {
             try {
                 if (!selectedDirectory) {
                     alert('Please select a directory first');
                     return;
                 }
 
-                const query = document.getElementById('directorSearchInput').value.trim();
+                // Use passed parameter or fall back to input field (for backwards compatibility)
+                const query = leadershipName || document.getElementById('directorSearchInput')?.value?.trim();
                 if (!query) {
                     alert('Please enter a leadership name (Director/VP, EM, or PM)');
                     return;
@@ -3491,7 +3493,6 @@
             // Add input listeners for real-time button state updates
             document.getElementById('searchInput').addEventListener('input', updateSearchButtonStates);
             document.getElementById('titleSearchInput').addEventListener('input', updateSearchButtonStates);
-            document.getElementById('directorSearchInput').addEventListener('input', updateSearchButtonStates);
             document.getElementById('directorVPIdSearchInput').addEventListener('input', updateSearchButtonStates);
             if (document.getElementById('dateInput')) {
                 document.getElementById('dateInput').addEventListener('change', updateSearchButtonStates);

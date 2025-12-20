@@ -1067,8 +1067,10 @@ class IMOViewGenerator {
             };
         });
         
-        // Determine roadmap year (use current year if not determinable)
-        const currentYear = new Date().getFullYear();
+        // Use URL param from builder if available, otherwise current year
+        const roadmapYear = (typeof builderRoadmapYear !== 'undefined' && builderRoadmapYear) 
+            ? builderRoadmapYear 
+            : new Date().getFullYear();
         
         // Calculate correct counts and team names
         const totalStories = epics.reduce((sum, epic) => sum + epic.stories.length, 0);
@@ -1078,7 +1080,7 @@ class IMOViewGenerator {
         // Create team data structure compatible with RoadmapGenerator
         return {
             teamName: `Cross-Team Search Results`,
-            roadmapYear: currentYear,
+            roadmapYear: roadmapYear,
             em: '',
             pm: '',
             description: '', // Remove description to avoid duplicate search results info

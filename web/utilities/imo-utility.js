@@ -208,15 +208,20 @@ class IMOUtility {
         const storyMap = new Map(); // Track stories by title+team to handle duplicates
         
         roadmapFiles.forEach(roadmapFile => {
-            // Extract year from filename (e.g., "Terminal.Teya-Roadmap.2025.json" -> 2025)
-            const yearMatch = roadmapFile.fileName.match(/\.(\d{4})\./);
-            const roadmapYear = yearMatch ? parseInt(yearMatch[1]) : 2025; // Default to 2025 if no year found
+            // Use URL param from builder if available, otherwise current year
+            const roadmapYear = (typeof builderRoadmapYear !== 'undefined' && builderRoadmapYear) 
+                ? builderRoadmapYear 
+                : new Date().getFullYear();
             
             const stories = this.extractStoriesFromRoadmap(roadmapFile.teamData, roadmapFile.teamData.teamName);
             stories.forEach(story => {
                 story.sourceFile = roadmapFile.fileName;
                 story.fileHandle = roadmapFile.fileHandle;
                 story.roadmapYear = roadmapYear; // Add roadmap year to each story
+                // Add leadership info for advanced filtering
+                story._directorVP = roadmapFile.teamData.directorVP || '';
+                story._em = roadmapFile.teamData.em || '';
+                story._pm = roadmapFile.teamData.pm || '';
                 
                 // Create unique key for duplicate detection
                 const storyKey = `${story.teamName}-${story.title}`;

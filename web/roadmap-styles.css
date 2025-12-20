@@ -266,8 +266,8 @@ body {
 
 /*Highlight hovered items*/
 .story-item:hover,.monthly-box:hover .monthly-box-content, .ktlo-story:hover {
-    border: #ccca35 2px solid;
-    background-color: #fffea8;
+    border: 2px solid #000;
+    background-color: white;
 }
 
 /* KTLO Zoom States */
