@@ -798,6 +798,28 @@ class RoadmapGenerator {
         const transferredInIconHTML = showTransferredInIcon ? '<div class="transferredin-icon">➡️</div>' : '';
         const proposedIconHTML = showProposedIcon ? '<div class="proposed-icon">💡</div>' : '';
         
+        // Generate country flags HTML
+        let countryFlagsHTML = '';
+        if (story.countryFlags && story.countryFlags.length > 0) {
+            const flagMap = {
+                'Global': '🌍',
+                'UK': '🇬🇧',
+                'Iceland': '🇮🇸',
+                'Hungary': '🇭🇺',
+                'Spain': '🇪🇸',
+                'Italy': '🇮🇹',
+                'Portugal': '🇵🇹',
+                'Czechia': '🇨🇿',
+                'Slovakia': '🇸🇰',
+                'Slovenia': '🇸🇮'
+            };
+            const flagEmojis = story.countryFlags.map(f => flagMap[f] || '').filter(f => f).join('');
+            const hasTimelineIcon = iconHTML !== '';
+            const topOffset = hasTimelineIcon ? '3px' : '3px';
+            const rightOffset = hasTimelineIcon ? '11px' : '4px';
+            countryFlagsHTML = `<div class="country-flags-display" style="position: absolute; top: ${topOffset}; right: ${rightOffset}; font-size: 10px; z-index: 9998; line-height: 1;">${flagEmojis}</div>`;
+        }
+        
         const cancelledClass = story.isCancelled ? ' story-cancelled' : '';
         const transferredClass = '';
         const proposedClass = story.isProposed ? ' story-proposed' : '';
@@ -865,6 +887,7 @@ class RoadmapGenerator {
              data-story-index="${storyIndex}"
              data-story-id="${storyId}">
             ${iconHTML}
+            ${countryFlagsHTML}
                             ${doneIconHTML}
                 ${cancelIconHTML}
                 ${atRiskIconHTML}

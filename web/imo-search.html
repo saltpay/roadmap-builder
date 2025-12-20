@@ -184,6 +184,11 @@
             width: 300px;
         }
         
+        .search-input.classification-select {
+            flex: none;
+            width: 150px;
+        }
+        
         .search-input:focus {
             outline: none;
             border-color: #007cba;
@@ -563,6 +568,22 @@
         .bar-chart-container:hover .expand-chevron {
             color: #374151;
         }
+        
+        /* Style disabled checkboxes to be more visible when checked */
+        #viewStoryForm input[type="checkbox"]:disabled:checked {
+            accent-color: #007cba;
+        }
+        
+        #viewStoryForm input[type="checkbox"]:disabled {
+            cursor: default;
+        }
+        
+        /* Make country flag checkboxes visible with blue color when checked */
+        .view-flag-checkbox {
+            accent-color: #007cba;
+            pointer-events: none;
+            cursor: default;
+        }
     </style>
 </head>
 <body>
@@ -590,6 +611,12 @@
                         </button>
                         <span class="directory-status" id="directoryStatus">No directory selected</span>
                     </div>
+                    <div style="margin-top: 12px; text-align: left;">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px; white-space: nowrap;">
+                            <input type="checkbox" id="filterProductRoadmapOnly"> 
+                            <span style="white-space: nowrap;">Product Roadmap Only</span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Director/VP/EM/PM Search -->
@@ -607,6 +634,69 @@
                     </div>
                 </div>
 
+                <!-- Director/VP ID Search -->
+                <div class="search-section">
+                    <h3 class="search-section-title">🏷️ Director/VP ID Search</h3>
+                    <div class="search-input-group">
+                        <input type="text"
+                               class="search-input imo-input"
+                               id="directorVPIdSearchInput"
+                               placeholder="Enter Director/VP ID (partial match)"
+                               onkeypress="handleDirectorVPIdSearchKeyPress(event)">
+                        <button class="search-button" id="directorVPIdSearchBtn" onclick="performDirectorVPIdSearch()" disabled>
+                            🏷️ Search Director/VP ID
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Country Flag Search -->
+                <div class="search-section">
+                    <h3 class="search-section-title">🌍 Country Flag Search</h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div>
+                                <div style="display: flex; gap: 15px; flex-wrap: wrap; padding: 4px 0;">
+                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                        <input type="checkbox" id="searchFlagGlobal" onchange="updateSearchButtonStates()"> <span>🌍 Global</span>
+                                    </label>
+                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                        <input type="checkbox" id="searchFlagCzechia" onchange="updateSearchButtonStates()"> <span>🇨🇿 Czechia</span>
+                                    </label>
+                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                        <input type="checkbox" id="searchFlagHungary" onchange="updateSearchButtonStates()"> <span>🇭🇺 Hungary</span>
+                                    </label>
+                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                        <input type="checkbox" id="searchFlagIceland" onchange="updateSearchButtonStates()"> <span>🇮🇸 Iceland</span>
+                                    </label>
+                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                        <input type="checkbox" id="searchFlagItaly" onchange="updateSearchButtonStates()"> <span>🇮🇹 Italy</span>
+                                    </label>
+                                </div>
+                                <div style="display: flex; gap: 15px; flex-wrap: wrap; padding: 4px 0;">
+                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                        <input type="checkbox" id="searchFlagPortugal" onchange="updateSearchButtonStates()"> <span>🇵🇹 Portugal</span>
+                                    </label>
+                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                        <input type="checkbox" id="searchFlagSlovakia" onchange="updateSearchButtonStates()"> <span>🇸🇰 Slovakia</span>
+                                    </label>
+                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                        <input type="checkbox" id="searchFlagSlovenia" onchange="updateSearchButtonStates()"> <span>🇸🇮 Slovenia</span>
+                                    </label>
+                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                        <input type="checkbox" id="searchFlagSpain" onchange="updateSearchButtonStates()"> <span>🇪🇸 Spain</span>
+                                    </label>
+                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                        <input type="checkbox" id="searchFlagUK" onchange="updateSearchButtonStates()"> <span>🇬🇧 UK</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <button class="search-button" id="countryFlagSearchBtn" onclick="performCountryFlagSearch()" disabled>
+                                🌍 Search Countries
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- IMO Search -->
                 <div class="search-section">
                     <h3 class="search-section-title">🔍 IMO Search</h3>
@@ -616,6 +706,12 @@
                                    id="searchInput" 
                                placeholder="Enter IMO number (0043)" 
                                    onkeypress="handleSearchKeyPress(event)">
+                        <select class="search-input classification-select" id="imoClassificationSelect">
+                            <option value="">Classification</option>
+                            <option value="Payments">Payments</option>
+                            <option value="Banking">Banking</option>
+                            <option value="Other">Other</option>
+                        </select>
                         <button class="search-button" id="imoSearchBtn" onclick="performIMOSearch()" disabled>
                             🔍 Search
                             </button>
@@ -766,6 +862,9 @@
                 </div>
             <div class="modal-body">
                 <form id="viewStoryForm">
+                    <!-- Story Details Box -->
+                    <div class="section-box">
+                        <div class="section-box-title">Story Details</div>
                     <div class="form-group">
                         <label>Story Title:</label>
                         <div class="readonly-field" id="viewTitle"></div>
@@ -820,10 +919,70 @@
                         <div id="viewKTLOMonthsContainer"></div>
                     </div>
                     
-                    <div class="form-group">
-                        <label>IMO <span style="font-style: italic; color: #888;">(optional)</span>:</label>
-                        <div class="readonly-field" id="viewIMO"></div>
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label>Director/VP ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                        <div class="readonly-field" id="viewDirectorVPId"></div>
                     </div>
+                    
+                    <div class="form-group" style="display: flex; gap: 15px; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <label>IMO <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                            <div class="readonly-field" id="viewIMO"></div>
+                        </div>
+                        <div style="flex: 1;">
+                            <label>Classification:</label>
+                            <div class="readonly-field" id="viewIMOClassification"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label style="display: block; margin-bottom: 4px;">Country Flags:</label>
+                        <div style="display: flex; gap: 12px 15px; flex-wrap: wrap; row-gap: 4px;">
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagGlobal"> <span>🌍 Global</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagCzechia"> <span>🇨🇿 Czechia</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagHungary"> <span>🇭🇺 Hungary</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagIceland"> <span>🇮🇸 Iceland</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagItaly"> <span>🇮🇹 Italy</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagPortugal"> <span>🇵🇹 Portugal</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagSlovakia"> <span>🇸🇰 Slovakia</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagSlovenia"> <span>🇸🇮 Slovenia</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagSpain"> <span>🇪🇸 Spain</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagUK"> <span>🇬🇧 UK</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label style="display: block; margin-bottom: 4px;">Product Roadmap:</label>
+                        <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; font-size: 13px;">
+                            <input type="checkbox" class="view-flag-checkbox" id="viewIncludeInProductRoadmap"> 
+                            <span>Include</span>
+                        </label>
+                    </div>
+                    </div><!-- End Story Details Box -->
+                    
+                    <!-- Story Status Box -->
+                    <div class="section-box">
+                        <div class="section-box-title">Story Status</div>
                     
                     <!-- Row 1: New, Done, Cancelled, Info, Timeline -->
                     <div class="checkbox-group">
@@ -974,6 +1133,7 @@
                             <!-- Story timeline entries will be added here -->
                         </div>
                     </div>
+                    </div><!-- End Story Status Box -->
                 </form>
             </div>
             <div class="modal-footer">
@@ -1557,12 +1717,42 @@
             }
             document.getElementById('viewBullets').textContent = bulletsText || 'None';
             
+            // Handle Director/VP ID
+            let directorVPIdText = '';
+            if (storyData.directorVPId) {
+                directorVPIdText = String(storyData.directorVPId);
+            }
+            document.getElementById('viewDirectorVPId').textContent = directorVPIdText || 'None';
+            
             // Handle IMO
             let imoText = '';
             if (storyData.imo) {
                 imoText = String(storyData.imo);
             }
             document.getElementById('viewIMO').textContent = imoText || 'None';
+            
+            // Handle IMO Classification
+            let imoClassificationText = '';
+            if (storyData.imoClassification) {
+                imoClassificationText = String(storyData.imoClassification);
+            }
+            document.getElementById('viewIMOClassification').textContent = imoClassificationText || 'None';
+            
+            // Handle Country Flags
+            const flags = storyData.countryFlags || [];
+            document.getElementById('viewFlagGlobal').checked = flags.includes('Global');
+            document.getElementById('viewFlagCzechia').checked = flags.includes('Czechia');
+            document.getElementById('viewFlagHungary').checked = flags.includes('Hungary');
+            document.getElementById('viewFlagIceland').checked = flags.includes('Iceland');
+            document.getElementById('viewFlagItaly').checked = flags.includes('Italy');
+            document.getElementById('viewFlagPortugal').checked = flags.includes('Portugal');
+            document.getElementById('viewFlagSlovakia').checked = flags.includes('Slovakia');
+            document.getElementById('viewFlagSlovenia').checked = flags.includes('Slovenia');
+            document.getElementById('viewFlagSpain').checked = flags.includes('Spain');
+            document.getElementById('viewFlagUK').checked = flags.includes('UK');
+            
+            // Handle Include in Product Roadmap
+            document.getElementById('viewIncludeInProductRoadmap').checked = storyData.includeInProductRoadmap || false;
             
             // Handle KTLO-specific fields
             const isKTLO = storyData.epicName === 'KTLO';
@@ -2474,8 +2664,14 @@
             // Clear search inputs
             document.getElementById('searchInput').value = '';
             document.getElementById('titleSearchInput').value = '';
+            document.getElementById('imoClassificationSelect').value = '';
             const directorEl = document.getElementById('directorSearchInput');
             if (directorEl) directorEl.value = '';
+            const directorVPIdEl = document.getElementById('directorVPIdSearchInput');
+            if (directorVPIdEl) directorVPIdEl.value = '';
+            clearCountryFlagCheckboxes();
+            const productRoadmapEl = document.getElementById('filterProductRoadmapOnly');
+            if (productRoadmapEl) productRoadmapEl.checked = false;
             
             // Clear date inputs
             const startEl = document.getElementById('startDateInput');
@@ -2528,7 +2724,7 @@
         // Apply additional filters based on other filled inputs (AND semantics)
         function applyAdditionalFilters(stories, roadmapFiles, options = {}) {
             let result = Array.isArray(stories) ? stories.slice() : [];
-            const opts = Object.assign({ skipDirector: false, skipIMO: false, skipTitle: false, skipDate: false, skipStatus: false }, options);
+            const opts = Object.assign({ skipDirector: false, skipIMO: false, skipTitle: false, skipDate: false, skipStatus: false, skipProductRoadmap: false }, options);
 
             try {
                 // Director/VP filter (team-level)
@@ -2636,6 +2832,12 @@
                 }
             } catch (e) {
                 
+            }
+
+            // Product Roadmap filter - filter to only items included in product roadmap
+            const productRoadmapOnly = document.getElementById('filterProductRoadmapOnly')?.checked;
+            if (!opts.skipProductRoadmap && productRoadmapOnly) {
+                result = result.filter(story => story.includeInProductRoadmap === true);
             }
 
             return result;
@@ -2839,11 +3041,15 @@
             const titleSearchBtn = document.getElementById('titleSearchBtn');
             const dateRangeSearchBtn = document.getElementById('dateRangeSearchBtn');
             const directorSearchBtn = document.getElementById('directorSearchBtn');
+            const directorVPIdSearchBtn = document.getElementById('directorVPIdSearchBtn');
+            const countryFlagSearchBtn = document.getElementById('countryFlagSearchBtn');
             
             const hasDirectory = !!selectedDirectory;
             const hasImoInput = document.getElementById('searchInput').value.trim().length > 0;
             const hasTitleInput = document.getElementById('titleSearchInput').value.trim().length > 0;
             const hasDirectorInput = document.getElementById('directorSearchInput').value.trim().length > 0;
+            const hasDirectorVPIdInput = document.getElementById('directorVPIdSearchInput').value.trim().length > 0;
+            const hasCountryFlagInput = getSelectedCountryFlags().length > 0;
             const hasStartDate = document.getElementById('startDateInput').value.length > 0;
             const hasEndDate = document.getElementById('endDateInput').value.length > 0;
             const hasAnyDate = hasStartDate || hasEndDate;
@@ -2852,6 +3058,8 @@
             titleSearchBtn.disabled = !hasDirectory || !hasTitleInput;
             dateRangeSearchBtn.disabled = !hasDirectory || !hasAnyDate;
             directorSearchBtn.disabled = !hasDirectory || !hasDirectorInput;
+            directorVPIdSearchBtn.disabled = !hasDirectory || !hasDirectorVPIdInput;
+            countryFlagSearchBtn.disabled = !hasDirectory || !hasCountryFlagInput;
         }
 
         /**
@@ -3081,6 +3289,197 @@
             }
         }
 
+        function handleDirectorVPIdSearchKeyPress(event) {
+            if (event.key === 'Enter') {
+                performDirectorVPIdSearch();
+            }
+        }
+
+        async function performDirectorVPIdSearch() {
+            try {
+                if (!selectedDirectory) {
+                    alert('Please select a directory first');
+                    return;
+                }
+
+                const query = document.getElementById('directorVPIdSearchInput').value.trim();
+                if (!query) {
+                    alert('Please enter a Director/VP ID');
+                    return;
+                }
+
+                showLoadingState(`Searching stories for Director/VP ID containing "${query}"...`);
+
+                const roadmapFiles = await IMOUtility.scanRoadmapDirectory(selectedDirectory);
+                
+                // Search through all stories for matching directorVPId
+                const matchingStories = [];
+                const queryLower = query.toLowerCase();
+                
+                for (const roadmap of roadmapFiles) {
+                    // teamData is directly on the roadmap object from scanRoadmapDirectory
+                    const teamData = roadmap.teamData;
+                    if (!teamData || !teamData.epics) continue;
+                    
+                    const teamName = teamData.teamName || roadmap.fileName;
+                    
+                    for (const epic of teamData.epics) {
+                        if (epic.stories) {
+                            for (const story of epic.stories) {
+                                if (story.directorVPId && story.directorVPId.toLowerCase().includes(queryLower)) {
+                                    matchingStories.push({
+                                        ...story,
+                                        epicName: epic.name,
+                                        teamName: teamName,
+                                        fileName: roadmap.fileName
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!matchingStories.length) {
+                    showMessage(`No stories found with Director/VP ID containing "${query}"`, 'info');
+                    return;
+                }
+
+                // Store base search results
+                lastSearchStories = matchingStories.slice();
+                lastRoadmapFiles = roadmapFiles;
+
+                // Apply additional filters if other search fields are filled
+                let filteredStories = matchingStories;
+                filteredStories = applyAdditionalFilters(filteredStories, roadmapFiles, { skipDirectorVPId: true });
+
+                if (!filteredStories.length) {
+                    showMessage(`No stories found for Director/VP ID "${query}"`, 'info');
+                    return;
+                }
+
+                currentResults = filteredStories;
+                displaySearchResults(filteredStories, `Director/VP ID: "${query}"`);
+                
+                // Enable stats button
+                document.getElementById('searchStatsBtn').disabled = false;
+            } catch (error) {
+                
+                showMessage('Search error: ' + error.message, 'error');
+            }
+        }
+
+        /**
+         * Get all selected country flag checkboxes
+         */
+        function getSelectedCountryFlags() {
+            const flags = [];
+            if (document.getElementById('searchFlagGlobal')?.checked) flags.push('Global');
+            if (document.getElementById('searchFlagCzechia')?.checked) flags.push('Czechia');
+            if (document.getElementById('searchFlagHungary')?.checked) flags.push('Hungary');
+            if (document.getElementById('searchFlagIceland')?.checked) flags.push('Iceland');
+            if (document.getElementById('searchFlagItaly')?.checked) flags.push('Italy');
+            if (document.getElementById('searchFlagPortugal')?.checked) flags.push('Portugal');
+            if (document.getElementById('searchFlagSlovakia')?.checked) flags.push('Slovakia');
+            if (document.getElementById('searchFlagSlovenia')?.checked) flags.push('Slovenia');
+            if (document.getElementById('searchFlagSpain')?.checked) flags.push('Spain');
+            if (document.getElementById('searchFlagUK')?.checked) flags.push('UK');
+            return flags;
+        }
+
+        /**
+         * Clear all country flag checkboxes
+         */
+        function clearCountryFlagCheckboxes() {
+            document.getElementById('searchFlagGlobal').checked = false;
+            document.getElementById('searchFlagCzechia').checked = false;
+            document.getElementById('searchFlagHungary').checked = false;
+            document.getElementById('searchFlagIceland').checked = false;
+            document.getElementById('searchFlagItaly').checked = false;
+            document.getElementById('searchFlagPortugal').checked = false;
+            document.getElementById('searchFlagSlovakia').checked = false;
+            document.getElementById('searchFlagSlovenia').checked = false;
+            document.getElementById('searchFlagSpain').checked = false;
+            document.getElementById('searchFlagUK').checked = false;
+        }
+
+        async function performCountryFlagSearch() {
+            try {
+                if (!selectedDirectory) {
+                    alert('Please select a directory first');
+                    return;
+                }
+
+                const selectedCountries = getSelectedCountryFlags();
+                if (selectedCountries.length === 0) {
+                    alert('Please select at least one country');
+                    return;
+                }
+
+                const countriesLabel = selectedCountries.join(', ');
+                showLoadingState(`Searching stories for country flags: ${countriesLabel}...`);
+
+                const roadmapFiles = await IMOUtility.scanRoadmapDirectory(selectedDirectory);
+                
+                // Search through all stories for matching country flags
+                const matchingStories = [];
+                
+                for (const roadmap of roadmapFiles) {
+                    const teamData = roadmap.teamData;
+                    if (!teamData || !teamData.epics) continue;
+                    
+                    const teamName = teamData.teamName || roadmap.fileName;
+                    
+                    for (const epic of teamData.epics) {
+                        if (epic.stories) {
+                            for (const story of epic.stories) {
+                                // Check if story has ANY of the selected country flags
+                                if (story.countryFlags && Array.isArray(story.countryFlags)) {
+                                    const hasMatchingFlag = selectedCountries.some(country => 
+                                        story.countryFlags.includes(country)
+                                    );
+                                    if (hasMatchingFlag) {
+                                        matchingStories.push({
+                                            ...story,
+                                            epicName: epic.name,
+                                            teamName: teamName,
+                                            fileName: roadmap.fileName
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!matchingStories.length) {
+                    showMessage(`No stories found with country flags: ${countriesLabel}`, 'info');
+                    return;
+                }
+
+                // Store base search results
+                lastSearchStories = matchingStories.slice();
+                lastRoadmapFiles = roadmapFiles;
+
+                // Apply additional filters if other search fields are filled
+                let filteredStories = matchingStories;
+                filteredStories = applyAdditionalFilters(filteredStories, roadmapFiles, { skipCountryFlag: true });
+
+                if (!filteredStories.length) {
+                    showMessage(`No stories found for countries: ${countriesLabel}`, 'info');
+                    return;
+                }
+
+                currentResults = filteredStories;
+                displaySearchResults(filteredStories, `Countries: ${countriesLabel}`);
+                
+                // Enable stats button
+                document.getElementById('searchStatsBtn').disabled = false;
+            } catch (error) {
+                
+                showMessage('Search error: ' + error.message, 'error');
+            }
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             // Check if modal exists and is properly structured
@@ -3093,6 +3492,7 @@
             document.getElementById('searchInput').addEventListener('input', updateSearchButtonStates);
             document.getElementById('titleSearchInput').addEventListener('input', updateSearchButtonStates);
             document.getElementById('directorSearchInput').addEventListener('input', updateSearchButtonStates);
+            document.getElementById('directorVPIdSearchInput').addEventListener('input', updateSearchButtonStates);
             if (document.getElementById('dateInput')) {
                 document.getElementById('dateInput').addEventListener('change', updateSearchButtonStates);
             }
@@ -3104,6 +3504,9 @@
             if (selectedDirectory) {
                 document.getElementById('searchInput').focus();
             }
+            
+            // Set initial state for all search controls
+            updateSearchButtonStates();
         });
     </script>
 </body>
