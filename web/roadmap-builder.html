@@ -9498,7 +9498,8 @@
          * Open Search interface
          */
         function openIMOSearch() {
-            window.open('imo-search.html', '_blank');
+            const roadmapYear = document.getElementById('roadmapYear').value || new Date().getFullYear();
+            window.open(`imo-search.html?year=${roadmapYear}`, '_blank');
         }
         
     </script>
