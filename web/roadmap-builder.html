@@ -25,6 +25,14 @@
     
     <!-- Layout Toggle Styles -->
     <style>
+        /* Disabled select styling for IMO Classification */
+        select:disabled {
+            background-color: #e9ecef;
+            color: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.65;
+        }
+        
         /* Horizontal layout with file browser, builder, and preview */
         .builder-container {
             display: flex;
@@ -938,6 +946,9 @@
             </div>
             <div class="modal-body">
                 <form id="editStoryForm" onsubmit="return false;">
+                    <!-- Story Details Box -->
+                    <div class="section-box">
+                        <div class="section-box-title">Story Details</div>
                     <div class="form-group">
                         <label for="editTitle">Story Title:</label>
                         <input type="text" id="editTitle" name="title" required>
@@ -1020,10 +1031,75 @@
                         </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="editIMO">IMO <span style="font-style: italic; color: #888;">(optional)</span>:</label>
-                        <input type="text" id="editIMO" name="imo" placeholder="0001">
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label for="editDirectorVPId">Director/VP ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                        <input type="text" id="editDirectorVPId" name="directorVPId" placeholder="Enter identifier for filtering">
                     </div>
+                    
+                    <div class="form-group" style="display: flex; gap: 15px; align-items: flex-end;">
+                        <div style="flex: 1;">
+                            <label for="editIMO">IMO <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                            <input type="text" id="editIMO" name="imo" placeholder="0001" oninput="toggleEditIMOClassification()">
+                        </div>
+                        <div style="flex: 1;">
+                            <label for="editIMOClassification">Classification:</label>
+                            <select id="editIMOClassification" name="imoClassification" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" disabled>
+                                <option value="">Select...</option>
+                                <option value="Payments">Payments</option>
+                                <option value="Banking">Banking</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label style="display: block; margin-bottom: 4px;">Country Flags:</label>
+                        <div style="display: flex; gap: 12px 15px; flex-wrap: wrap; row-gap: 4px;">
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="editFlagGlobal" name="flagGlobal" checked onchange="clearEditCountriesIfGlobalSelected()"> <span style="font-size: 13px;">🌍 Global</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="editFlagCzechia" name="flagCzechia" onchange="clearEditGlobalIfCountrySelected()"> <span style="font-size: 13px;">🇨🇿 Czechia</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="editFlagHungary" name="flagHungary" onchange="clearEditGlobalIfCountrySelected()"> <span style="font-size: 13px;">🇭🇺 Hungary</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="editFlagIceland" name="flagIceland" onchange="clearEditGlobalIfCountrySelected()"> <span style="font-size: 13px;">🇮🇸 Iceland</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="editFlagItaly" name="flagItaly" onchange="clearEditGlobalIfCountrySelected()"> <span style="font-size: 13px;">🇮🇹 Italy</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="editFlagPortugal" name="flagPortugal" onchange="clearEditGlobalIfCountrySelected()"> <span style="font-size: 13px;">🇵🇹 Portugal</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="editFlagSlovakia" name="flagSlovakia" onchange="clearEditGlobalIfCountrySelected()"> <span style="font-size: 13px;">🇸🇰 Slovakia</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="editFlagSlovenia" name="flagSlovenia" onchange="clearEditGlobalIfCountrySelected()"> <span style="font-size: 13px;">🇸🇮 Slovenia</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="editFlagSpain" name="flagSpain" onchange="clearEditGlobalIfCountrySelected()"> <span style="font-size: 13px;">🇪🇸 Spain</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="editFlagUK" name="flagUK" onchange="clearEditGlobalIfCountrySelected()"> <span style="font-size: 13px;">🇬🇧 UK</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 15px; margin-bottom: 0;">
+                        <label style="display: block; margin-bottom: 4px;">Product Roadmap:</label>
+                        <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-size: 13px;">
+                            <input type="checkbox" id="editIncludeInProductRoadmap" name="includeInProductRoadmap" checked> 
+                            <span>Include</span>
+                        </label>
+                    </div>
+                    </div><!-- End Story Details Box -->
+                    
+                    <!-- Story Status Box -->
+                    <div class="section-box">
+                        <div class="section-box-title">Story Status</div>
                     
                     <!-- Row 1: New, Done, Cancelled, Info, Timeline -->
                     <div class="checkbox-group">
@@ -1175,6 +1251,7 @@
                         </div>
                         <button type="button" id="add-edit-change-btn" class="secondary" onclick="addEditChange()" style="margin-top: 10px;">+ Add Timeline Entry</button>
                     </div>
+                    </div><!-- End Story Status Box -->
                 </form>
             </div>
             <div class="modal-footer">
@@ -2599,6 +2676,9 @@
                     </div>
                     
                     <div id="story-content-${storyId}" style="display: none;">
+                    <!-- Story Details Box -->
+                    <div class="section-box">
+                        <div class="section-box-title">Story Details</div>
                     <div class="form-group">
                         <label for="story-title-${storyId}">Story Title:</label>
                         <input type="text" id="story-title-${storyId}" placeholder="Story title">
@@ -2623,10 +2703,75 @@
                         <textarea id="story-bullets-${storyId}" placeholder="First bullet point\nSecond bullet point"></textarea>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="story-imo-${storyId}">IMO <span style="font-style: italic; color: #888;">(optional)</span>:</label>
-                        <input type="text" id="story-imo-${storyId}" placeholder="0001">
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label for="story-director-vp-id-${storyId}">Director/VP ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                        <input type="text" id="story-director-vp-id-${storyId}" placeholder="Enter identifier for filtering">
                     </div>
+                    
+                    <div class="form-group" style="display: flex; gap: 15px; align-items: flex-end;">
+                        <div style="flex: 1;">
+                            <label for="story-imo-${storyId}">IMO <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                            <input type="text" id="story-imo-${storyId}" placeholder="0001" oninput="toggleStoryIMOClassification('${storyId}')">
+                        </div>
+                        <div style="flex: 1;">
+                            <label for="story-imo-classification-${storyId}">Classification:</label>
+                            <select id="story-imo-classification-${storyId}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" disabled>
+                                <option value="">Select...</option>
+                                <option value="Payments">Payments</option>
+                                <option value="Banking">Banking</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label style="display: block; margin-bottom: 4px;">Country Flags:</label>
+                        <div style="display: flex; gap: 12px 15px; flex-wrap: wrap; row-gap: 4px;">
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="story-flag-global-${storyId}" checked onchange="clearStoryCountriesIfGlobalSelected('${storyId}')"> <span style="font-size: 13px;">🌍 Global</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="story-flag-czechia-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span style="font-size: 13px;">🇨🇿 Czechia</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="story-flag-hungary-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span style="font-size: 13px;">🇭🇺 Hungary</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="story-flag-iceland-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span style="font-size: 13px;">🇮🇸 Iceland</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="story-flag-italy-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span style="font-size: 13px;">🇮🇹 Italy</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="story-flag-portugal-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span style="font-size: 13px;">🇵🇹 Portugal</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="story-flag-slovakia-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span style="font-size: 13px;">🇸🇰 Slovakia</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="story-flag-slovenia-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span style="font-size: 13px;">🇸🇮 Slovenia</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="story-flag-spain-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span style="font-size: 13px;">🇪🇸 Spain</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="story-flag-uk-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span style="font-size: 13px;">🇬🇧 UK</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 15px; margin-bottom: 0;">
+                        <label style="display: block; margin-bottom: 4px;">Product Roadmap:</label>
+                        <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-size: 13px;">
+                            <input type="checkbox" id="story-include-product-roadmap-${storyId}" checked> 
+                            <span>Include</span>
+                        </label>
+                    </div>
+                    </div><!-- End Story Details Box -->
+                    
+                    <!-- Story Status Box -->
+                    <div class="section-box">
+                        <div class="section-box-title">Story Status</div>
                     
                     <!-- Row 1: New, Done, Cancelled, Info, Timeline -->
                     <div class="checkbox-group">
@@ -2784,6 +2929,7 @@
                         </div>
                         <button id="add-change-btn-${storyId}" onclick="addChange('${storyId}')" class="secondary">+ Add Timeline Entry</button>
                     </div>
+                    </div><!-- End Story Status Box -->
                     </div>
                 </div>
             `;
@@ -2799,7 +2945,9 @@
                 `story-start-${storyId}`,
                 `story-end-${storyId}`,
                 `story-bullets-${storyId}`,
+                `story-director-vp-id-${storyId}`,
                 `story-imo-${storyId}`,
+                `story-imo-classification-${storyId}`,
                 `done-date-${storyId}`,
                 `done-notes-${storyId}`,
                 `cancel-date-${storyId}`,
@@ -4573,12 +4721,48 @@
                 story.bullets = bullets.split('\n').filter(line => line.trim());
             }
             
+            // Handle Director/VP ID
+            const directorVPIdEl = document.getElementById(`story-director-vp-id-${storyId}`);
+            const directorVPId = directorVPIdEl ? directorVPIdEl.value.trim() : '';
+            if (directorVPId) {
+                story.directorVPId = directorVPId;
+            }
+            
             // Handle IMO
             const imoEl = document.getElementById(`story-imo-${storyId}`);
             const imo = imoEl ? imoEl.value.trim() : '';
             if (imo) {
                 story.imo = imo;
             }
+            
+            // Handle IMO Classification
+            const imoClassificationEl = document.getElementById(`story-imo-classification-${storyId}`);
+            const imoClassification = imoClassificationEl ? imoClassificationEl.value : '';
+            if (imoClassification) {
+                story.imoClassification = imoClassification;
+            }
+            
+            // Handle Country Flags (default to Global if no flags selected)
+            const countryFlags = [];
+            if (document.getElementById(`story-flag-global-${storyId}`)?.checked) countryFlags.push('Global');
+            if (document.getElementById(`story-flag-uk-${storyId}`)?.checked) countryFlags.push('UK');
+            if (document.getElementById(`story-flag-iceland-${storyId}`)?.checked) countryFlags.push('Iceland');
+            if (document.getElementById(`story-flag-hungary-${storyId}`)?.checked) countryFlags.push('Hungary');
+            if (document.getElementById(`story-flag-spain-${storyId}`)?.checked) countryFlags.push('Spain');
+            if (document.getElementById(`story-flag-italy-${storyId}`)?.checked) countryFlags.push('Italy');
+            if (document.getElementById(`story-flag-portugal-${storyId}`)?.checked) countryFlags.push('Portugal');
+            if (document.getElementById(`story-flag-czechia-${storyId}`)?.checked) countryFlags.push('Czechia');
+            if (document.getElementById(`story-flag-slovakia-${storyId}`)?.checked) countryFlags.push('Slovakia');
+            if (document.getElementById(`story-flag-slovenia-${storyId}`)?.checked) countryFlags.push('Slovenia');
+            // Default to Global if no flags are selected
+            if (countryFlags.length === 0) {
+                countryFlags.push('Global');
+            }
+            story.countryFlags = countryFlags;
+            
+            // Handle Include in Product Roadmap
+            const includeInProductRoadmapEl = document.getElementById(`story-include-product-roadmap-${storyId}`);
+            story.includeInProductRoadmap = includeInProductRoadmapEl ? includeInProductRoadmapEl.checked : false;
             
             // Handle status flags
             const doneEl = document.getElementById(`story-done-${storyId}`);
@@ -6381,11 +6565,54 @@
                     if (bulletsEl) bulletsEl.value = story.bullets.join('\n');
                 }
                 
+                // Load Director/VP ID field with error checking
+                const directorVPIdEl = document.getElementById(`story-director-vp-id-${storyId}`);
+                if (directorVPIdEl) {
+                    directorVPIdEl.value = story.directorVPId || '';
+                }
+                
                 // Load IMO field with error checking
                 const imoEl = document.getElementById(`story-imo-${storyId}`);
                 if (imoEl) {
                     imoEl.value = story.imo || '';
                 }
+                
+                // Load IMO Classification field with error checking
+                const imoClassificationEl = document.getElementById(`story-imo-classification-${storyId}`);
+                if (imoClassificationEl) {
+                    imoClassificationEl.value = story.imoClassification || '';
+                }
+                
+                // Enable/disable classification based on IMO value
+                toggleStoryIMOClassification(storyId);
+                
+                // Load Country Flags (Global is checked by default if no flags are saved)
+                const flags = story.countryFlags || [];
+                const hasNoSavedFlags = flags.length === 0;
+                const flagGlobalEl = document.getElementById(`story-flag-global-${storyId}`);
+                const flagUKEl = document.getElementById(`story-flag-uk-${storyId}`);
+                const flagIcelandEl = document.getElementById(`story-flag-iceland-${storyId}`);
+                const flagHungaryEl = document.getElementById(`story-flag-hungary-${storyId}`);
+                const flagSpainEl = document.getElementById(`story-flag-spain-${storyId}`);
+                const flagItalyEl = document.getElementById(`story-flag-italy-${storyId}`);
+                const flagPortugalEl = document.getElementById(`story-flag-portugal-${storyId}`);
+                const flagCzechiaEl = document.getElementById(`story-flag-czechia-${storyId}`);
+                const flagSlovakiaEl = document.getElementById(`story-flag-slovakia-${storyId}`);
+                const flagSloveniaEl = document.getElementById(`story-flag-slovenia-${storyId}`);
+                if (flagGlobalEl) flagGlobalEl.checked = hasNoSavedFlags || flags.includes('Global');
+                if (flagUKEl) flagUKEl.checked = flags.includes('UK');
+                if (flagIcelandEl) flagIcelandEl.checked = flags.includes('Iceland');
+                if (flagHungaryEl) flagHungaryEl.checked = flags.includes('Hungary');
+                if (flagSpainEl) flagSpainEl.checked = flags.includes('Spain');
+                if (flagItalyEl) flagItalyEl.checked = flags.includes('Italy');
+                if (flagPortugalEl) flagPortugalEl.checked = flags.includes('Portugal');
+                if (flagCzechiaEl) flagCzechiaEl.checked = flags.includes('Czechia');
+                if (flagSlovakiaEl) flagSlovakiaEl.checked = flags.includes('Slovakia');
+                if (flagSloveniaEl) flagSloveniaEl.checked = flags.includes('Slovenia');
+                
+                // Load Include in Product Roadmap flag
+                const includeInProductRoadmapEl = document.getElementById(`story-include-product-roadmap-${storyId}`);
+                if (includeInProductRoadmapEl) includeInProductRoadmapEl.checked = story.includeInProductRoadmap || false;
                 
                 // Load status flags with error checking
                 const doneEl = document.getElementById(`story-done-${storyId}`);
@@ -6918,7 +7145,29 @@
             editEndField.style.backgroundColor = '';
             
             document.getElementById('editBullets').value = foundStory.bullets || '';
+            document.getElementById('editDirectorVPId').value = foundStory.directorVPId || '';
             document.getElementById('editIMO').value = foundStory.imo || '';
+            document.getElementById('editIMOClassification').value = foundStory.imoClassification || '';
+            
+            // Enable/disable classification based on IMO value
+            toggleEditIMOClassification();
+            
+            // Load Country Flags (Global is checked by default if no flags are saved)
+            const flags = foundStory.countryFlags || [];
+            const hasNoSavedFlags = flags.length === 0;
+            document.getElementById('editFlagGlobal').checked = hasNoSavedFlags || flags.includes('Global');
+            document.getElementById('editFlagUK').checked = flags.includes('UK');
+            document.getElementById('editFlagIceland').checked = flags.includes('Iceland');
+            document.getElementById('editFlagHungary').checked = flags.includes('Hungary');
+            document.getElementById('editFlagSpain').checked = flags.includes('Spain');
+            document.getElementById('editFlagItaly').checked = flags.includes('Italy');
+            document.getElementById('editFlagPortugal').checked = flags.includes('Portugal');
+            document.getElementById('editFlagCzechia').checked = flags.includes('Czechia');
+            document.getElementById('editFlagSlovakia').checked = flags.includes('Slovakia');
+            document.getElementById('editFlagSlovenia').checked = flags.includes('Slovenia');
+            
+            // Load Include in Product Roadmap flag
+            document.getElementById('editIncludeInProductRoadmap').checked = foundStory.includeInProductRoadmap || false;
             
             // Special handling for KTLO and BTL - disable fields that don't apply
             const isKTLO = storyData.epicName === 'KTLO';
@@ -7377,6 +7626,89 @@
             }
         }
 
+        /**
+         * Toggle the IMO Classification dropdown in the edit modal based on IMO input
+         */
+        function toggleEditIMOClassification() {
+            const imoInput = document.getElementById('editIMO');
+            const classificationSelect = document.getElementById('editIMOClassification');
+            if (imoInput && classificationSelect) {
+                const hasIMO = imoInput.value.trim().length > 0;
+                classificationSelect.disabled = !hasIMO;
+                if (!hasIMO) {
+                    classificationSelect.value = '';
+                }
+            }
+        }
+
+        /**
+         * Clear Global flag in edit modal if any individual country is selected
+         */
+        function clearEditGlobalIfCountrySelected() {
+            const countryFlags = ['editFlagCzechia', 'editFlagHungary', 'editFlagIceland', 'editFlagItaly', 
+                                  'editFlagPortugal', 'editFlagSlovakia', 'editFlagSlovenia', 'editFlagSpain', 'editFlagUK'];
+            const anyCountrySelected = countryFlags.some(id => document.getElementById(id)?.checked);
+            if (anyCountrySelected) {
+                document.getElementById('editFlagGlobal').checked = false;
+            }
+        }
+
+        /**
+         * Clear all country flags in edit modal if Global is selected
+         */
+        function clearEditCountriesIfGlobalSelected() {
+            const globalEl = document.getElementById('editFlagGlobal');
+            if (globalEl?.checked) {
+                const countryFlags = ['editFlagCzechia', 'editFlagHungary', 'editFlagIceland', 'editFlagItaly', 
+                                      'editFlagPortugal', 'editFlagSlovakia', 'editFlagSlovenia', 'editFlagSpain', 'editFlagUK'];
+                countryFlags.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.checked = false;
+                });
+            }
+        }
+
+        /**
+         * Clear Global flag in story form if any individual country is selected
+         */
+        function clearStoryGlobalIfCountrySelected(storyId) {
+            const countryFlags = ['czechia', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk'];
+            const anyCountrySelected = countryFlags.some(country => document.getElementById(`story-flag-${country}-${storyId}`)?.checked);
+            if (anyCountrySelected) {
+                const globalEl = document.getElementById(`story-flag-global-${storyId}`);
+                if (globalEl) globalEl.checked = false;
+            }
+        }
+
+        /**
+         * Clear all country flags in story form if Global is selected
+         */
+        function clearStoryCountriesIfGlobalSelected(storyId) {
+            const globalEl = document.getElementById(`story-flag-global-${storyId}`);
+            if (globalEl?.checked) {
+                const countryFlags = ['czechia', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk'];
+                countryFlags.forEach(country => {
+                    const el = document.getElementById(`story-flag-${country}-${storyId}`);
+                    if (el) el.checked = false;
+                });
+            }
+        }
+
+        /**
+         * Toggle the IMO Classification dropdown for a story form based on IMO input
+         */
+        function toggleStoryIMOClassification(storyId) {
+            const imoInput = document.getElementById(`story-imo-${storyId}`);
+            const classificationSelect = document.getElementById(`story-imo-classification-${storyId}`);
+            if (imoInput && classificationSelect) {
+                const hasIMO = imoInput.value.trim().length > 0;
+                classificationSelect.disabled = !hasIMO;
+                if (!hasIMO) {
+                    classificationSelect.value = '';
+                }
+            }
+        }
+
         function toggleEditTimelineChanges() {
             const timelineChecked = document.getElementById('editTimelineChanges').checked;
 
@@ -7771,6 +8103,7 @@
                             dateAdded: dateAddedEl ? dateAddedEl.value : '',
                             dateAddedDescription: descriptionEl ? descriptionEl.value : '',
                             imo: imoEl ? imoEl.value : '',
+                            imoClassification: '', // BTL stories use modal classification
                             isDone: false, // BTL stories don't have status flags
                             isCancelled: false,
                             isAtRisk: false,
@@ -7831,7 +8164,9 @@
                     const startEl = document.getElementById(`story-start-${storyId}`);
                     const endEl = document.getElementById(`story-end-${storyId}`);
                     const bulletsEl = document.getElementById(`story-bullets-${storyId}`);
+                    const directorVPIdEl = document.getElementById(`story-director-vp-id-${storyId}`);
                     const imoEl = document.getElementById(`story-imo-${storyId}`);
+                    const imoClassificationEl = document.getElementById(`story-imo-classification-${storyId}`);
                     
                     const doneEl = document.getElementById(`story-done-${storyId}`);
                     const cancelledEl = document.getElementById(`story-cancelled-${storyId}`);
@@ -7890,13 +8225,37 @@
                     // hasTimelineChanges should be true if either checkbox is checked OR timeline changes exist
                     const hasTimelineChanges = checkboxChecked || timelineChanges.length > 0;
                     
+                    // Collect country flags (default to Global if no flags selected)
+                    const storyCountryFlags = [];
+                    if (document.getElementById(`story-flag-global-${storyId}`)?.checked) storyCountryFlags.push('Global');
+                    if (document.getElementById(`story-flag-uk-${storyId}`)?.checked) storyCountryFlags.push('UK');
+                    if (document.getElementById(`story-flag-iceland-${storyId}`)?.checked) storyCountryFlags.push('Iceland');
+                    if (document.getElementById(`story-flag-hungary-${storyId}`)?.checked) storyCountryFlags.push('Hungary');
+                    if (document.getElementById(`story-flag-spain-${storyId}`)?.checked) storyCountryFlags.push('Spain');
+                    if (document.getElementById(`story-flag-italy-${storyId}`)?.checked) storyCountryFlags.push('Italy');
+                    if (document.getElementById(`story-flag-portugal-${storyId}`)?.checked) storyCountryFlags.push('Portugal');
+                    if (document.getElementById(`story-flag-czechia-${storyId}`)?.checked) storyCountryFlags.push('Czechia');
+                    if (document.getElementById(`story-flag-slovakia-${storyId}`)?.checked) storyCountryFlags.push('Slovakia');
+                    if (document.getElementById(`story-flag-slovenia-${storyId}`)?.checked) storyCountryFlags.push('Slovenia');
+                    // Default to Global if no flags are selected
+                    if (storyCountryFlags.length === 0) {
+                        storyCountryFlags.push('Global');
+                    }
+                    
+                    // Get Include in Product Roadmap flag
+                    const includeInProductRoadmapEl = document.getElementById(`story-include-product-roadmap-${storyId}`);
+                    
                     return {
                         storyId: storyId,
                         title: titleEl ? titleEl.value : '',
                         start: startEl ? startEl.value : '',
                         end: endEl ? endEl.value : '',
                         bullets: bulletsEl ? bulletsEl.value : '',
+                        directorVPId: directorVPIdEl ? directorVPIdEl.value : '',
                         imo: imoEl ? imoEl.value : '',
+                        imoClassification: imoClassificationEl ? imoClassificationEl.value : '',
+                        countryFlags: storyCountryFlags.length > 0 ? storyCountryFlags : undefined,
+                        includeInProductRoadmap: includeInProductRoadmapEl ? includeInProductRoadmapEl.checked : false,
                         isDone: doneEl ? doneEl.checked : false,
                         isCancelled: cancelledEl ? cancelledEl.checked : false,
                         isAtRisk: atRiskEl ? atRiskEl.checked : false,
@@ -7937,6 +8296,15 @@
         function saveStoryChanges() {
             if (!currentEditingStory) {
                 alert('No story selected for editing.');
+                return;
+            }
+            
+            // Validate IMO classification is selected when IMO number is present
+            const imoValue = document.getElementById('editIMO').value.trim();
+            const imoClassification = document.getElementById('editIMOClassification').value;
+            if (imoValue && !imoClassification) {
+                alert('Please select an IMO classification when an IMO number is provided.');
+                document.getElementById('editIMOClassification').focus();
                 return;
             }
             
@@ -8035,13 +8403,45 @@
                 const startEl = document.getElementById(`story-start-${storyId}`);
                 const endEl = document.getElementById(`story-end-${storyId}`);
                 const bulletsEl = document.getElementById(`story-bullets-${storyId}`);
+                const directorVPIdEl = document.getElementById(`story-director-vp-id-${storyId}`);
                 const imoEl = document.getElementById(`story-imo-${storyId}`);
                 
                 if (titleEl) titleEl.value = document.getElementById('editTitle').value;
                 if (startEl) startEl.value = document.getElementById('editStart').value;
                 if (endEl) endEl.value = document.getElementById('editEnd').value;
                 if (bulletsEl) bulletsEl.value = document.getElementById('editBullets').value;
+                if (directorVPIdEl) directorVPIdEl.value = document.getElementById('editDirectorVPId').value;
                 if (imoEl) imoEl.value = document.getElementById('editIMO').value;
+                
+                // Update IMO Classification
+                const imoClassificationEl = document.getElementById(`story-imo-classification-${storyId}`);
+                if (imoClassificationEl) imoClassificationEl.value = document.getElementById('editIMOClassification').value;
+                
+                // Update Country Flags
+                const flagGlobalEl = document.getElementById(`story-flag-global-${storyId}`);
+                const flagUKEl = document.getElementById(`story-flag-uk-${storyId}`);
+                const flagIcelandEl = document.getElementById(`story-flag-iceland-${storyId}`);
+                const flagHungaryEl = document.getElementById(`story-flag-hungary-${storyId}`);
+                const flagSpainEl = document.getElementById(`story-flag-spain-${storyId}`);
+                const flagItalyEl = document.getElementById(`story-flag-italy-${storyId}`);
+                const flagPortugalEl = document.getElementById(`story-flag-portugal-${storyId}`);
+                const flagCzechiaEl = document.getElementById(`story-flag-czechia-${storyId}`);
+                const flagSlovakiaEl = document.getElementById(`story-flag-slovakia-${storyId}`);
+                const flagSloveniaEl = document.getElementById(`story-flag-slovenia-${storyId}`);
+                if (flagGlobalEl) flagGlobalEl.checked = document.getElementById('editFlagGlobal').checked;
+                if (flagUKEl) flagUKEl.checked = document.getElementById('editFlagUK').checked;
+                if (flagIcelandEl) flagIcelandEl.checked = document.getElementById('editFlagIceland').checked;
+                if (flagHungaryEl) flagHungaryEl.checked = document.getElementById('editFlagHungary').checked;
+                if (flagSpainEl) flagSpainEl.checked = document.getElementById('editFlagSpain').checked;
+                if (flagItalyEl) flagItalyEl.checked = document.getElementById('editFlagItaly').checked;
+                if (flagPortugalEl) flagPortugalEl.checked = document.getElementById('editFlagPortugal').checked;
+                if (flagCzechiaEl) flagCzechiaEl.checked = document.getElementById('editFlagCzechia').checked;
+                if (flagSlovakiaEl) flagSlovakiaEl.checked = document.getElementById('editFlagSlovakia').checked;
+                if (flagSloveniaEl) flagSloveniaEl.checked = document.getElementById('editFlagSlovenia').checked;
+                
+                // Update Include in Product Roadmap
+                const includeInProductRoadmapEl = document.getElementById(`story-include-product-roadmap-${storyId}`);
+                if (includeInProductRoadmapEl) includeInProductRoadmapEl.checked = document.getElementById('editIncludeInProductRoadmap').checked;
                 
                 // Update checkboxes
                 const doneEl = document.getElementById(`story-done-${storyId}`);
