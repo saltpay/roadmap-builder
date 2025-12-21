@@ -176,7 +176,7 @@
         
         .search-input.wide-dropdown {
             flex: none;
-            width: 120px;
+            width: 130px;
         }
         
         .search-input.imo-input {
@@ -802,11 +802,16 @@
                         <!-- Advanced Expression Filter -->
                         <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
                             <div style="font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px;">Advanced Filter (Optional):</div>
-                            <input type="text" 
-                                   id="advancedFilterExpression" 
-                                   placeholder="e.g., Done && !Timeline, (Cancelled || AtRisk) && New"
-                                   onchange="applyStatusFilters()"
-                                   style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 12px;">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="text" id="advancedFilterExpression" 
+                                       placeholder="e.g., Done && !Timeline, (Cancelled || AtRisk) && New"
+                                       onchange="handleAdvancedFilterChange(this)"
+                                       onkeydown="handleAdvancedFilterKeyDown(event, this)"
+                                       style="width: 50%; height: 32px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 12px; box-sizing: border-box;">
+                                <button class="search-button" onclick="applyStatusFilters()" style="min-width: 80px; height: 32px; padding: 4px 12px;">
+                                    🔍 Apply
+                                </button>
+                            </div>
                             <div style="font-size: 10px; color: #888; margin-top: 5px;">
                                 Use: <code>&&</code> (AND), <code>||</code> (OR), <code>!</code> (NOT), <code>( )</code> (grouping)<br>
                                 Status names: Done, Cancelled, Timeline, New, AtRisk, Proposed, Info, TransferredIn, TransferredOut<br>
@@ -2839,15 +2844,60 @@
         function evaluateFilterExpression(expression, story) {
             if (!expression || !expression.trim()) return null;
             
-            // Pre-process: handle LEADERSHIP="name" syntax before tokenizing
-            let processedExpr = expression;
-            const leadershipRegex = /LEADERSHIP="([^"]+)"/gi;
-            processedExpr = processedExpr.replace(leadershipRegex, (match, name) => {
+            // Pre-process: remove newlines so multi-line input works as single expression
+            let processedExpr = expression.replace(/[\r\n]+/g, ' ');
+            
+            // LEADERSHIP="name" - matches Director/VP, EM, or PM
+            processedExpr = processedExpr.replace(/LEADERSHIP="([^"]+)"/gi, (match, name) => {
                 const nameLower = name.toLowerCase();
                 const directorVP = (story._directorVP || '').toLowerCase();
                 const em = (story._em || '').toLowerCase();
                 const pm = (story._pm || '').toLowerCase();
                 const matches = directorVP.includes(nameLower) || em.includes(nameLower) || pm.includes(nameLower);
+                return matches ? 'TRUE' : 'FALSE';
+            });
+            
+            // IMO="number" - matches IMO number
+            processedExpr = processedExpr.replace(/IMO="([^"]+)"/gi, (match, value) => {
+                const imo = (story.imo || '').toLowerCase();
+                return imo.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
+            });
+            
+            // IMOCLASS="class" - matches IMO classification
+            processedExpr = processedExpr.replace(/IMOCLASS="([^"]+)"/gi, (match, value) => {
+                const imoClass = (story.imoClassification || '').toLowerCase();
+                return imoClass.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
+            });
+            
+            // TEAM="name" - matches team name
+            processedExpr = processedExpr.replace(/TEAM="([^"]+)"/gi, (match, value) => {
+                const teamName = (story.teamName || '').toLowerCase();
+                return teamName.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
+            });
+            
+            // EPIC="name" - matches epic name
+            processedExpr = processedExpr.replace(/EPIC="([^"]+)"/gi, (match, value) => {
+                const epicName = (story.epicName || '').toLowerCase();
+                return epicName.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
+            });
+            
+            // TITLE="text" - matches story title
+            processedExpr = processedExpr.replace(/TITLE="([^"]+)"/gi, (match, value) => {
+                const title = (story.title || '').toLowerCase();
+                return title.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
+            });
+            
+            // VPID="id" - matches Director/VP ID field on story
+            processedExpr = processedExpr.replace(/VPID="([^"]+)"/gi, (match, value) => {
+                const vpId = (story.directorVPId || '').toLowerCase();
+                return vpId.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
+            });
+            
+            // COUNTRY="name" - matches country flag
+            processedExpr = processedExpr.replace(/COUNTRY="([^"]+)"/gi, (match, value) => {
+                const flags = story.countryFlags || [];
+                const valueLower = value.toLowerCase();
+                const matches = flags.some(flag => flag.toLowerCase().includes(valueLower));
                 return matches ? 'TRUE' : 'FALSE';
             });
             
@@ -2977,6 +3027,112 @@
             }
             
             applyStatusFilters();
+        }
+
+        /**
+         * Handle Enter key in advanced filter (Ctrl+Enter or Cmd+Enter to apply)
+         */
+        function handleAdvancedFilterKeyDown(event, input) {
+            // Check for help on any Enter
+            if (event.key === 'Enter' && input.value.toLowerCase().trim() === 'help') {
+                event.preventDefault();
+                input.value = '';
+                showAdvancedFilterHelp();
+                return;
+            }
+            // Ctrl+Enter or Cmd+Enter to apply filter
+            if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                event.preventDefault();
+                applyStatusFilters();
+            }
+        }
+        
+        /**
+         * Handle change in advanced filter (blur/tab)
+         */
+        function handleAdvancedFilterChange(input) {
+            if (input.value.toLowerCase().trim() === 'help') {
+                input.value = '';
+                showAdvancedFilterHelp();
+            } else {
+                applyStatusFilters();
+            }
+        }
+        
+        /**
+         * Show advanced filter help dialog
+         */
+        function showAdvancedFilterHelp() {
+            // Create modal overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'advancedFilterHelpModal';
+            overlay.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.5); z-index: 10000;
+                display: flex; align-items: center; justify-content: center;
+            `;
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                background: white; border-radius: 8px; padding: 20px;
+                width: 500px; max-height: 70vh; overflow-y: scroll;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3); font-family: monospace;
+            `;
+            
+            modal.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">Advanced Filter Options</h3>
+                    <button onclick="document.getElementById('advancedFilterHelpModal').remove()" 
+                            style="border: none; background: none; font-size: 20px; cursor: pointer;">✕</button>
+                </div>
+                <div style="font-size: 13px; line-height: 1.6;">
+                    <div style="margin-bottom: 15px;">
+                        <strong>OPERATORS:</strong><br>
+                        <code>&&</code> AND &nbsp;&nbsp; <code>||</code> OR &nbsp;&nbsp; <code>!</code> NOT &nbsp;&nbsp; <code>( )</code> Grouping
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>STATUS FLAGS:</strong><br>
+                        <code>Done</code> <code>Cancelled</code> <code>Timeline</code> <code>New</code> <code>AtRisk</code><br>
+                        <code>Proposed</code> <code>Info</code> <code>TransferredIn</code> <code>TransferredOut</code>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>FIELD FILTERS (partial match):</strong><br>
+                        <code>IMO="0043"</code> - IMO number<br>
+                        <code>IMOCLASS="Payments"</code> - Classification<br>
+                        <code>TEAM="Terminal"</code> - Team name<br>
+                        <code>EPIC="Core"</code> - Epic name<br>
+                        <code>TITLE="migration"</code> - Story title<br>
+                        <code>VPID="Paulo"</code> - Director/VP ID on story<br>
+                        <code>COUNTRY="UK"</code> - Country flag<br>
+                        <code>LEADERSHIP="John"</code> - Director/VP, EM, or PM
+                    </div>
+                    <div>
+                        <strong>EXAMPLES:</strong><br>
+                        <code>Done && !Timeline</code><br>
+                        <code>TEAM="Terminal" && Done</code><br>
+                        <code>IMO="0043" || IMO="0044"</code><br>
+                        <code>(TEAM="A" || TEAM="B") && !Cancelled</code><br>
+                        <code>COUNTRY="UK" && LEADERSHIP="John"</code>
+                    </div>
+                </div>
+            `;
+            
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+            
+            // Close on overlay click
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) overlay.remove();
+            });
+            
+            // Close on Escape key
+            const escHandler = (e) => {
+                if (e.key === 'Escape') {
+                    overlay.remove();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
         }
 
         /**
