@@ -92,7 +92,7 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, 'localhost', () => {
   console.log(`Server running at http://localhost:${PORT}`);
   console.log(`Serving static files from: ${WEB_DIR}`);
   console.log('Available endpoints:');

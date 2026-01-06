@@ -130,7 +130,7 @@ class IMOViewGenerator {
                 <div class="story-card-header">
                     <div class="story-title">
                         <strong>${this.escapeHtml(story.title)}</strong>
-                        ${story.imo ? `<span class="imo-tag">IMO ${this.escapeHtml(story.imo)}</span>` : ''}
+                        ${story.imo ? `<span class="imo-tag">${this.escapeHtml(story.imo)}</span>` : ''}
                     </div>
                     <div class="story-status">
                         <span class="status-badge ${status.className}">
