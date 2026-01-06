@@ -1062,7 +1062,7 @@
                     
                     <div class="form-group" style="display: flex; gap: 15px; align-items: flex-end;">
                         <div style="flex: 1;">
-                            <label for="editIMO">IMO <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                            <label for="editIMO">IMO/Project ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
                             <input type="text" id="editIMO" name="imo" placeholder="0001" oninput="toggleEditIMOClassification()">
                         </div>
                         <div style="flex: 1;">
@@ -2734,7 +2734,7 @@
                     
                     <div class="form-group" style="display: flex; gap: 15px; align-items: flex-end;">
                         <div style="flex: 1;">
-                            <label for="story-imo-${storyId}">IMO <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                            <label for="story-imo-${storyId}">IMO/Project ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
                             <input type="text" id="story-imo-${storyId}" placeholder="0001" oninput="toggleStoryIMOClassification('${storyId}')">
                         </div>
                         <div style="flex: 1;">
@@ -3147,7 +3147,7 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="btl-imo-${storyId}">IMO <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                        <label for="btl-imo-${storyId}">IMO/Project ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
                         <input type="text" id="btl-imo-${storyId}" placeholder="0001">
                     </div>
                     </div>
@@ -8327,7 +8327,7 @@
             const imoValue = document.getElementById('editIMO').value.trim();
             const imoClassification = document.getElementById('editIMOClassification').value;
             if (imoValue && !imoClassification) {
-                alert('Please select an IMO classification when an IMO number is provided.');
+                alert('Please select a classification when an IMO/Project ID is provided.');
                 document.getElementById('editIMOClassification').focus();
                 return;
             }

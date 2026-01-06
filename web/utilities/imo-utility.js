@@ -92,26 +92,38 @@ class IMOUtility {
     }
     
     /**
-     * Filter stories by IMO number or all IMO stories
+     * Filter stories by IMO/Project ID
+     * - If search term is purely numeric: exact match only
+     * - If search term contains non-numeric characters: partial string match
      * @param {Array} stories - Array of story objects
-     * @param {string} imoNumber - IMO number to search for (e.g., "0043") or "all" for any IMO
+     * @param {string} imoSearch - IMO/Project ID to search for or "all" for any IMO
      * @returns {Array} - Filtered array of stories with matching IMO or all stories with any IMO
      */
-    static filterStoriesByIMO(stories, imoNumber) {
-        if (!imoNumber || !Array.isArray(stories)) return [];
+    static filterStoriesByIMO(stories, imoSearch) {
+        if (!imoSearch || !Array.isArray(stories)) return [];
         
         // Special case: "all" means find all stories with any IMO tag
-        if (imoNumber === 'all') {
+        if (imoSearch === 'all') {
             return this.filterStoriesWithAnyIMO(stories);
         }
         
-        const searchIMO = imoNumber.toString().trim().toLowerCase();
+        const searchTerm = imoSearch.toString().trim().toLowerCase();
+        
+        // Check if search term is purely numeric (digits only)
+        const isNumericOnly = /^\d+$/.test(searchTerm);
         
         return stories.filter(story => {
-            if (story.imo && story.imo.toString().trim().toLowerCase() === searchIMO) {
-                return true;
+            if (!story.imo) return false;
+            
+            const storyIMO = story.imo.toString().trim().toLowerCase();
+            
+            if (isNumericOnly) {
+                // Exact match for numeric searches (e.g., "001" won't match "0011")
+                return storyIMO === searchTerm;
+            } else {
+                // Partial match for text/mixed searches
+                return storyIMO.includes(searchTerm);
             }
-            return false;
         });
     }
     
@@ -292,7 +304,7 @@ class IMOUtility {
     
     /**
      * Parse search query and determine search type
-     * @param {string} query - Search query (e.g., "IMO", "IMO 0043", "0043", "Q3", "April")
+     * @param {string} query - Search query (e.g., "IMO", "IMO 0043", "IMO Moto", "0043", "Q3", "April")
      * @returns {Object} - {type: 'imo'|'timeline', value: string}
      */
     static parseSearchQuery(query) {
@@ -302,15 +314,20 @@ class IMOUtility {
         
         const cleanQuery = query.trim();
         
-        // IMO pattern: "IMO 0043" or just "0043"
-        const imoMatch = cleanQuery.match(/^(?:imo\s*)?(\d+)$/i);
-        if (imoMatch) {
-            return { type: 'imo', value: imoMatch[1] };
+        // IMO/Project ID pattern: "IMO 0043" or "IMO SomeProject" (with IMO prefix and any value)
+        const imoWithPrefixMatch = cleanQuery.match(/^imo\s+(.+)$/i);
+        if (imoWithPrefixMatch) {
+            return { type: 'imo', value: imoWithPrefixMatch[1].trim() };
         }
         
         // Just "IMO" - search for all stories with any IMO tag
         if (/^imo$/i.test(cleanQuery)) {
             return { type: 'imo', value: 'all' };
+        }
+        
+        // Standalone numeric value - treat as IMO search (e.g., "0043")
+        if (/^\d+$/.test(cleanQuery)) {
+            return { type: 'imo', value: cleanQuery };
         }
         
         // Quarter pattern: "Q1", "Q2", etc.

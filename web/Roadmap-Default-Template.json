@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "created": "2025-12-20T10:54:31.074Z",
+  "created": "2026-01-06T17:23:39.219Z",
   "teamData": {
     "roadmapYear": 2026,
     "teamName": "Teya",
@@ -61,6 +61,8 @@
               "Second bullet point U+2705"
             ],
             "directorVPId": "Paulo",
+            "imo": "Moto - 001",
+            "imoClassification": "Other",
             "countryFlags": [
               "Iceland"
             ],
@@ -115,6 +117,8 @@
               "Second bullet point"
             ],
             "directorVPId": "Paulo",
+            "imo": "Moto - 001",
+            "imoClassification": "Other",
             "countryFlags": [
               "Slovakia",
               "Slovenia"

@@ -684,12 +684,12 @@
 
                 <!-- IMO Search -->
                 <div class="search-section">
-                    <h3 class="search-section-title">🔍 IMO Search</h3>
+                    <h3 class="search-section-title">🔍 IMO/Project ID Search</h3>
                     <div class="search-input-group">
                             <input type="text" 
                                class="search-input imo-input" 
                                    id="searchInput" 
-                               placeholder="Enter IMO number (0043)" 
+                               placeholder="Enter IMO/Project ID" 
                                    onkeypress="handleSearchKeyPress(event)">
                         <select class="search-input classification-select" id="imoClassificationSelect">
                             <option value="">Classification</option>
@@ -2354,7 +2354,8 @@
                 // Extract and search stories
                 const allStories = IMOUtility.aggregateStoriesAcrossTeams(roadmapFiles);
                 
-                let matchingStories = IMOUtility.searchStories(allStories, searchQuery);
+                // Direct IMO/Project ID search (no query parsing)
+                let matchingStories = IMOUtility.filterStoriesByIMO(allStories, searchQuery);
                 
                 // Store base search results before filtering for potential re-filtering
                 lastSearchStories = matchingStories.slice();
@@ -2718,7 +2719,7 @@
         // Apply additional filters based on other filled inputs (AND semantics)
         function applyAdditionalFilters(stories, roadmapFiles, options = {}) {
             let result = Array.isArray(stories) ? stories.slice() : [];
-            const opts = Object.assign({ skipDirector: false, skipIMO: false, skipTitle: false, skipDate: false, skipStatus: false, skipProductRoadmap: false }, options);
+            const opts = Object.assign({ skipDirector: false, skipIMO: false, skipClassification: false, skipTitle: false, skipDate: false, skipStatus: false, skipProductRoadmap: false }, options);
 
             try {
                 // Director/VP filter (team-level)
@@ -2729,10 +2730,19 @@
                     result = result.filter(story => allowedTeams.has(story.teamName));
                 }
 
-                // IMO/Timeline filter
+                // IMO/Project ID filter (direct search, no query parsing)
                 const imoQuery = document.getElementById('searchInput')?.value.trim();
                 if (!opts.skipIMO && imoQuery) {
-                    result = IMOUtility.searchStories(result, imoQuery);
+                    result = IMOUtility.filterStoriesByIMO(result, imoQuery);
+                }
+
+                // Classification filter
+                const classificationQuery = document.getElementById('imoClassificationSelect')?.value;
+                if (!opts.skipClassification && classificationQuery) {
+                    result = result.filter(story => {
+                        const storyClassification = (story.imoClassification || '').toLowerCase();
+                        return storyClassification === classificationQuery.toLowerCase();
+                    });
                 }
 
                 // Title filter
