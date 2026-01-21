@@ -673,6 +673,9 @@
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
                                         <input type="checkbox" id="searchFlagUK" onchange="updateSearchButtonStates()"> <span>🇬🇧 UK</span>
                                     </label>
+                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                        <input type="checkbox" id="searchFlagDE" onchange="updateSearchButtonStates()"> <span>🇩🇪 Germany</span>
+                                    </label>
                                 </div>
                             </div>
                             <button class="search-button" id="countryFlagSearchBtn" onclick="performCountryFlagSearch()" disabled>
@@ -3551,6 +3554,7 @@
             if (document.getElementById('searchFlagSlovenia')?.checked) flags.push('Slovenia');
             if (document.getElementById('searchFlagSpain')?.checked) flags.push('Spain');
             if (document.getElementById('searchFlagUK')?.checked) flags.push('UK');
+            if (document.getElementById('searchFlagDE')?.checked) flags.push('Germany');
             return flags;
         }
 
@@ -3568,6 +3572,7 @@
             document.getElementById('searchFlagSlovenia').checked = false;
             document.getElementById('searchFlagSpain').checked = false;
             document.getElementById('searchFlagUK').checked = false;
+            document.getElementById('searchFlagDE').checked = false;
         }
 
         async function performCountryFlagSearch() {
