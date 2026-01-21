@@ -811,7 +811,8 @@ class RoadmapGenerator {
                 'Portugal': '🇵🇹',
                 'Czechia': '🇨🇿',
                 'Slovakia': '🇸🇰',
-                'Slovenia': '🇸🇮'
+                'Slovenia': '🇸🇮',
+                'Germany': '🇩🇪'
             };
             const flagEmojis = story.countryFlags.map(f => flagMap[f] || '').filter(f => f).join('');
             const hasTimelineIcon = iconHTML !== '';
