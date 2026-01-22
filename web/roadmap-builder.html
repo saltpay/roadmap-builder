@@ -972,7 +972,13 @@
                 <form id="editStoryForm" onsubmit="return false;">
                     <!-- Story Details Box -->
                     <div class="section-box">
-                        <div class="section-box-title">Story Details</div>
+                        <div class="section-box-title" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Story Details</span>
+                            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; font-weight: normal; color: #555; background: #f0f0f0; padding: 4px 10px; border-radius: 4px; border: 1px solid #ddd;">
+                                <span style="text-align: left; line-height: 1.3;"><span style="white-space: nowrap;">Include in</span><br><span style="white-space: nowrap;">Product Roadmap</span></span>
+                                <input type="checkbox" id="editIncludeInProductRoadmap" name="includeInProductRoadmap" checked style="margin: 0;"> 
+                            </label>
+                        </div>
                     <div class="form-group">
                         <label for="editTitle">Story Title:</label>
                         <input type="text" id="editTitle" name="title" required>
@@ -1112,12 +1118,9 @@
                         </div>
                     </div>
                     
-                    <div class="form-group" style="margin-top: 15px; margin-bottom: 0;">
-                        <label style="display: block; margin-bottom: 4px;">Product Roadmap:</label>
-                        <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-size: 13px;">
-                            <input type="checkbox" id="editIncludeInProductRoadmap" name="includeInProductRoadmap" checked> 
-                            <span>Include</span>
-                        </label>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label for="editComments">Comments <span style="font-style: italic; color: #888;">(optional, not shown on roadmap)</span>:</label>
+                        <textarea id="editComments" name="comments" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical;" placeholder="Add any notes or comments..."></textarea>
                     </div>
                     </div><!-- End Story Details Box -->
                     
@@ -2702,7 +2705,13 @@
                     <div id="story-content-${storyId}" style="display: none;">
                     <!-- Story Details Box -->
                     <div class="section-box">
-                        <div class="section-box-title">Story Details</div>
+                        <div class="section-box-title" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Story Details</span>
+                            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; font-weight: normal; color: #555; background: #f0f0f0; padding: 4px 10px; border-radius: 4px; border: 1px solid #ddd;">
+                                <span style="text-align: left; line-height: 1.3;"><span style="white-space: nowrap;">Include in</span><br><span style="white-space: nowrap;">Product Roadmap</span></span>
+                                <input type="checkbox" id="story-include-product-roadmap-${storyId}" checked style="margin: 0;"> 
+                            </label>
+                        </div>
                     <div class="form-group">
                         <label for="story-title-${storyId}">Story Title:</label>
                         <input type="text" id="story-title-${storyId}" placeholder="Story title">
@@ -2784,12 +2793,9 @@
                         </div>
                     </div>
                     
-                    <div class="form-group" style="margin-top: 15px; margin-bottom: 0;">
-                        <label style="display: block; margin-bottom: 4px;">Product Roadmap:</label>
-                        <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-size: 13px;">
-                            <input type="checkbox" id="story-include-product-roadmap-${storyId}" checked> 
-                            <span>Include</span>
-                        </label>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label for="story-comments-${storyId}">Comments <span style="font-style: italic; color: #888;">(optional, not shown on roadmap)</span>:</label>
+                        <textarea id="story-comments-${storyId}" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical;" placeholder="Add any notes or comments..."></textarea>
                     </div>
                     </div><!-- End Story Details Box -->
                     
@@ -3150,6 +3156,11 @@
                         <label for="btl-imo-${storyId}">IMO/Project ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
                         <input type="text" id="btl-imo-${storyId}" placeholder="0001">
                     </div>
+                    
+                    <div class="form-group">
+                        <label for="btl-comments-${storyId}">Comments <span style="font-style: italic; color: #888;">(optional, not shown on roadmap)</span>:</label>
+                        <textarea id="btl-comments-${storyId}" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical;" placeholder="Add any notes or comments..."></textarea>
+                    </div>
                     </div>
                 </div>
             `;
@@ -3167,7 +3178,8 @@
                 `btl-bullets-${storyId}`,
                 `btl-dateadded-${storyId}`,
                 `btl-description-${storyId}`,
-                `btl-imo-${storyId}`
+                `btl-imo-${storyId}`,
+                `btl-comments-${storyId}`
             ];
             
             btlFields.forEach(fieldId => {
@@ -4766,6 +4778,13 @@
                 story.imoClassification = imoClassification;
             }
             
+            // Handle Comments
+            const commentsEl = document.getElementById(`story-comments-${storyId}`);
+            const comments = commentsEl ? commentsEl.value.trim() : '';
+            if (comments) {
+                story.comments = comments;
+            }
+            
             // Handle Country Flags (default to Global if no flags selected)
             const countryFlags = [];
             if (document.getElementById(`story-flag-global-${storyId}`)?.checked) countryFlags.push('Global');
@@ -5146,6 +5165,13 @@
                 const imo = imoEl ? imoEl.value.trim() : '';
                 if (imo) {
                     story.imo = imo;
+                }
+                
+                // Handle Comments
+                const commentsEl = document.getElementById(`btl-comments-${storyId}`);
+                const comments = commentsEl ? commentsEl.value.trim() : '';
+                if (comments) {
+                    story.comments = comments;
                 }
                 
                 if (story.title) { // Only add stories with titles
@@ -6529,6 +6555,12 @@
                         if (imoEl) {
                             imoEl.value = story.imo || '';
                         }
+                        
+                        // Set Comments field
+                        const commentsEl = document.getElementById(`btl-comments-${currentStoryId}`);
+                        if (commentsEl) {
+                            commentsEl.value = story.comments || '';
+                        }
                     });
                 }
                 
@@ -6609,6 +6641,12 @@
                 
                 // Enable/disable classification based on IMO value
                 toggleStoryIMOClassification(storyId);
+                
+                // Load Comments field
+                const commentsEl = document.getElementById(`story-comments-${storyId}`);
+                if (commentsEl) {
+                    commentsEl.value = story.comments || '';
+                }
                 
                 // Load Country Flags (Global is checked by default if no flags are saved)
                 const flags = story.countryFlags || [];
@@ -7120,13 +7158,7 @@
             // Set up the focus trap
             modal.addEventListener('keydown', trapFocus);
             
-            // Focus the first focusable element
-            setTimeout(() => {
-                const focusableElements = getFocusableElements();
-                if (focusableElements.length > 0) {
-                    focusableElements[0].focus();
-                }
-            }, 100);
+            // Don't auto-focus any element - let user click to focus
 
             return {
                 remove: () => {
@@ -7172,6 +7204,7 @@
             document.getElementById('editDirectorVPId').value = foundStory.directorVPId || '';
             document.getElementById('editIMO').value = foundStory.imo || '';
             document.getElementById('editIMOClassification').value = foundStory.imoClassification || '';
+            document.getElementById('editComments').value = foundStory.comments || '';
             
             // Enable/disable classification based on IMO value
             toggleEditIMOClassification();
@@ -7481,6 +7514,11 @@
             
             // Show modal
             document.getElementById('editStoryModal').style.display = 'flex';
+            
+            // Remove focus from any element
+            if (document.activeElement) {
+                document.activeElement.blur();
+            }
             
             // Set up focus trap
             modalFocusTrap = setupModalFocusTrap('editStoryModal');
@@ -8117,6 +8155,7 @@
                         const dateAddedEl = document.getElementById(`btl-dateadded-${storyId}`);
                         const descriptionEl = document.getElementById(`btl-description-${storyId}`);
                         const imoEl = document.getElementById(`btl-imo-${storyId}`);
+                        const commentsEl = document.getElementById(`btl-comments-${storyId}`);
                         
                         return {
                             storyId: storyId,
@@ -8127,6 +8166,7 @@
                             dateAdded: dateAddedEl ? dateAddedEl.value : '',
                             dateAddedDescription: descriptionEl ? descriptionEl.value : '',
                             imo: imoEl ? imoEl.value : '',
+                            comments: commentsEl ? commentsEl.value : '',
                             imoClassification: '', // BTL stories use modal classification
                             isDone: false, // BTL stories don't have status flags
                             isCancelled: false,
@@ -8269,6 +8309,9 @@
                     // Get Include in Product Roadmap flag
                     const includeInProductRoadmapEl = document.getElementById(`story-include-product-roadmap-${storyId}`);
                     
+                    // Get Comments field
+                    const commentsEl = document.getElementById(`story-comments-${storyId}`);
+                    
                     return {
                         storyId: storyId,
                         title: titleEl ? titleEl.value : '',
@@ -8278,6 +8321,7 @@
                         directorVPId: directorVPIdEl ? directorVPIdEl.value : '',
                         imo: imoEl ? imoEl.value : '',
                         imoClassification: imoClassificationEl ? imoClassificationEl.value : '',
+                        comments: commentsEl ? commentsEl.value : '',
                         countryFlags: storyCountryFlags.length > 0 ? storyCountryFlags : undefined,
                         includeInProductRoadmap: includeInProductRoadmapEl ? includeInProductRoadmapEl.checked : false,
                         isDone: doneEl ? doneEl.checked : false,
@@ -8413,6 +8457,10 @@
                     if (descriptionEl) descriptionEl.value = document.getElementById('editBTLDescription').value;
                     if (imoEl) imoEl.value = document.getElementById('editIMO').value;
                     
+                    // Update Comments
+                    const commentsEl = document.getElementById(`btl-comments-${storyId}`);
+                    if (commentsEl) commentsEl.value = document.getElementById('editComments').value;
+                    
                     // Close modal and regenerate preview
                     closeEditModal();
                     
@@ -8440,6 +8488,10 @@
                 // Update IMO Classification
                 const imoClassificationEl = document.getElementById(`story-imo-classification-${storyId}`);
                 if (imoClassificationEl) imoClassificationEl.value = document.getElementById('editIMOClassification').value;
+                
+                // Update Comments
+                const commentsEl = document.getElementById(`story-comments-${storyId}`);
+                if (commentsEl) commentsEl.value = document.getElementById('editComments').value;
                 
                 // Update Country Flags
                 const flagGlobalEl = document.getElementById(`story-flag-global-${storyId}`);
