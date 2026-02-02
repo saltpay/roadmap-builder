@@ -1092,6 +1092,9 @@
                                 <input type="checkbox" id="editFlagCzechia" name="flagCzechia" onchange="clearEditGlobalIfCountrySelected()"> <span style="font-size: 13px;">🇨🇿 Czechia</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="editFlagGermany" name="flagGermany" onchange="clearEditGlobalIfCountrySelected()"> <span style="font-size: 13px;">🇩🇪 Germany</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
                                 <input type="checkbox" id="editFlagHungary" name="flagHungary" onchange="clearEditGlobalIfCountrySelected()"> <span style="font-size: 13px;">🇭🇺 Hungary</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
@@ -2765,6 +2768,9 @@
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
                                 <input type="checkbox" id="story-flag-czechia-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span style="font-size: 13px;">🇨🇿 Czechia</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="story-flag-germany-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span style="font-size: 13px;">🇩🇪 Germany</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
                                 <input type="checkbox" id="story-flag-hungary-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span style="font-size: 13px;">🇭🇺 Hungary</span>
@@ -4795,6 +4801,7 @@
             if (document.getElementById(`story-flag-italy-${storyId}`)?.checked) countryFlags.push('Italy');
             if (document.getElementById(`story-flag-portugal-${storyId}`)?.checked) countryFlags.push('Portugal');
             if (document.getElementById(`story-flag-czechia-${storyId}`)?.checked) countryFlags.push('Czechia');
+            if (document.getElementById(`story-flag-germany-${storyId}`)?.checked) countryFlags.push('Germany');
             if (document.getElementById(`story-flag-slovakia-${storyId}`)?.checked) countryFlags.push('Slovakia');
             if (document.getElementById(`story-flag-slovenia-${storyId}`)?.checked) countryFlags.push('Slovenia');
             // Default to Global if no flags are selected
@@ -6659,6 +6666,7 @@
                 const flagItalyEl = document.getElementById(`story-flag-italy-${storyId}`);
                 const flagPortugalEl = document.getElementById(`story-flag-portugal-${storyId}`);
                 const flagCzechiaEl = document.getElementById(`story-flag-czechia-${storyId}`);
+                const flagGermanyEl = document.getElementById(`story-flag-germany-${storyId}`);
                 const flagSlovakiaEl = document.getElementById(`story-flag-slovakia-${storyId}`);
                 const flagSloveniaEl = document.getElementById(`story-flag-slovenia-${storyId}`);
                 if (flagGlobalEl) flagGlobalEl.checked = hasNoSavedFlags || flags.includes('Global');
@@ -6669,6 +6677,7 @@
                 if (flagItalyEl) flagItalyEl.checked = flags.includes('Italy');
                 if (flagPortugalEl) flagPortugalEl.checked = flags.includes('Portugal');
                 if (flagCzechiaEl) flagCzechiaEl.checked = flags.includes('Czechia');
+                if (flagGermanyEl) flagGermanyEl.checked = flags.includes('Germany');
                 if (flagSlovakiaEl) flagSlovakiaEl.checked = flags.includes('Slovakia');
                 if (flagSloveniaEl) flagSloveniaEl.checked = flags.includes('Slovenia');
                 
@@ -7220,6 +7229,7 @@
             document.getElementById('editFlagItaly').checked = flags.includes('Italy');
             document.getElementById('editFlagPortugal').checked = flags.includes('Portugal');
             document.getElementById('editFlagCzechia').checked = flags.includes('Czechia');
+            document.getElementById('editFlagGermany').checked = flags.includes('Germany');
             document.getElementById('editFlagSlovakia').checked = flags.includes('Slovakia');
             document.getElementById('editFlagSlovenia').checked = flags.includes('Slovenia');
             
@@ -7707,7 +7717,7 @@
          * Clear Global flag in edit modal if any individual country is selected
          */
         function clearEditGlobalIfCountrySelected() {
-            const countryFlags = ['editFlagCzechia', 'editFlagHungary', 'editFlagIceland', 'editFlagItaly', 
+            const countryFlags = ['editFlagCzechia', 'editFlagGermany', 'editFlagHungary', 'editFlagIceland', 'editFlagItaly',
                                   'editFlagPortugal', 'editFlagSlovakia', 'editFlagSlovenia', 'editFlagSpain', 'editFlagUK'];
             const anyCountrySelected = countryFlags.some(id => document.getElementById(id)?.checked);
             if (anyCountrySelected) {
@@ -7721,7 +7731,7 @@
         function clearEditCountriesIfGlobalSelected() {
             const globalEl = document.getElementById('editFlagGlobal');
             if (globalEl?.checked) {
-                const countryFlags = ['editFlagCzechia', 'editFlagHungary', 'editFlagIceland', 'editFlagItaly', 
+                const countryFlags = ['editFlagCzechia', 'editFlagGermany', 'editFlagHungary', 'editFlagIceland', 'editFlagItaly',
                                       'editFlagPortugal', 'editFlagSlovakia', 'editFlagSlovenia', 'editFlagSpain', 'editFlagUK'];
                 countryFlags.forEach(id => {
                     const el = document.getElementById(id);
@@ -7734,7 +7744,7 @@
          * Clear Global flag in story form if any individual country is selected
          */
         function clearStoryGlobalIfCountrySelected(storyId) {
-            const countryFlags = ['czechia', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk'];
+            const countryFlags = ['czechia', 'germany', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk'];
             const anyCountrySelected = countryFlags.some(country => document.getElementById(`story-flag-${country}-${storyId}`)?.checked);
             if (anyCountrySelected) {
                 const globalEl = document.getElementById(`story-flag-global-${storyId}`);
@@ -7748,7 +7758,7 @@
         function clearStoryCountriesIfGlobalSelected(storyId) {
             const globalEl = document.getElementById(`story-flag-global-${storyId}`);
             if (globalEl?.checked) {
-                const countryFlags = ['czechia', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk'];
+                const countryFlags = ['czechia', 'germany', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk'];
                 countryFlags.forEach(country => {
                     const el = document.getElementById(`story-flag-${country}-${storyId}`);
                     if (el) el.checked = false;
@@ -8502,6 +8512,7 @@
                 const flagItalyEl = document.getElementById(`story-flag-italy-${storyId}`);
                 const flagPortugalEl = document.getElementById(`story-flag-portugal-${storyId}`);
                 const flagCzechiaEl = document.getElementById(`story-flag-czechia-${storyId}`);
+                const flagGermanyEl = document.getElementById(`story-flag-germany-${storyId}`);
                 const flagSlovakiaEl = document.getElementById(`story-flag-slovakia-${storyId}`);
                 const flagSloveniaEl = document.getElementById(`story-flag-slovenia-${storyId}`);
                 if (flagGlobalEl) flagGlobalEl.checked = document.getElementById('editFlagGlobal').checked;
@@ -8512,6 +8523,7 @@
                 if (flagItalyEl) flagItalyEl.checked = document.getElementById('editFlagItaly').checked;
                 if (flagPortugalEl) flagPortugalEl.checked = document.getElementById('editFlagPortugal').checked;
                 if (flagCzechiaEl) flagCzechiaEl.checked = document.getElementById('editFlagCzechia').checked;
+                if (flagGermanyEl) flagGermanyEl.checked = document.getElementById('editFlagGermany').checked;
                 if (flagSlovakiaEl) flagSlovakiaEl.checked = document.getElementById('editFlagSlovakia').checked;
                 if (flagSloveniaEl) flagSloveniaEl.checked = document.getElementById('editFlagSlovenia').checked;
                 
