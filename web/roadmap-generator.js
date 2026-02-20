@@ -812,6 +812,7 @@ class RoadmapGenerator {
                 'Czechia': '🇨🇿',
                 'Slovakia': '🇸🇰',
                 'Slovenia': '🇸🇮',
+                'Croatia': '🇭🇷',
                 'Germany': '🇩🇪'
             };
             const flagEmojis = story.countryFlags.map(f => flagMap[f] || '').filter(f => f).join('');

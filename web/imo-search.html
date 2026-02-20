@@ -668,6 +668,9 @@
                                         <input type="checkbox" id="searchFlagSlovenia" onchange="updateSearchButtonStates()"> <span>🇸🇮 Slovenia</span>
                                     </label>
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                        <input type="checkbox" id="searchFlagCroatia" onchange="updateSearchButtonStates()"> <span>🇭🇷 Croatia</span>
+                                    </label>
+                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
                                         <input type="checkbox" id="searchFlagSpain" onchange="updateSearchButtonStates()"> <span>🇪🇸 Spain</span>
                                     </label>
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
@@ -954,6 +957,9 @@
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
                                 <input type="checkbox" class="view-flag-checkbox" id="viewFlagSlovenia"> <span>🇸🇮 Slovenia</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagCroatia"> <span>🇭🇷 Croatia</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
                                 <input type="checkbox" class="view-flag-checkbox" id="viewFlagSpain"> <span>🇪🇸 Spain</span>
@@ -1745,6 +1751,7 @@
             document.getElementById('viewFlagPortugal').checked = flags.includes('Portugal');
             document.getElementById('viewFlagSlovakia').checked = flags.includes('Slovakia');
             document.getElementById('viewFlagSlovenia').checked = flags.includes('Slovenia');
+            document.getElementById('viewFlagCroatia').checked = flags.includes('Croatia');
             document.getElementById('viewFlagSpain').checked = flags.includes('Spain');
             document.getElementById('viewFlagUK').checked = flags.includes('UK');
             
@@ -3552,6 +3559,7 @@
             if (document.getElementById('searchFlagPortugal')?.checked) flags.push('Portugal');
             if (document.getElementById('searchFlagSlovakia')?.checked) flags.push('Slovakia');
             if (document.getElementById('searchFlagSlovenia')?.checked) flags.push('Slovenia');
+            if (document.getElementById('searchFlagCroatia')?.checked) flags.push('Croatia');
             if (document.getElementById('searchFlagSpain')?.checked) flags.push('Spain');
             if (document.getElementById('searchFlagUK')?.checked) flags.push('UK');
             if (document.getElementById('searchFlagDE')?.checked) flags.push('Germany');
@@ -3570,6 +3578,7 @@
             document.getElementById('searchFlagPortugal').checked = false;
             document.getElementById('searchFlagSlovakia').checked = false;
             document.getElementById('searchFlagSlovenia').checked = false;
+            document.getElementById('searchFlagCroatia').checked = false;
             document.getElementById('searchFlagSpain').checked = false;
             document.getElementById('searchFlagUK').checked = false;
             document.getElementById('searchFlagDE').checked = false;
