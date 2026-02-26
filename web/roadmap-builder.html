@@ -7764,7 +7764,7 @@
          * Clear Global flag in story form if any individual country is selected
          */
         function clearStoryGlobalIfCountrySelected(storyId) {
-            const countryFlags = ['croatia', 'czechia', 'germany', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk', 'france'].map(country => `story-flag-${country}-${storyId}`);
+            const countryFlags = ['croatia', 'czechia', 'germany', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk', 'france'];
             const anyCountrySelected = countryFlags.some(country => document.getElementById(`story-flag-${country}-${storyId}`)?.checked);
             if (anyCountrySelected) {
                 const globalEl = document.getElementById(`story-flag-global-${storyId}`);
