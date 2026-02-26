@@ -1121,6 +1121,9 @@
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
                                 <input type="checkbox" id="editFlagUK" name="flagUK" onchange="clearEditGlobalIfCountrySelected()"> <span style="font-size: 13px;">🇬🇧 UK</span>
                             </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="editFlagFrance" name="flagFrance" onchange="clearEditGlobalIfCountrySelected()"> <span style="font-size: 13px;">🇫🇷 France</span>
+                            </label>
                         </div>
                     </div>
                     
@@ -2801,6 +2804,9 @@
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
                                 <input type="checkbox" id="story-flag-uk-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span style="font-size: 13px;">🇬🇧 UK</span>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" id="story-flag-france-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span style="font-size: 13px;">🇫🇷 France</span>
                             </label>
                         </div>
                     </div>
@@ -4811,6 +4817,7 @@
             if (document.getElementById(`story-flag-slovakia-${storyId}`)?.checked) countryFlags.push('Slovakia');
             if (document.getElementById(`story-flag-slovenia-${storyId}`)?.checked) countryFlags.push('Slovenia');
             if (document.getElementById(`story-flag-croatia-${storyId}`)?.checked) countryFlags.push('Croatia');
+            if (document.getElementById(`story-flag-france-${storyId}`)?.checked) countryFlags.push('France');
             // Default to Global if no flags are selected
             if (countryFlags.length === 0) {
                 countryFlags.push('Global');
@@ -6677,6 +6684,7 @@
                 const flagSlovakiaEl = document.getElementById(`story-flag-slovakia-${storyId}`);
                 const flagSloveniaEl = document.getElementById(`story-flag-slovenia-${storyId}`);
                 const flagCroatiaEl = document.getElementById(`story-flag-croatia-${storyId}`);
+                const flagFranceEl = document.getElementById(`story-flag-france-${storyId}`);
                 if (flagGlobalEl) flagGlobalEl.checked = hasNoSavedFlags || flags.includes('Global');
                 if (flagUKEl) flagUKEl.checked = flags.includes('UK');
                 if (flagIcelandEl) flagIcelandEl.checked = flags.includes('Iceland');
@@ -6689,6 +6697,7 @@
                 if (flagSlovakiaEl) flagSlovakiaEl.checked = flags.includes('Slovakia');
                 if (flagSloveniaEl) flagSloveniaEl.checked = flags.includes('Slovenia');
                 if (flagCroatiaEl) flagCroatiaEl.checked = flags.includes('Croatia');
+                if (flagFranceEl) flagFranceEl.checked = flags.includes('France');
                 
                 // Load Include in Product Roadmap flag
                 const includeInProductRoadmapEl = document.getElementById(`story-include-product-roadmap-${storyId}`);
@@ -7242,6 +7251,7 @@
             document.getElementById('editFlagSlovakia').checked = flags.includes('Slovakia');
             document.getElementById('editFlagSlovenia').checked = flags.includes('Slovenia');
             document.getElementById('editFlagCroatia').checked = flags.includes('Croatia');
+            document.getElementById('editFlagFrance').checked = flags.includes('France');
             
             // Load Include in Product Roadmap flag
             document.getElementById('editIncludeInProductRoadmap').checked = foundStory.includeInProductRoadmap || false;
@@ -7728,7 +7738,7 @@
          */
         function clearEditGlobalIfCountrySelected() {
             const countryFlags = ['editFlagCroatia', 'editFlagCzechia', 'editFlagGermany', 'editFlagHungary', 'editFlagIceland', 'editFlagItaly',
-                                  'editFlagPortugal', 'editFlagSlovakia', 'editFlagSlovenia', 'editFlagSpain', 'editFlagUK'];
+                                  'editFlagPortugal', 'editFlagSlovakia', 'editFlagSlovenia', 'editFlagSpain', 'editFlagUK', 'editFlagFrance'];
             const anyCountrySelected = countryFlags.some(id => document.getElementById(id)?.checked);
             if (anyCountrySelected) {
                 document.getElementById('editFlagGlobal').checked = false;
@@ -7742,7 +7752,7 @@
             const globalEl = document.getElementById('editFlagGlobal');
             if (globalEl?.checked) {
                 const countryFlags = ['editFlagCroatia', 'editFlagCzechia', 'editFlagGermany', 'editFlagHungary', 'editFlagIceland', 'editFlagItaly',
-                                      'editFlagPortugal', 'editFlagSlovakia', 'editFlagSlovenia', 'editFlagSpain', 'editFlagUK'];
+                                      'editFlagPortugal', 'editFlagSlovakia', 'editFlagSlovenia', 'editFlagSpain', 'editFlagUK', 'editFlagFrance'];
                 countryFlags.forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.checked = false;
@@ -7754,7 +7764,7 @@
          * Clear Global flag in story form if any individual country is selected
          */
         function clearStoryGlobalIfCountrySelected(storyId) {
-            const countryFlags = ['croatia', 'czechia', 'germany', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk'];
+            const countryFlags = ['croatia', 'czechia', 'germany', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk', 'france'];
             const anyCountrySelected = countryFlags.some(country => document.getElementById(`story-flag-${country}-${storyId}`)?.checked);
             if (anyCountrySelected) {
                 const globalEl = document.getElementById(`story-flag-global-${storyId}`);
@@ -7768,7 +7778,7 @@
         function clearStoryCountriesIfGlobalSelected(storyId) {
             const globalEl = document.getElementById(`story-flag-global-${storyId}`);
             if (globalEl?.checked) {
-                const countryFlags = ['croatia', 'czechia', 'germany', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk'];
+                const countryFlags = ['croatia', 'czechia', 'germany', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk', 'france'];
                 countryFlags.forEach(country => {
                     const el = document.getElementById(`story-flag-${country}-${storyId}`);
                     if (el) el.checked = false;
@@ -8322,6 +8332,8 @@
                     if (document.getElementById(`story-flag-slovakia-${storyId}`)?.checked) storyCountryFlags.push('Slovakia');
                     if (document.getElementById(`story-flag-slovenia-${storyId}`)?.checked) storyCountryFlags.push('Slovenia');
                     if (document.getElementById(`story-flag-croatia-${storyId}`)?.checked) storyCountryFlags.push('Croatia');
+                    if (document.getElementById(`story-flag-germany-${storyId}`)?.checked) storyCountryFlags.push('Germany');
+                    if (document.getElementById(`story-flag-france-${storyId}`)?.checked) storyCountryFlags.push('France');
                     // Default to Global if no flags are selected
                     if (storyCountryFlags.length === 0) {
                         storyCountryFlags.push('Global');
@@ -8527,6 +8539,7 @@
                 const flagSlovakiaEl = document.getElementById(`story-flag-slovakia-${storyId}`);
                 const flagSloveniaEl = document.getElementById(`story-flag-slovenia-${storyId}`);
                 const flagCroatiaEl = document.getElementById(`story-flag-croatia-${storyId}`);
+                const flagFranceEl = document.getElementById(`story-flag-france-${storyId}`);
                 if (flagGlobalEl) flagGlobalEl.checked = document.getElementById('editFlagGlobal').checked;
                 if (flagUKEl) flagUKEl.checked = document.getElementById('editFlagUK').checked;
                 if (flagIcelandEl) flagIcelandEl.checked = document.getElementById('editFlagIceland').checked;
@@ -8539,6 +8552,7 @@
                 if (flagSlovakiaEl) flagSlovakiaEl.checked = document.getElementById('editFlagSlovakia').checked;
                 if (flagSloveniaEl) flagSloveniaEl.checked = document.getElementById('editFlagSlovenia').checked;
                 if (flagCroatiaEl) flagCroatiaEl.checked = document.getElementById('editFlagCroatia').checked;
+                if (flagFranceEl) flagFranceEl.checked = document.getElementById('editFlagFrance').checked;
                 
                 // Update Include in Product Roadmap
                 const includeInProductRoadmapEl = document.getElementById(`story-include-product-roadmap-${storyId}`);

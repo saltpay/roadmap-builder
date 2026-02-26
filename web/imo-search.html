@@ -679,6 +679,10 @@
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
                                         <input type="checkbox" id="searchFlagDE" onchange="updateSearchButtonStates()"> <span>🇩🇪 Germany</span>
                                     </label>
+                                    </label>
+                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
+                                        <input type="checkbox" id="searchFlagFR" onchange="updateSearchButtonStates()"> <span>🇫🇷 France</span>
+                                    </label>
                                 </div>
                             </div>
                             <button class="search-button" id="countryFlagSearchBtn" onclick="performCountryFlagSearch()" disabled>
@@ -966,6 +970,10 @@
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
                                 <input type="checkbox" class="view-flag-checkbox" id="viewFlagUK"> <span>🇬🇧 UK</span>
+                            </label>
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagFrance"> <span>🇫🇷 France</span>
                             </label>
                         </div>
                     </div>
@@ -1754,6 +1762,7 @@
             document.getElementById('viewFlagCroatia').checked = flags.includes('Croatia');
             document.getElementById('viewFlagSpain').checked = flags.includes('Spain');
             document.getElementById('viewFlagUK').checked = flags.includes('UK');
+            document.getElementById('viewFlagFrance').checked = flags.includes('France');
             
             // Handle Include in Product Roadmap
             document.getElementById('viewIncludeInProductRoadmap').checked = storyData.includeInProductRoadmap || false;
@@ -3563,6 +3572,7 @@
             if (document.getElementById('searchFlagSpain')?.checked) flags.push('Spain');
             if (document.getElementById('searchFlagUK')?.checked) flags.push('UK');
             if (document.getElementById('searchFlagDE')?.checked) flags.push('Germany');
+            if (document.getElementById('searchFlagFR')?.checked) flags.push('France');
             return flags;
         }
 
@@ -3582,6 +3592,7 @@
             document.getElementById('searchFlagSpain').checked = false;
             document.getElementById('searchFlagUK').checked = false;
             document.getElementById('searchFlagDE').checked = false;
+            document.getElementById('searchFlagFR').checked = false;
         }
 
         async function performCountryFlagSearch() {
