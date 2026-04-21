@@ -692,22 +692,6 @@
                     </div>
                 </div>
 
-                <!-- Priority Search -->
-                <div class="search-section">
-                    <h3 class="search-section-title">🎯 Priority Search</h3>
-                    <div class="search-input-group">
-                        <select class="search-input dropdown-select" id="prioritySelect" onchange="updateSearchButtonStates()">
-                            <option value="">Any Priority</option>
-                            <option value="High">High</option>
-                            <option value="Medium">Medium</option>
-                            <option value="Low">Low</option>
-                        </select>
-                        <button class="search-button" id="prioritySearchBtn" onclick="performPrioritySearch()" disabled>
-                            🎯 Search Priority
-                        </button>
-                    </div>
-                </div>
-
                 <!-- IMO Search -->
                 <div class="search-section">
                     <h3 class="search-section-title">🔍 IMO/Project ID Search</h3>
@@ -717,6 +701,12 @@
                                    id="searchInput"
                                placeholder="Enter IMO/Project ID"
                                    onkeypress="handleSearchKeyPress(event)">
+                        <select class="search-input dropdown-select" id="prioritySelect" onchange="updateSearchButtonStates()">
+                            <option value="">Any Priority</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
                         <button class="search-button" id="imoSearchBtn" onclick="performIMOSearch()" disabled>
                             🔍 Search
                             </button>
@@ -2362,54 +2352,61 @@
                     alert('Please select a directory first');
                         return;
                     }
-                
+
                 const searchQuery = document.getElementById('searchInput').value.trim();
-                if (!searchQuery) {
-                    alert('Please enter a search query');
+                const priorityValue = document.getElementById('prioritySelect')?.value || '';
+                if (!searchQuery && !priorityValue) {
+                    alert('Please enter an IMO/Project ID or select a priority');
                         return;
                     }
-                
+
+                const searchLabel = searchQuery
+                    ? `"${searchQuery}"${priorityValue ? ` + Priority: ${priorityValue}` : ''}`
+                    : `Priority: ${priorityValue}`;
+
                 // Show loading state
-                showLoadingState(`Searching for "${searchQuery}"...`);
-                
+                showLoadingState(`Searching for ${searchLabel}...`);
+
                 // Scan directory for roadmap files
                 const roadmapFiles = await IMOUtility.scanRoadmapDirectory(selectedDirectory);
-                
+
                 if (roadmapFiles.length === 0) {
                     showMessage('No roadmap JSON files found in the selected directory', 'warning');
                     return;
                 }
-                
+
                 // Extract and search stories
                 const allStories = IMOUtility.aggregateStoriesAcrossTeams(roadmapFiles);
-                
-                // Direct IMO/Project ID search (no query parsing)
-                let matchingStories = IMOUtility.filterStoriesByIMO(allStories, searchQuery);
-                
+
+                // Narrow by IMO if provided, otherwise start with all stories
+                let matchingStories = searchQuery
+                    ? IMOUtility.filterStoriesByIMO(allStories, searchQuery)
+                    : allStories.slice();
+
                 // Store base search results before filtering for potential re-filtering
                 lastSearchStories = matchingStories.slice();
                 lastRoadmapFiles = roadmapFiles;
-                
+
                 matchingStories = applyAdditionalFilters(matchingStories, roadmapFiles, { skipIMO: true });
-                
+
                 if (matchingStories.length === 0) {
-                    showMessage(`No stories found for "${searchQuery}"`, 'info');
+                    showMessage(`No stories found for ${searchLabel}`, 'info');
                     return;
                 }
-                
+
                 // Store results and display
                 currentResults = matchingStories;
-                displaySearchResults(matchingStories, searchQuery);
-                
+                displaySearchResults(matchingStories, searchLabel);
+
                 // Enable stats button
                 document.getElementById('searchStatsBtn').disabled = false;
-                
+
             } catch (error) {
-                
+
                 showMessage('Search error: ' + error.message, 'error');
             }
         }
-        
+
         // Temporary variable for search results force text below (one-time action)
         let searchTempForceTextBelow = false;
         let lastSearchQuery = null;
@@ -3235,7 +3232,6 @@
             const dateRangeSearchBtn = document.getElementById('dateRangeSearchBtn');
             const directorVPIdSearchBtn = document.getElementById('directorVPIdSearchBtn');
             const countryFlagSearchBtn = document.getElementById('countryFlagSearchBtn');
-            const prioritySearchBtn = document.getElementById('prioritySearchBtn');
 
             const hasDirectory = !!selectedDirectory;
             const hasImoInput = document.getElementById('searchInput').value.trim().length > 0;
@@ -3247,12 +3243,11 @@
             const hasEndDate = document.getElementById('endDateInput').value.length > 0;
             const hasAnyDate = hasStartDate || hasEndDate;
 
-            imoSearchBtn.disabled = !hasDirectory || !hasImoInput;
+            imoSearchBtn.disabled = !hasDirectory || (!hasImoInput && !hasPriorityInput);
             titleSearchBtn.disabled = !hasDirectory || !hasTitleInput;
             dateRangeSearchBtn.disabled = !hasDirectory || !hasAnyDate;
             directorVPIdSearchBtn.disabled = !hasDirectory || !hasDirectorVPIdInput;
             countryFlagSearchBtn.disabled = !hasDirectory || !hasCountryFlagInput;
-            if (prioritySearchBtn) prioritySearchBtn.disabled = !hasDirectory || !hasPriorityInput;
         }
 
         /**
@@ -3600,56 +3595,6 @@
             document.getElementById('searchFlagUK').checked = false;
             document.getElementById('searchFlagDE').checked = false;
             document.getElementById('searchFlagFR').checked = false;
-        }
-
-        async function performPrioritySearch() {
-            try {
-                if (!selectedDirectory) {
-                    alert('Please select a directory first');
-                    return;
-                }
-
-                const priorityValue = document.getElementById('prioritySelect')?.value;
-                if (!priorityValue) {
-                    alert('Please select a priority');
-                    return;
-                }
-
-                showLoadingState(`Searching stories with priority: ${priorityValue}...`);
-
-                const roadmapFiles = await IMOUtility.scanRoadmapDirectory(selectedDirectory);
-                if (roadmapFiles.length === 0) {
-                    showMessage('No roadmap JSON files found in the selected directory', 'warning');
-                    return;
-                }
-
-                const allStories = IMOUtility.aggregateStoriesAcrossTeams(roadmapFiles);
-                const matchingStories = allStories.filter(story =>
-                    (story.priority || '').toLowerCase() === priorityValue.toLowerCase()
-                );
-
-                if (!matchingStories.length) {
-                    showMessage(`No stories found with priority: ${priorityValue}`, 'info');
-                    return;
-                }
-
-                lastSearchStories = matchingStories.slice();
-                lastRoadmapFiles = roadmapFiles;
-
-                const filteredStories = applyAdditionalFilters(matchingStories, roadmapFiles, { skipPriority: true });
-
-                if (!filteredStories.length) {
-                    showMessage(`No stories found for priority: ${priorityValue}`, 'info');
-                    return;
-                }
-
-                currentResults = filteredStories;
-                displaySearchResults(filteredStories, `Priority: ${priorityValue}`);
-
-                document.getElementById('searchStatsBtn').disabled = false;
-            } catch (error) {
-                showMessage('Search error: ' + error.message, 'error');
-            }
         }
 
         async function performCountryFlagSearch() {
