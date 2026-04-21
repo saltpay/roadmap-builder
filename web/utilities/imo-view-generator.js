@@ -1034,6 +1034,7 @@ class IMOViewGenerator {
                 endMonth: normalizedEndDate.monthStr,
                 bullets: processedBullets,
                 imo: String(story.imo || ''),
+                priority: String(story.priority || ''),
                 isDone: Boolean(story.isDone),
                 isCancelled: Boolean(story.isCancelled),
                 isAtRisk: Boolean(story.isAtRisk),
