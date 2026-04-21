@@ -184,7 +184,7 @@
             width: 300px;
         }
         
-        .search-input.classification-select {
+        .search-input.dropdown-select {
             flex: none;
             width: 150px;
         }
@@ -696,7 +696,7 @@
                 <div class="search-section">
                     <h3 class="search-section-title">🎯 Priority Search</h3>
                     <div class="search-input-group">
-                        <select class="search-input classification-select" id="prioritySelect" onchange="updateSearchButtonStates()">
+                        <select class="search-input dropdown-select" id="prioritySelect" onchange="updateSearchButtonStates()">
                             <option value="">Any Priority</option>
                             <option value="High">High</option>
                             <option value="Medium">Medium</option>
@@ -712,17 +712,11 @@
                 <div class="search-section">
                     <h3 class="search-section-title">🔍 IMO/Project ID Search</h3>
                     <div class="search-input-group">
-                            <input type="text" 
-                               class="search-input imo-input" 
-                                   id="searchInput" 
-                               placeholder="Enter IMO/Project ID" 
+                            <input type="text"
+                               class="search-input imo-input"
+                                   id="searchInput"
+                               placeholder="Enter IMO/Project ID"
                                    onkeypress="handleSearchKeyPress(event)">
-                        <select class="search-input classification-select" id="imoClassificationSelect">
-                            <option value="">Classification</option>
-                            <option value="Payments">Payments</option>
-                            <option value="Banking">Banking</option>
-                            <option value="Other">Other</option>
-                        </select>
                         <button class="search-button" id="imoSearchBtn" onclick="performIMOSearch()" disabled>
                             🔍 Search
                             </button>
@@ -944,10 +938,6 @@
                         <div style="flex: 1;">
                             <label>IMO <span style="font-style: italic; color: #888;">(optional)</span>:</label>
                             <div class="readonly-field" id="viewIMO"></div>
-                        </div>
-                        <div style="flex: 1;">
-                            <label>Classification:</label>
-                            <div class="readonly-field" id="viewIMOClassification"></div>
                         </div>
                         <div style="flex: 1;">
                             <label>Priority:</label>
@@ -1762,13 +1752,6 @@
             }
             document.getElementById('viewIMO').textContent = imoText || 'None';
             
-            // Handle IMO Classification
-            let imoClassificationText = '';
-            if (storyData.imoClassification) {
-                imoClassificationText = String(storyData.imoClassification);
-            }
-            document.getElementById('viewIMOClassification').textContent = imoClassificationText || 'None';
-
             // Handle Priority
             let priorityText = '';
             if (storyData.priority) {
@@ -2705,7 +2688,6 @@
             // Clear search inputs
             document.getElementById('searchInput').value = '';
             document.getElementById('titleSearchInput').value = '';
-            document.getElementById('imoClassificationSelect').value = '';
             const priorityEl = document.getElementById('prioritySelect');
             if (priorityEl) priorityEl.value = '';
             const directorEl = document.getElementById('directorSearchInput');
@@ -2767,7 +2749,7 @@
         // Apply additional filters based on other filled inputs (AND semantics)
         function applyAdditionalFilters(stories, roadmapFiles, options = {}) {
             let result = Array.isArray(stories) ? stories.slice() : [];
-            const opts = Object.assign({ skipDirector: false, skipIMO: false, skipClassification: false, skipPriority: false, skipTitle: false, skipDate: false, skipStatus: false, skipProductRoadmap: false }, options);
+            const opts = Object.assign({ skipDirector: false, skipIMO: false, skipPriority: false, skipTitle: false, skipDate: false, skipStatus: false, skipProductRoadmap: false }, options);
 
             try {
                 // Director/VP filter (team-level)
@@ -2782,15 +2764,6 @@
                 const imoQuery = document.getElementById('searchInput')?.value.trim();
                 if (!opts.skipIMO && imoQuery) {
                     result = IMOUtility.filterStoriesByIMO(result, imoQuery);
-                }
-
-                // Classification filter
-                const classificationQuery = document.getElementById('imoClassificationSelect')?.value;
-                if (!opts.skipClassification && classificationQuery) {
-                    result = result.filter(story => {
-                        const storyClassification = (story.imoClassification || '').toLowerCase();
-                        return storyClassification === classificationQuery.toLowerCase();
-                    });
                 }
 
                 // Priority filter
@@ -2928,12 +2901,6 @@
             processedExpr = processedExpr.replace(/IMO="([^"]+)"/gi, (match, value) => {
                 const imo = (story.imo || '').toLowerCase();
                 return imo.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
-            });
-            
-            // IMOCLASS="class" - matches IMO classification
-            processedExpr = processedExpr.replace(/IMOCLASS="([^"]+)"/gi, (match, value) => {
-                const imoClass = (story.imoClassification || '').toLowerCase();
-                return imoClass.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
             });
             
             // TEAM="name" - matches team name
@@ -3165,7 +3132,6 @@
                     <div style="margin-bottom: 15px;">
                         <strong>FIELD FILTERS (partial match):</strong><br>
                         <code>IMO="0043"</code> - IMO number<br>
-                        <code>IMOCLASS="Payments"</code> - Classification<br>
                         <code>TEAM="Terminal"</code> - Team name<br>
                         <code>EPIC="Core"</code> - Epic name<br>
                         <code>TITLE="migration"</code> - Story title<br>
