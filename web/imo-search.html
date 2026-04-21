@@ -3198,11 +3198,22 @@
         /**
          * Apply status filters to current search results
          */
-        function applyStatusFilters() {
+        async function applyStatusFilters() {
             try {
+                // Scan the directory on first use so the advanced filter can run
+                // without requiring a prior search.
                 if (!lastRoadmapFiles) {
-                    showMessage('Run a search first so the filter has a dataset to work on', 'warning');
-                    return;
+                    if (!selectedDirectory) {
+                        showMessage('Please select a directory first', 'warning');
+                        return;
+                    }
+                    showLoadingState('Loading stories...');
+                    const roadmapFiles = await IMOUtility.scanRoadmapDirectory(selectedDirectory);
+                    if (!roadmapFiles.length) {
+                        showMessage('No roadmap JSON files found in the selected directory', 'warning');
+                        return;
+                    }
+                    lastRoadmapFiles = roadmapFiles;
                 }
 
                 // Re-aggregate from the scanned files so the filter runs against the
@@ -3229,12 +3240,19 @@
                     };
                 }
 
+                if (!filteredStories.length) {
+                    showMessage('No stories match the current filters', 'info');
+                    currentResults = [];
+                    return;
+                }
+
                 // Display the filtered results
                 displaySearchResults(filteredStories, 'Filtered Results', searchRange);
                 currentResults = filteredStories;
+                document.getElementById('searchStatsBtn').disabled = false;
             } catch (e) {
                 console.error('Error applying status filters:', e);
-                showMessage('Error applying filters', 'error');
+                showMessage('Error applying filters: ' + e.message, 'error');
             }
         }
 
