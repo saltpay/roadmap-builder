@@ -825,6 +825,7 @@
                             <div style="font-size: 10px; color: #888; margin-top: 5px;">
                                 Use: <code>&&</code> (AND), <code>||</code> (OR), <code>!</code> (NOT), <code>( )</code> (grouping)<br>
                                 Status names: Done, Cancelled, Timeline, New, AtRisk, Proposed, Info, TransferredIn, TransferredOut<br>
+                                Field presence: IMO, Priority (use <code>!</code> for empty) &nbsp;&nbsp; Priority values: High, Medium, Low<br>
                                 Expression overrides checkboxes if provided.
                             </div>
                         </div>
@@ -2899,6 +2900,12 @@
                 const imo = (story.imo || '').toLowerCase();
                 return imo.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
             });
+
+            // PRIORITY="value" - matches priority value (exact, case-insensitive)
+            processedExpr = processedExpr.replace(/PRIORITY="([^"]+)"/gi, (match, value) => {
+                const priority = (story.priority || '').toLowerCase();
+                return priority === value.toLowerCase() ? 'TRUE' : 'FALSE';
+            });
             
             // TEAM="name" - matches team name
             processedExpr = processedExpr.replace(/TEAM="([^"]+)"/gi, (match, value) => {
@@ -2994,6 +3001,9 @@
                 }
                 
                 // Handle status names
+                const storyPriority = (story.priority || '').toLowerCase();
+                const hasIMO = Boolean((story.imo || '').toString().trim());
+                const hasPriority = storyPriority.length > 0;
                 const statusMap = {
                     'Done': story.isDone,
                     'Cancelled': story.isCancelled,
@@ -3004,6 +3014,13 @@
                     'Info': story.isInfo,
                     'TransferredIn': story.isTransferredIn,
                     'TransferredOut': story.isTransferredOut,
+                    // Field presence tokens
+                    'IMO': hasIMO,
+                    'Priority': hasPriority,
+                    // Priority value tokens (case-insensitive)
+                    'High': storyPriority === 'high',
+                    'Medium': storyPriority === 'medium',
+                    'Low': storyPriority === 'low',
                     // Special tokens for pre-processed LEADERSHIP expressions
                     'TRUE': true,
                     'FALSE': false
@@ -3127,8 +3144,18 @@
                         <code>Proposed</code> <code>Info</code> <code>TransferredIn</code> <code>TransferredOut</code>
                     </div>
                     <div style="margin-bottom: 15px;">
-                        <strong>FIELD FILTERS (partial match):</strong><br>
-                        <code>IMO="0043"</code> - IMO number<br>
+                        <strong>FIELD PRESENCE:</strong><br>
+                        <code>IMO</code> - IMO is filled &nbsp;&nbsp; <code>!IMO</code> - IMO is empty<br>
+                        <code>Priority</code> - Priority is set &nbsp;&nbsp; <code>!Priority</code> - Priority is empty
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>PRIORITY VALUES:</strong><br>
+                        <code>High</code> <code>Medium</code> <code>Low</code> (case-insensitive)
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>FIELD FILTERS (partial match unless noted):</strong><br>
+                        <code>IMO="0043"</code> - IMO number (partial)<br>
+                        <code>PRIORITY="High"</code> - Priority (exact)<br>
                         <code>TEAM="Terminal"</code> - Team name<br>
                         <code>EPIC="Core"</code> - Epic name<br>
                         <code>TITLE="migration"</code> - Story title<br>
@@ -3142,7 +3169,10 @@
                         <code>TEAM="Terminal" && Done</code><br>
                         <code>IMO="0043" || IMO="0044"</code><br>
                         <code>(TEAM="A" || TEAM="B") && !Cancelled</code><br>
-                        <code>COUNTRY="UK" && LEADERSHIP="John"</code>
+                        <code>COUNTRY="UK" && LEADERSHIP="John"</code><br>
+                        <code>!IMO</code> - stories without IMO<br>
+                        <code>High && !Done</code> - High priority, not done<br>
+                        <code>!IMO && Priority</code> - no IMO but has priority
                     </div>
                 </div>
             `;
