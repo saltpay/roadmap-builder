@@ -3088,8 +3088,8 @@
                 showAdvancedFilterHelp();
                 return;
             }
-            // Ctrl+Enter or Cmd+Enter to apply filter
-            if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+            // Enter (plain or with Ctrl/Cmd) applies the filter
+            if (event.key === 'Enter') {
                 event.preventDefault();
                 applyStatusFilters();
             }
