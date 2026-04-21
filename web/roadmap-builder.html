@@ -25,7 +25,7 @@
     
     <!-- Layout Toggle Styles -->
     <style>
-        /* Disabled select styling for IMO Classification */
+        /* Disabled select styling */
         select:disabled {
             background-color: #e9ecef;
             color: #6c757d;
@@ -1069,16 +1069,7 @@
                     <div class="form-group" style="display: flex; gap: 15px; align-items: flex-end;">
                         <div style="flex: 1;">
                             <label for="editIMO">IMO/Project ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
-                            <input type="text" id="editIMO" name="imo" placeholder="0001" oninput="toggleEditIMOClassification()">
-                        </div>
-                        <div style="flex: 1;">
-                            <label for="editIMOClassification">Classification:</label>
-                            <select id="editIMOClassification" name="imoClassification" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" disabled>
-                                <option value="">Select...</option>
-                                <option value="Payments">Payments</option>
-                                <option value="Banking">Banking</option>
-                                <option value="Other">Other</option>
-                            </select>
+                            <input type="text" id="editIMO" name="imo" placeholder="0001">
                         </div>
                         <div style="flex: 1;">
                             <label for="editPriority">Priority <span style="font-style: italic; color: #888;">(optional)</span>:</label>
@@ -2762,16 +2753,7 @@
                     <div class="form-group" style="display: flex; gap: 15px; align-items: flex-end;">
                         <div style="flex: 1;">
                             <label for="story-imo-${storyId}">IMO/Project ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
-                            <input type="text" id="story-imo-${storyId}" placeholder="0001" oninput="toggleStoryIMOClassification('${storyId}')">
-                        </div>
-                        <div style="flex: 1;">
-                            <label for="story-imo-classification-${storyId}">Classification:</label>
-                            <select id="story-imo-classification-${storyId}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" disabled>
-                                <option value="">Select...</option>
-                                <option value="Payments">Payments</option>
-                                <option value="Banking">Banking</option>
-                                <option value="Other">Other</option>
-                            </select>
+                            <input type="text" id="story-imo-${storyId}" placeholder="0001">
                         </div>
                         <div style="flex: 1;">
                             <label for="story-priority-${storyId}">Priority <span style="font-style: italic; color: #888;">(optional)</span>:</label>
@@ -3013,7 +2995,6 @@
                 `story-bullets-${storyId}`,
                 `story-director-vp-id-${storyId}`,
                 `story-imo-${storyId}`,
-                `story-imo-classification-${storyId}`,
                 `story-priority-${storyId}`,
                 `done-date-${storyId}`,
                 `done-notes-${storyId}`,
@@ -4819,13 +4800,6 @@
                 story.imo = imo;
             }
             
-            // Handle IMO Classification
-            const imoClassificationEl = document.getElementById(`story-imo-classification-${storyId}`);
-            const imoClassification = imoClassificationEl ? imoClassificationEl.value : '';
-            if (imoClassification) {
-                story.imoClassification = imoClassification;
-            }
-
             // Handle Priority
             const priorityEl = document.getElementById(`story-priority-${storyId}`);
             const priority = priorityEl ? priorityEl.value : '';
@@ -6704,20 +6678,11 @@
                     imoEl.value = story.imo || '';
                 }
                 
-                // Load IMO Classification field with error checking
-                const imoClassificationEl = document.getElementById(`story-imo-classification-${storyId}`);
-                if (imoClassificationEl) {
-                    imoClassificationEl.value = story.imoClassification || '';
-                }
-
                 // Load Priority field with error checking
                 const priorityEl = document.getElementById(`story-priority-${storyId}`);
                 if (priorityEl) {
                     priorityEl.value = story.priority || '';
                 }
-
-                // Enable/disable classification based on IMO value
-                toggleStoryIMOClassification(storyId);
                 
                 // Load Comments field
                 const commentsEl = document.getElementById(`story-comments-${storyId}`);
@@ -7286,12 +7251,8 @@
             document.getElementById('editBullets').value = foundStory.bullets || '';
             document.getElementById('editDirectorVPId').value = foundStory.directorVPId || '';
             document.getElementById('editIMO').value = foundStory.imo || '';
-            document.getElementById('editIMOClassification').value = foundStory.imoClassification || '';
             document.getElementById('editPriority').value = foundStory.priority || '';
             document.getElementById('editComments').value = foundStory.comments || '';
-            
-            // Enable/disable classification based on IMO value
-            toggleEditIMOClassification();
             
             // Load Country Flags (Global is checked by default if no flags are saved)
             const flags = foundStory.countryFlags || [];
@@ -7776,21 +7737,6 @@
         }
 
         /**
-         * Toggle the IMO Classification dropdown in the edit modal based on IMO input
-         */
-        function toggleEditIMOClassification() {
-            const imoInput = document.getElementById('editIMO');
-            const classificationSelect = document.getElementById('editIMOClassification');
-            if (imoInput && classificationSelect) {
-                const hasIMO = imoInput.value.trim().length > 0;
-                classificationSelect.disabled = !hasIMO;
-                if (!hasIMO) {
-                    classificationSelect.value = '';
-                }
-            }
-        }
-
-        /**
          * Clear Global flag in edit modal if any individual country is selected
          */
         function clearEditGlobalIfCountrySelected() {
@@ -7840,21 +7786,6 @@
                     const el = document.getElementById(`story-flag-${country}-${storyId}`);
                     if (el) el.checked = false;
                 });
-            }
-        }
-
-        /**
-         * Toggle the IMO Classification dropdown for a story form based on IMO input
-         */
-        function toggleStoryIMOClassification(storyId) {
-            const imoInput = document.getElementById(`story-imo-${storyId}`);
-            const classificationSelect = document.getElementById(`story-imo-classification-${storyId}`);
-            if (imoInput && classificationSelect) {
-                const hasIMO = imoInput.value.trim().length > 0;
-                classificationSelect.disabled = !hasIMO;
-                if (!hasIMO) {
-                    classificationSelect.value = '';
-                }
             }
         }
 
@@ -8255,7 +8186,6 @@
                             imo: imoEl ? imoEl.value : '',
                             priority: document.getElementById(`btl-priority-${storyId}`)?.value || '',
                             comments: commentsEl ? commentsEl.value : '',
-                            imoClassification: '', // BTL stories use modal classification
                             isDone: false, // BTL stories don't have status flags
                             isCancelled: false,
                             isAtRisk: false,
@@ -8318,8 +8248,7 @@
                     const bulletsEl = document.getElementById(`story-bullets-${storyId}`);
                     const directorVPIdEl = document.getElementById(`story-director-vp-id-${storyId}`);
                     const imoEl = document.getElementById(`story-imo-${storyId}`);
-                    const imoClassificationEl = document.getElementById(`story-imo-classification-${storyId}`);
-                    
+
                     const doneEl = document.getElementById(`story-done-${storyId}`);
                     const cancelledEl = document.getElementById(`story-cancelled-${storyId}`);
                     const atRiskEl = document.getElementById(`story-atrisk-${storyId}`);
@@ -8411,7 +8340,6 @@
                         bullets: bulletsEl ? bulletsEl.value : '',
                         directorVPId: directorVPIdEl ? directorVPIdEl.value : '',
                         imo: imoEl ? imoEl.value : '',
-                        imoClassification: imoClassificationEl ? imoClassificationEl.value : '',
                         priority: document.getElementById(`story-priority-${storyId}`)?.value || '',
                         comments: commentsEl ? commentsEl.value : '',
                         countryFlags: storyCountryFlags.length > 0 ? storyCountryFlags : undefined,
@@ -8458,16 +8386,7 @@
                 alert('No story selected for editing.');
                 return;
             }
-            
-            // Validate IMO classification is selected when IMO number is present
-            const imoValue = document.getElementById('editIMO').value.trim();
-            const imoClassification = document.getElementById('editIMOClassification').value;
-            if (imoValue && !imoClassification) {
-                alert('Please select a classification when an IMO/Project ID is provided.');
-                document.getElementById('editIMOClassification').focus();
-                return;
-            }
-            
+
             try{
                 // Find the story in the form
                 const foundStory = findStoryInForm(currentEditingStory.epicName, currentEditingStory.storyTitle, currentEditingStory.storyIndex);
@@ -8580,10 +8499,6 @@
                 if (bulletsEl) bulletsEl.value = document.getElementById('editBullets').value;
                 if (directorVPIdEl) directorVPIdEl.value = document.getElementById('editDirectorVPId').value;
                 if (imoEl) imoEl.value = document.getElementById('editIMO').value;
-                
-                // Update IMO Classification
-                const imoClassificationEl = document.getElementById(`story-imo-classification-${storyId}`);
-                if (imoClassificationEl) imoClassificationEl.value = document.getElementById('editIMOClassification').value;
 
                 // Update Priority
                 const priorityEl = document.getElementById(`story-priority-${storyId}`);

@@ -184,7 +184,7 @@
             width: 300px;
         }
         
-        .search-input.classification-select {
+        .search-input.dropdown-select {
             flex: none;
             width: 150px;
         }
@@ -692,36 +692,20 @@
                     </div>
                 </div>
 
-                <!-- Priority Search -->
-                <div class="search-section">
-                    <h3 class="search-section-title">🎯 Priority Search</h3>
-                    <div class="search-input-group">
-                        <select class="search-input classification-select" id="prioritySelect" onchange="updateSearchButtonStates()">
-                            <option value="">Any Priority</option>
-                            <option value="High">High</option>
-                            <option value="Medium">Medium</option>
-                            <option value="Low">Low</option>
-                        </select>
-                        <button class="search-button" id="prioritySearchBtn" onclick="performPrioritySearch()" disabled>
-                            🎯 Search Priority
-                        </button>
-                    </div>
-                </div>
-
                 <!-- IMO Search -->
                 <div class="search-section">
                     <h3 class="search-section-title">🔍 IMO/Project ID Search</h3>
                     <div class="search-input-group">
-                            <input type="text" 
-                               class="search-input imo-input" 
-                                   id="searchInput" 
-                               placeholder="Enter IMO/Project ID" 
+                            <input type="text"
+                               class="search-input imo-input"
+                                   id="searchInput"
+                               placeholder="Enter IMO/Project ID"
                                    onkeypress="handleSearchKeyPress(event)">
-                        <select class="search-input classification-select" id="imoClassificationSelect">
-                            <option value="">Classification</option>
-                            <option value="Payments">Payments</option>
-                            <option value="Banking">Banking</option>
-                            <option value="Other">Other</option>
+                        <select class="search-input dropdown-select" id="prioritySelect" onchange="updateSearchButtonStates()">
+                            <option value="">Any Priority</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
                         </select>
                         <button class="search-button" id="imoSearchBtn" onclick="performIMOSearch()" disabled>
                             🔍 Search
@@ -841,6 +825,7 @@
                             <div style="font-size: 10px; color: #888; margin-top: 5px;">
                                 Use: <code>&&</code> (AND), <code>||</code> (OR), <code>!</code> (NOT), <code>( )</code> (grouping)<br>
                                 Status names: Done, Cancelled, Timeline, New, AtRisk, Proposed, Info, TransferredIn, TransferredOut<br>
+                                Field presence: IMO, Priority (use <code>!</code> for empty) &nbsp;&nbsp; Priority values: High, Medium, Low<br>
                                 Expression overrides checkboxes if provided.
                             </div>
                         </div>
@@ -944,10 +929,6 @@
                         <div style="flex: 1;">
                             <label>IMO <span style="font-style: italic; color: #888;">(optional)</span>:</label>
                             <div class="readonly-field" id="viewIMO"></div>
-                        </div>
-                        <div style="flex: 1;">
-                            <label>Classification:</label>
-                            <div class="readonly-field" id="viewIMOClassification"></div>
                         </div>
                         <div style="flex: 1;">
                             <label>Priority:</label>
@@ -1762,13 +1743,6 @@
             }
             document.getElementById('viewIMO').textContent = imoText || 'None';
             
-            // Handle IMO Classification
-            let imoClassificationText = '';
-            if (storyData.imoClassification) {
-                imoClassificationText = String(storyData.imoClassification);
-            }
-            document.getElementById('viewIMOClassification').textContent = imoClassificationText || 'None';
-
             // Handle Priority
             let priorityText = '';
             if (storyData.priority) {
@@ -2379,54 +2353,61 @@
                     alert('Please select a directory first');
                         return;
                     }
-                
+
                 const searchQuery = document.getElementById('searchInput').value.trim();
-                if (!searchQuery) {
-                    alert('Please enter a search query');
+                const priorityValue = document.getElementById('prioritySelect')?.value || '';
+                if (!searchQuery && !priorityValue) {
+                    alert('Please enter an IMO/Project ID or select a priority');
                         return;
                     }
-                
+
+                const searchLabel = searchQuery
+                    ? `"${searchQuery}"${priorityValue ? ` + Priority: ${priorityValue}` : ''}`
+                    : `Priority: ${priorityValue}`;
+
                 // Show loading state
-                showLoadingState(`Searching for "${searchQuery}"...`);
-                
+                showLoadingState(`Searching for ${searchLabel}...`);
+
                 // Scan directory for roadmap files
                 const roadmapFiles = await IMOUtility.scanRoadmapDirectory(selectedDirectory);
-                
+
                 if (roadmapFiles.length === 0) {
                     showMessage('No roadmap JSON files found in the selected directory', 'warning');
                     return;
                 }
-                
+
                 // Extract and search stories
                 const allStories = IMOUtility.aggregateStoriesAcrossTeams(roadmapFiles);
-                
-                // Direct IMO/Project ID search (no query parsing)
-                let matchingStories = IMOUtility.filterStoriesByIMO(allStories, searchQuery);
-                
+
+                // Narrow by IMO if provided, otherwise start with all stories
+                let matchingStories = searchQuery
+                    ? IMOUtility.filterStoriesByIMO(allStories, searchQuery)
+                    : allStories.slice();
+
                 // Store base search results before filtering for potential re-filtering
                 lastSearchStories = matchingStories.slice();
                 lastRoadmapFiles = roadmapFiles;
-                
+
                 matchingStories = applyAdditionalFilters(matchingStories, roadmapFiles, { skipIMO: true });
-                
+
                 if (matchingStories.length === 0) {
-                    showMessage(`No stories found for "${searchQuery}"`, 'info');
+                    showMessage(`No stories found for ${searchLabel}`, 'info');
                     return;
                 }
-                
+
                 // Store results and display
                 currentResults = matchingStories;
-                displaySearchResults(matchingStories, searchQuery);
-                
+                displaySearchResults(matchingStories, searchLabel);
+
                 // Enable stats button
                 document.getElementById('searchStatsBtn').disabled = false;
-                
+
             } catch (error) {
-                
+
                 showMessage('Search error: ' + error.message, 'error');
             }
         }
-        
+
         // Temporary variable for search results force text below (one-time action)
         let searchTempForceTextBelow = false;
         let lastSearchQuery = null;
@@ -2705,7 +2686,6 @@
             // Clear search inputs
             document.getElementById('searchInput').value = '';
             document.getElementById('titleSearchInput').value = '';
-            document.getElementById('imoClassificationSelect').value = '';
             const priorityEl = document.getElementById('prioritySelect');
             if (priorityEl) priorityEl.value = '';
             const directorEl = document.getElementById('directorSearchInput');
@@ -2767,7 +2747,7 @@
         // Apply additional filters based on other filled inputs (AND semantics)
         function applyAdditionalFilters(stories, roadmapFiles, options = {}) {
             let result = Array.isArray(stories) ? stories.slice() : [];
-            const opts = Object.assign({ skipDirector: false, skipIMO: false, skipClassification: false, skipPriority: false, skipTitle: false, skipDate: false, skipStatus: false, skipProductRoadmap: false }, options);
+            const opts = Object.assign({ skipDirector: false, skipIMO: false, skipPriority: false, skipTitle: false, skipDate: false, skipStatus: false, skipProductRoadmap: false }, options);
 
             try {
                 // Director/VP filter (team-level)
@@ -2782,15 +2762,6 @@
                 const imoQuery = document.getElementById('searchInput')?.value.trim();
                 if (!opts.skipIMO && imoQuery) {
                     result = IMOUtility.filterStoriesByIMO(result, imoQuery);
-                }
-
-                // Classification filter
-                const classificationQuery = document.getElementById('imoClassificationSelect')?.value;
-                if (!opts.skipClassification && classificationQuery) {
-                    result = result.filter(story => {
-                        const storyClassification = (story.imoClassification || '').toLowerCase();
-                        return storyClassification === classificationQuery.toLowerCase();
-                    });
                 }
 
                 // Priority filter
@@ -2929,11 +2900,19 @@
                 const imo = (story.imo || '').toLowerCase();
                 return imo.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
             });
-            
-            // IMOCLASS="class" - matches IMO classification
-            processedExpr = processedExpr.replace(/IMOCLASS="([^"]+)"/gi, (match, value) => {
-                const imoClass = (story.imoClassification || '').toLowerCase();
-                return imoClass.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
+
+            // IMO<chars> (no quotes) - shorthand keyword search on the IMO field.
+            // Bare `IMO` (no suffix) is handled later as a presence token, so the
+            // suffix regex requires at least one non-operator character.
+            processedExpr = processedExpr.replace(/\bIMO([^\s!&|()"]+)/gi, (match, value) => {
+                const imo = (story.imo || '').toLowerCase();
+                return imo.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
+            });
+
+            // PRIORITY="value" - matches priority value (exact, case-insensitive)
+            processedExpr = processedExpr.replace(/PRIORITY="([^"]+)"/gi, (match, value) => {
+                const priority = (story.priority || '').toLowerCase();
+                return priority === value.toLowerCase() ? 'TRUE' : 'FALSE';
             });
             
             // TEAM="name" - matches team name
@@ -3030,6 +3009,9 @@
                 }
                 
                 // Handle status names
+                const storyPriority = (story.priority || '').toLowerCase();
+                const hasIMO = Boolean((story.imo || '').toString().trim());
+                const hasPriority = storyPriority.length > 0;
                 const statusMap = {
                     'Done': story.isDone,
                     'Cancelled': story.isCancelled,
@@ -3040,6 +3022,13 @@
                     'Info': story.isInfo,
                     'TransferredIn': story.isTransferredIn,
                     'TransferredOut': story.isTransferredOut,
+                    // Field presence tokens
+                    'IMO': hasIMO,
+                    'Priority': hasPriority,
+                    // Priority value tokens (case-insensitive)
+                    'High': storyPriority === 'high',
+                    'Medium': storyPriority === 'medium',
+                    'Low': storyPriority === 'low',
                     // Special tokens for pre-processed LEADERSHIP expressions
                     'TRUE': true,
                     'FALSE': false
@@ -3107,8 +3096,8 @@
                 showAdvancedFilterHelp();
                 return;
             }
-            // Ctrl+Enter or Cmd+Enter to apply filter
-            if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+            // Enter (plain or with Ctrl/Cmd) applies the filter
+            if (event.key === 'Enter') {
                 event.preventDefault();
                 applyStatusFilters();
             }
@@ -3163,9 +3152,18 @@
                         <code>Proposed</code> <code>Info</code> <code>TransferredIn</code> <code>TransferredOut</code>
                     </div>
                     <div style="margin-bottom: 15px;">
-                        <strong>FIELD FILTERS (partial match):</strong><br>
-                        <code>IMO="0043"</code> - IMO number<br>
-                        <code>IMOCLASS="Payments"</code> - Classification<br>
+                        <strong>FIELD PRESENCE:</strong><br>
+                        <code>IMO</code> - IMO is filled &nbsp;&nbsp; <code>!IMO</code> - IMO is empty<br>
+                        <code>Priority</code> - Priority is set &nbsp;&nbsp; <code>!Priority</code> - Priority is empty
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>PRIORITY VALUES:</strong><br>
+                        <code>High</code> <code>Medium</code> <code>Low</code> (case-insensitive)
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong>FIELD FILTERS (partial match unless noted):</strong><br>
+                        <code>IMO="0043"</code> - IMO number (partial)<br>
+                        <code>PRIORITY="High"</code> - Priority (exact)<br>
                         <code>TEAM="Terminal"</code> - Team name<br>
                         <code>EPIC="Core"</code> - Epic name<br>
                         <code>TITLE="migration"</code> - Story title<br>
@@ -3179,7 +3177,10 @@
                         <code>TEAM="Terminal" && Done</code><br>
                         <code>IMO="0043" || IMO="0044"</code><br>
                         <code>(TEAM="A" || TEAM="B") && !Cancelled</code><br>
-                        <code>COUNTRY="UK" && LEADERSHIP="John"</code>
+                        <code>COUNTRY="UK" && LEADERSHIP="John"</code><br>
+                        <code>!IMO</code> - stories without IMO<br>
+                        <code>High && !Done</code> - High priority, not done<br>
+                        <code>!IMO && Priority</code> - no IMO but has priority
                     </div>
                 </div>
             `;
@@ -3205,35 +3206,62 @@
         /**
          * Apply status filters to current search results
          */
-        function applyStatusFilters() {
+        async function applyStatusFilters() {
             try {
-                // Re-filter the last search results with the new status filters
-                if (lastSearchStories && lastSearchStories.length > 0) {
-                    const filteredStories = applyAdditionalFilters(lastSearchStories, lastRoadmapFiles, {});
-                    
-                    // Get the current search parameters to determine which range to use
-                    const startDate = document.getElementById('startDateInput')?.value;
-                    const endDate = document.getElementById('endDateInput')?.value;
-                    const searchModeEl = document.getElementById('searchModeSelect');
-                    const searchMode = (searchModeEl && searchModeEl.value) ? searchModeEl.value : 'exact';
-                    
-                    // Create search range info if dates exist
-                    let searchRange = null;
-                    if (startDate || endDate) {
-                        searchRange = {
-                            startDate: startDate || 'N/A',
-                            endDate: endDate || 'N/A',
-                            mode: searchMode
-                        };
+                // Scan the directory on first use so the advanced filter can run
+                // without requiring a prior search. `lastRoadmapFiles` is
+                // initialised to [] elsewhere, so check length too.
+                if (!lastRoadmapFiles || !lastRoadmapFiles.length) {
+                    if (!selectedDirectory) {
+                        showMessage('Please select a directory first', 'warning');
+                        return;
                     }
-                    
-                    // Display the filtered results
-                    displaySearchResults(filteredStories, 'Filtered Results', searchRange);
-                    currentResults = filteredStories;
+                    showLoadingState('Loading stories...');
+                    const roadmapFiles = await IMOUtility.scanRoadmapDirectory(selectedDirectory);
+                    if (!roadmapFiles.length) {
+                        showMessage('No roadmap JSON files found in the selected directory', 'warning');
+                        return;
+                    }
+                    lastRoadmapFiles = roadmapFiles;
                 }
+
+                // Re-aggregate from the scanned files so the filter runs against the
+                // full dataset, not just the previous search's narrow result set.
+                // applyAdditionalFilters still respects any search inputs that are
+                // currently filled (IMO, priority, title, dates, etc.).
+                const allStories = IMOUtility.aggregateStoriesAcrossTeams(lastRoadmapFiles);
+                lastSearchStories = allStories.slice();
+                const filteredStories = applyAdditionalFilters(allStories, lastRoadmapFiles, {});
+
+                // Get the current search parameters to determine which range to use
+                const startDate = document.getElementById('startDateInput')?.value;
+                const endDate = document.getElementById('endDateInput')?.value;
+                const searchModeEl = document.getElementById('searchModeSelect');
+                const searchMode = (searchModeEl && searchModeEl.value) ? searchModeEl.value : 'exact';
+
+                // Create search range info if dates exist
+                let searchRange = null;
+                if (startDate || endDate) {
+                    searchRange = {
+                        startDate: startDate || 'N/A',
+                        endDate: endDate || 'N/A',
+                        mode: searchMode
+                    };
+                }
+
+                if (!filteredStories.length) {
+                    showMessage('No stories match the current filters', 'info');
+                    currentResults = [];
+                    return;
+                }
+
+                // Display the filtered results
+                displaySearchResults(filteredStories, 'Filtered Results', searchRange);
+                currentResults = filteredStories;
+                document.getElementById('searchStatsBtn').disabled = false;
             } catch (e) {
                 console.error('Error applying status filters:', e);
-                showMessage('Error applying filters', 'error');
+                showMessage('Error applying filters: ' + e.message, 'error');
             }
         }
 
@@ -3269,7 +3297,6 @@
             const dateRangeSearchBtn = document.getElementById('dateRangeSearchBtn');
             const directorVPIdSearchBtn = document.getElementById('directorVPIdSearchBtn');
             const countryFlagSearchBtn = document.getElementById('countryFlagSearchBtn');
-            const prioritySearchBtn = document.getElementById('prioritySearchBtn');
 
             const hasDirectory = !!selectedDirectory;
             const hasImoInput = document.getElementById('searchInput').value.trim().length > 0;
@@ -3281,12 +3308,11 @@
             const hasEndDate = document.getElementById('endDateInput').value.length > 0;
             const hasAnyDate = hasStartDate || hasEndDate;
 
-            imoSearchBtn.disabled = !hasDirectory || !hasImoInput;
+            imoSearchBtn.disabled = !hasDirectory || (!hasImoInput && !hasPriorityInput);
             titleSearchBtn.disabled = !hasDirectory || !hasTitleInput;
             dateRangeSearchBtn.disabled = !hasDirectory || !hasAnyDate;
             directorVPIdSearchBtn.disabled = !hasDirectory || !hasDirectorVPIdInput;
             countryFlagSearchBtn.disabled = !hasDirectory || !hasCountryFlagInput;
-            if (prioritySearchBtn) prioritySearchBtn.disabled = !hasDirectory || !hasPriorityInput;
         }
 
         /**
@@ -3634,56 +3660,6 @@
             document.getElementById('searchFlagUK').checked = false;
             document.getElementById('searchFlagDE').checked = false;
             document.getElementById('searchFlagFR').checked = false;
-        }
-
-        async function performPrioritySearch() {
-            try {
-                if (!selectedDirectory) {
-                    alert('Please select a directory first');
-                    return;
-                }
-
-                const priorityValue = document.getElementById('prioritySelect')?.value;
-                if (!priorityValue) {
-                    alert('Please select a priority');
-                    return;
-                }
-
-                showLoadingState(`Searching stories with priority: ${priorityValue}...`);
-
-                const roadmapFiles = await IMOUtility.scanRoadmapDirectory(selectedDirectory);
-                if (roadmapFiles.length === 0) {
-                    showMessage('No roadmap JSON files found in the selected directory', 'warning');
-                    return;
-                }
-
-                const allStories = IMOUtility.aggregateStoriesAcrossTeams(roadmapFiles);
-                const matchingStories = allStories.filter(story =>
-                    (story.priority || '').toLowerCase() === priorityValue.toLowerCase()
-                );
-
-                if (!matchingStories.length) {
-                    showMessage(`No stories found with priority: ${priorityValue}`, 'info');
-                    return;
-                }
-
-                lastSearchStories = matchingStories.slice();
-                lastRoadmapFiles = roadmapFiles;
-
-                const filteredStories = applyAdditionalFilters(matchingStories, roadmapFiles, { skipPriority: true });
-
-                if (!filteredStories.length) {
-                    showMessage(`No stories found for priority: ${priorityValue}`, 'info');
-                    return;
-                }
-
-                currentResults = filteredStories;
-                displaySearchResults(filteredStories, `Priority: ${priorityValue}`);
-
-                document.getElementById('searchStatsBtn').disabled = false;
-            } catch (error) {
-                showMessage('Search error: ' + error.message, 'error');
-            }
         }
 
         async function performCountryFlagSearch() {
