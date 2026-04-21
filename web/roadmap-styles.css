@@ -386,20 +386,52 @@ body {
     min-height: 40px;
 }
 
-/* IMO Tag - background color set inline by JavaScript */
-.imo-tag {
+/* Tags row (IMO + Priority) shown above a story */
+.story-tags {
     position: absolute;
     top: -13px;
     right: 11px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* IMO Tag - background color set inline by JavaScript */
+.imo-tag {
     font-size: 8px;
     color: #666;
     font-weight: normal;
-    z-index: 0;
-    pointer-events: none;
     padding: 1px 3px;
     border-radius: 2px;
     display: inline-block;
     width: fit-content;
+}
+
+/* Priority Tag - shown next to IMO tag */
+.priority-tag {
+    font-size: 8px;
+    font-weight: bold;
+    padding: 1px 4px;
+    border-radius: 2px;
+    display: inline-block;
+    width: fit-content;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.priority-tag.priority-high {
+    background-color: #d9534f;
+}
+
+.priority-tag.priority-medium {
+    background-color: #f0ad4e;
+}
+
+.priority-tag.priority-low {
+    background-color: #5bc0de;
 }
 
 /* Story Content */

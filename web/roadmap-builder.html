@@ -1080,6 +1080,15 @@
                                 <option value="Other">Other</option>
                             </select>
                         </div>
+                        <div style="flex: 1;">
+                            <label for="editPriority">Priority <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                            <select id="editPriority" name="priority" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="">Select...</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
                     </div>
                     
                     <div class="form-group">
@@ -2764,6 +2773,15 @@
                                 <option value="Other">Other</option>
                             </select>
                         </div>
+                        <div style="flex: 1;">
+                            <label for="story-priority-${storyId}">Priority <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                            <select id="story-priority-${storyId}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="">Select...</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
                     </div>
                     
                     <div class="form-group">
@@ -2996,6 +3014,7 @@
                 `story-director-vp-id-${storyId}`,
                 `story-imo-${storyId}`,
                 `story-imo-classification-${storyId}`,
+                `story-priority-${storyId}`,
                 `done-date-${storyId}`,
                 `done-notes-${storyId}`,
                 `cancel-date-${storyId}`,
@@ -3174,7 +3193,17 @@
                         <label for="btl-imo-${storyId}">IMO/Project ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
                         <input type="text" id="btl-imo-${storyId}" placeholder="0001">
                     </div>
-                    
+
+                    <div class="form-group">
+                        <label for="btl-priority-${storyId}">Priority <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                        <select id="btl-priority-${storyId}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                            <option value="">Select...</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
+                    </div>
+
                     <div class="form-group">
                         <label for="btl-comments-${storyId}">Comments <span style="font-style: italic; color: #888;">(optional, not shown on roadmap)</span>:</label>
                         <textarea id="btl-comments-${storyId}" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical;" placeholder="Add any notes or comments..."></textarea>
@@ -3197,6 +3226,7 @@
                 `btl-dateadded-${storyId}`,
                 `btl-description-${storyId}`,
                 `btl-imo-${storyId}`,
+                `btl-priority-${storyId}`,
                 `btl-comments-${storyId}`
             ];
             
@@ -4795,7 +4825,14 @@
             if (imoClassification) {
                 story.imoClassification = imoClassification;
             }
-            
+
+            // Handle Priority
+            const priorityEl = document.getElementById(`story-priority-${storyId}`);
+            const priority = priorityEl ? priorityEl.value : '';
+            if (priority) {
+                story.priority = priority;
+            }
+
             // Handle Comments
             const commentsEl = document.getElementById(`story-comments-${storyId}`);
             const comments = commentsEl ? commentsEl.value.trim() : '';
@@ -5187,7 +5224,14 @@
                 if (imo) {
                     story.imo = imo;
                 }
-                
+
+                // Handle Priority
+                const priorityEl = document.getElementById(`btl-priority-${storyId}`);
+                const priority = priorityEl ? priorityEl.value : '';
+                if (priority) {
+                    story.priority = priority;
+                }
+
                 // Handle Comments
                 const commentsEl = document.getElementById(`btl-comments-${storyId}`);
                 const comments = commentsEl ? commentsEl.value.trim() : '';
@@ -6576,7 +6620,13 @@
                         if (imoEl) {
                             imoEl.value = story.imo || '';
                         }
-                        
+
+                        // Set Priority field
+                        const priorityEl = document.getElementById(`btl-priority-${currentStoryId}`);
+                        if (priorityEl) {
+                            priorityEl.value = story.priority || '';
+                        }
+
                         // Set Comments field
                         const commentsEl = document.getElementById(`btl-comments-${currentStoryId}`);
                         if (commentsEl) {
@@ -6659,7 +6709,13 @@
                 if (imoClassificationEl) {
                     imoClassificationEl.value = story.imoClassification || '';
                 }
-                
+
+                // Load Priority field with error checking
+                const priorityEl = document.getElementById(`story-priority-${storyId}`);
+                if (priorityEl) {
+                    priorityEl.value = story.priority || '';
+                }
+
                 // Enable/disable classification based on IMO value
                 toggleStoryIMOClassification(storyId);
                 
@@ -7231,6 +7287,7 @@
             document.getElementById('editDirectorVPId').value = foundStory.directorVPId || '';
             document.getElementById('editIMO').value = foundStory.imo || '';
             document.getElementById('editIMOClassification').value = foundStory.imoClassification || '';
+            document.getElementById('editPriority').value = foundStory.priority || '';
             document.getElementById('editComments').value = foundStory.comments || '';
             
             // Enable/disable classification based on IMO value
@@ -8196,6 +8253,7 @@
                             dateAdded: dateAddedEl ? dateAddedEl.value : '',
                             dateAddedDescription: descriptionEl ? descriptionEl.value : '',
                             imo: imoEl ? imoEl.value : '',
+                            priority: document.getElementById(`btl-priority-${storyId}`)?.value || '',
                             comments: commentsEl ? commentsEl.value : '',
                             imoClassification: '', // BTL stories use modal classification
                             isDone: false, // BTL stories don't have status flags
@@ -8354,6 +8412,7 @@
                         directorVPId: directorVPIdEl ? directorVPIdEl.value : '',
                         imo: imoEl ? imoEl.value : '',
                         imoClassification: imoClassificationEl ? imoClassificationEl.value : '',
+                        priority: document.getElementById(`story-priority-${storyId}`)?.value || '',
                         comments: commentsEl ? commentsEl.value : '',
                         countryFlags: storyCountryFlags.length > 0 ? storyCountryFlags : undefined,
                         includeInProductRoadmap: includeInProductRoadmapEl ? includeInProductRoadmapEl.checked : false,
@@ -8489,7 +8548,11 @@
                     if (dateAddedEl) dateAddedEl.value = document.getElementById('editBTLDateAdded').value;
                     if (descriptionEl) descriptionEl.value = document.getElementById('editBTLDescription').value;
                     if (imoEl) imoEl.value = document.getElementById('editIMO').value;
-                    
+
+                    // Update Priority
+                    const priorityEl = document.getElementById(`btl-priority-${storyId}`);
+                    if (priorityEl) priorityEl.value = document.getElementById('editPriority').value;
+
                     // Update Comments
                     const commentsEl = document.getElementById(`btl-comments-${storyId}`);
                     if (commentsEl) commentsEl.value = document.getElementById('editComments').value;
@@ -8521,7 +8584,11 @@
                 // Update IMO Classification
                 const imoClassificationEl = document.getElementById(`story-imo-classification-${storyId}`);
                 if (imoClassificationEl) imoClassificationEl.value = document.getElementById('editIMOClassification').value;
-                
+
+                // Update Priority
+                const priorityEl = document.getElementById(`story-priority-${storyId}`);
+                if (priorityEl) priorityEl.value = document.getElementById('editPriority').value;
+
                 // Update Comments
                 const commentsEl = document.getElementById(`story-comments-${storyId}`);
                 if (commentsEl) commentsEl.value = document.getElementById('editComments').value;
