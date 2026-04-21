@@ -3200,30 +3200,38 @@
          */
         function applyStatusFilters() {
             try {
-                // Re-filter the last search results with the new status filters
-                if (lastSearchStories && lastSearchStories.length > 0) {
-                    const filteredStories = applyAdditionalFilters(lastSearchStories, lastRoadmapFiles, {});
-                    
-                    // Get the current search parameters to determine which range to use
-                    const startDate = document.getElementById('startDateInput')?.value;
-                    const endDate = document.getElementById('endDateInput')?.value;
-                    const searchModeEl = document.getElementById('searchModeSelect');
-                    const searchMode = (searchModeEl && searchModeEl.value) ? searchModeEl.value : 'exact';
-                    
-                    // Create search range info if dates exist
-                    let searchRange = null;
-                    if (startDate || endDate) {
-                        searchRange = {
-                            startDate: startDate || 'N/A',
-                            endDate: endDate || 'N/A',
-                            mode: searchMode
-                        };
-                    }
-                    
-                    // Display the filtered results
-                    displaySearchResults(filteredStories, 'Filtered Results', searchRange);
-                    currentResults = filteredStories;
+                if (!lastRoadmapFiles) {
+                    showMessage('Run a search first so the filter has a dataset to work on', 'warning');
+                    return;
                 }
+
+                // Re-aggregate from the scanned files so the filter runs against the
+                // full dataset, not just the previous search's narrow result set.
+                // applyAdditionalFilters still respects any search inputs that are
+                // currently filled (IMO, priority, title, dates, etc.).
+                const allStories = IMOUtility.aggregateStoriesAcrossTeams(lastRoadmapFiles);
+                lastSearchStories = allStories.slice();
+                const filteredStories = applyAdditionalFilters(allStories, lastRoadmapFiles, {});
+
+                // Get the current search parameters to determine which range to use
+                const startDate = document.getElementById('startDateInput')?.value;
+                const endDate = document.getElementById('endDateInput')?.value;
+                const searchModeEl = document.getElementById('searchModeSelect');
+                const searchMode = (searchModeEl && searchModeEl.value) ? searchModeEl.value : 'exact';
+
+                // Create search range info if dates exist
+                let searchRange = null;
+                if (startDate || endDate) {
+                    searchRange = {
+                        startDate: startDate || 'N/A',
+                        endDate: endDate || 'N/A',
+                        mode: searchMode
+                    };
+                }
+
+                // Display the filtered results
+                displaySearchResults(filteredStories, 'Filtered Results', searchRange);
+                currentResults = filteredStories;
             } catch (e) {
                 console.error('Error applying status filters:', e);
                 showMessage('Error applying filters', 'error');
