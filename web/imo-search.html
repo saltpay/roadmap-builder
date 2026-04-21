@@ -692,6 +692,22 @@
                     </div>
                 </div>
 
+                <!-- Priority Search -->
+                <div class="search-section">
+                    <h3 class="search-section-title">🎯 Priority Search</h3>
+                    <div class="search-input-group">
+                        <select class="search-input classification-select" id="prioritySelect" onchange="updateSearchButtonStates()">
+                            <option value="">Any Priority</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
+                        <button class="search-button" id="prioritySearchBtn" onclick="performPrioritySearch()" disabled>
+                            🎯 Search Priority
+                        </button>
+                    </div>
+                </div>
+
                 <!-- IMO Search -->
                 <div class="search-section">
                     <h3 class="search-section-title">🔍 IMO/Project ID Search</h3>
@@ -932,6 +948,10 @@
                         <div style="flex: 1;">
                             <label>Classification:</label>
                             <div class="readonly-field" id="viewIMOClassification"></div>
+                        </div>
+                        <div style="flex: 1;">
+                            <label>Priority:</label>
+                            <div class="readonly-field" id="viewPriority"></div>
                         </div>
                     </div>
                     
@@ -1748,6 +1768,13 @@
                 imoClassificationText = String(storyData.imoClassification);
             }
             document.getElementById('viewIMOClassification').textContent = imoClassificationText || 'None';
+
+            // Handle Priority
+            let priorityText = '';
+            if (storyData.priority) {
+                priorityText = String(storyData.priority);
+            }
+            document.getElementById('viewPriority').textContent = priorityText || 'None';
             
             // Handle Country Flags
             const flags = storyData.countryFlags || [];
@@ -2679,6 +2706,8 @@
             document.getElementById('searchInput').value = '';
             document.getElementById('titleSearchInput').value = '';
             document.getElementById('imoClassificationSelect').value = '';
+            const priorityEl = document.getElementById('prioritySelect');
+            if (priorityEl) priorityEl.value = '';
             const directorEl = document.getElementById('directorSearchInput');
             if (directorEl) directorEl.value = '';
             const directorVPIdEl = document.getElementById('directorVPIdSearchInput');
@@ -2738,7 +2767,7 @@
         // Apply additional filters based on other filled inputs (AND semantics)
         function applyAdditionalFilters(stories, roadmapFiles, options = {}) {
             let result = Array.isArray(stories) ? stories.slice() : [];
-            const opts = Object.assign({ skipDirector: false, skipIMO: false, skipClassification: false, skipTitle: false, skipDate: false, skipStatus: false, skipProductRoadmap: false }, options);
+            const opts = Object.assign({ skipDirector: false, skipIMO: false, skipClassification: false, skipPriority: false, skipTitle: false, skipDate: false, skipStatus: false, skipProductRoadmap: false }, options);
 
             try {
                 // Director/VP filter (team-level)
@@ -2761,6 +2790,15 @@
                     result = result.filter(story => {
                         const storyClassification = (story.imoClassification || '').toLowerCase();
                         return storyClassification === classificationQuery.toLowerCase();
+                    });
+                }
+
+                // Priority filter
+                const priorityQuery = document.getElementById('prioritySelect')?.value;
+                if (!opts.skipPriority && priorityQuery) {
+                    result = result.filter(story => {
+                        const storyPriority = (story.priority || '').toLowerCase();
+                        return storyPriority === priorityQuery.toLowerCase();
                     });
                 }
 
@@ -3231,21 +3269,24 @@
             const dateRangeSearchBtn = document.getElementById('dateRangeSearchBtn');
             const directorVPIdSearchBtn = document.getElementById('directorVPIdSearchBtn');
             const countryFlagSearchBtn = document.getElementById('countryFlagSearchBtn');
-            
+            const prioritySearchBtn = document.getElementById('prioritySearchBtn');
+
             const hasDirectory = !!selectedDirectory;
             const hasImoInput = document.getElementById('searchInput').value.trim().length > 0;
             const hasTitleInput = document.getElementById('titleSearchInput').value.trim().length > 0;
             const hasDirectorVPIdInput = document.getElementById('directorVPIdSearchInput').value.trim().length > 0;
             const hasCountryFlagInput = getSelectedCountryFlags().length > 0;
+            const hasPriorityInput = (document.getElementById('prioritySelect')?.value || '').length > 0;
             const hasStartDate = document.getElementById('startDateInput').value.length > 0;
             const hasEndDate = document.getElementById('endDateInput').value.length > 0;
             const hasAnyDate = hasStartDate || hasEndDate;
-            
+
             imoSearchBtn.disabled = !hasDirectory || !hasImoInput;
             titleSearchBtn.disabled = !hasDirectory || !hasTitleInput;
             dateRangeSearchBtn.disabled = !hasDirectory || !hasAnyDate;
             directorVPIdSearchBtn.disabled = !hasDirectory || !hasDirectorVPIdInput;
             countryFlagSearchBtn.disabled = !hasDirectory || !hasCountryFlagInput;
+            if (prioritySearchBtn) prioritySearchBtn.disabled = !hasDirectory || !hasPriorityInput;
         }
 
         /**
@@ -3593,6 +3634,56 @@
             document.getElementById('searchFlagUK').checked = false;
             document.getElementById('searchFlagDE').checked = false;
             document.getElementById('searchFlagFR').checked = false;
+        }
+
+        async function performPrioritySearch() {
+            try {
+                if (!selectedDirectory) {
+                    alert('Please select a directory first');
+                    return;
+                }
+
+                const priorityValue = document.getElementById('prioritySelect')?.value;
+                if (!priorityValue) {
+                    alert('Please select a priority');
+                    return;
+                }
+
+                showLoadingState(`Searching stories with priority: ${priorityValue}...`);
+
+                const roadmapFiles = await IMOUtility.scanRoadmapDirectory(selectedDirectory);
+                if (roadmapFiles.length === 0) {
+                    showMessage('No roadmap JSON files found in the selected directory', 'warning');
+                    return;
+                }
+
+                const allStories = IMOUtility.aggregateStoriesAcrossTeams(roadmapFiles);
+                const matchingStories = allStories.filter(story =>
+                    (story.priority || '').toLowerCase() === priorityValue.toLowerCase()
+                );
+
+                if (!matchingStories.length) {
+                    showMessage(`No stories found with priority: ${priorityValue}`, 'info');
+                    return;
+                }
+
+                lastSearchStories = matchingStories.slice();
+                lastRoadmapFiles = roadmapFiles;
+
+                const filteredStories = applyAdditionalFilters(matchingStories, roadmapFiles, { skipPriority: true });
+
+                if (!filteredStories.length) {
+                    showMessage(`No stories found for priority: ${priorityValue}`, 'info');
+                    return;
+                }
+
+                currentResults = filteredStories;
+                displaySearchResults(filteredStories, `Priority: ${priorityValue}`);
+
+                document.getElementById('searchStatsBtn').disabled = false;
+            } catch (error) {
+                showMessage('Search error: ' + error.message, 'error');
+            }
         }
 
         async function performCountryFlagSearch() {
