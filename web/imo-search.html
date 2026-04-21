@@ -2901,6 +2901,14 @@
                 return imo.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
             });
 
+            // IMO<chars> (no quotes) - shorthand keyword search on the IMO field.
+            // Bare `IMO` (no suffix) is handled later as a presence token, so the
+            // suffix regex requires at least one non-operator character.
+            processedExpr = processedExpr.replace(/\bIMO([^\s!&|()"]+)/gi, (match, value) => {
+                const imo = (story.imo || '').toLowerCase();
+                return imo.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
+            });
+
             // PRIORITY="value" - matches priority value (exact, case-insensitive)
             processedExpr = processedExpr.replace(/PRIORITY="([^"]+)"/gi, (match, value) => {
                 const priority = (story.priority || '').toLowerCase();
