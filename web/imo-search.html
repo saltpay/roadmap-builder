@@ -3201,8 +3201,9 @@
         async function applyStatusFilters() {
             try {
                 // Scan the directory on first use so the advanced filter can run
-                // without requiring a prior search.
-                if (!lastRoadmapFiles) {
+                // without requiring a prior search. `lastRoadmapFiles` is
+                // initialised to [] elsewhere, so check length too.
+                if (!lastRoadmapFiles || !lastRoadmapFiles.length) {
                     if (!selectedDirectory) {
                         showMessage('Please select a directory first', 'warning');
                         return;
