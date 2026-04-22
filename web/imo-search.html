@@ -92,12 +92,12 @@
             .country-flags-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
-        /* Each label stretches to fill its grid cell (default grid justify-items:
-           stretch) so the flag sits at the cell's left edge across every row,
-           regardless of country-name length. Reset the global
+        /* Each flag row is an inline-flex item that sits at the grid cell's
+           start; cells are wide enough for every name so we don't need any
+           overflow or truncation gymnastics. Reset the global
            `label { display: block; font-weight: bold; margin-bottom: 5px }` rule. */
         .country-flag-option {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 6px;
             font-size: 13px;
@@ -106,26 +106,15 @@
             margin: 0;
             padding: 2px 0;
             cursor: pointer;
-            min-width: 0;
-            overflow: hidden;
-        }
-
-        .country-flag-option > input,
-        .country-flag-option > img {
-            flex: 0 0 auto;
-            margin: 0;
-        }
-
-        .country-flag-option > span {
-            flex: 1 1 auto;
-            min-width: 0;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
         .country-flags-fieldset--readonly .country-flag-option {
             cursor: default;
+        }
+
+        .country-flag-option input {
+            margin: 0;
         }
 
         .country-flag-option input:focus-visible {
