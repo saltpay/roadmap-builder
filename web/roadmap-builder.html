@@ -80,7 +80,6 @@
             grid-template-columns: repeat(4, minmax(0, 1fr));
             column-gap: 16px;
             row-gap: 6px;
-            justify-items: start;
         }
 
         @media (max-width: 720px) {
@@ -91,12 +90,13 @@
             .country-flags-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
-        /* Reset the global `label { display: block; font-weight: bold; margin-bottom }`
-           rule so the flag options sit on a single line and align as flex rows. */
+        /* Each label stretches to fill its grid cell (default grid justify-items:
+           stretch) so the flag sits at the cell's left edge across every row,
+           regardless of country-name length. Reset the global
+           `label { display: block; font-weight: bold; margin-bottom: 5px }` rule. */
         .country-flag-option {
             display: flex;
             align-items: center;
-            justify-content: flex-start;
             gap: 6px;
             font-size: 13px;
             font-weight: normal;
@@ -105,6 +105,12 @@
             padding: 2px 0;
             cursor: pointer;
             white-space: nowrap;
+            min-width: 0;
+        }
+
+        .country-flag-option > span {
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .country-flags-fieldset--readonly .country-flag-option {
