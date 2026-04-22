@@ -103,13 +103,17 @@
             .country-flags-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
-        /* Each flag row is a block-level flex item that fills its grid cell,
-           so the checkbox/flag/text anchor at the cell's left edge and align
-           vertically across rows. Reset the global
+        /* Each flag row fills its grid cell and pins its content to the
+           cell's left edge. Explicit justify-self / justify-content defeats
+           any browser default that would center an inline-level fallback.
+           Reset the global
            `label { display: block; font-weight: bold; margin-bottom: 5px }` rule. */
         .country-flag-option {
             display: flex;
             align-items: center;
+            justify-content: flex-start;
+            justify-self: start;
+            width: 100%;
             gap: 6px;
             font-size: 13px;
             font-weight: normal;
