@@ -1,14 +1,10 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const url = require('url');
-// Removed unused data handlers
+const http = require('node:http');
+const fs = require('node:fs/promises');
+const path = require('node:path');
 
 const PORT = process.env.PORT || 8080;
-const WEB_DIR = path.join(__dirname, 'web');
+const WEB_DIR = path.resolve(__dirname, 'web');
 
-
-// MIME type mapping
 const mimeTypes = {
   '.html': 'text/html',
   '.js': 'text/javascript',
@@ -21,80 +17,66 @@ const mimeTypes = {
   '.ico': 'image/x-icon',
 };
 
-const server = http.createServer((req, res) => {
-  // Log every request
-  const timestamp = new Date().toISOString();
-  const clientIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.socket.remoteAddress;
-  console.log(`[${timestamp}] ${req.method} ${req.url} - ${clientIP}`);
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
 
-  const parsedUrl = url.parse(req.url, true);
-  const pathname = parsedUrl.pathname;
+function resolveFile(pathname) {
+  const relative = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+  if (!relative) return null;
+  const resolved = path.resolve(WEB_DIR, relative);
+  if (!resolved.startsWith(WEB_DIR + path.sep)) return null;
+  return resolved;
+}
 
-  // CORS headers for all responses - allow all origins
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+async function serveFile(res, filePath) {
+  try {
+    const content = await fs.readFile(filePath);
+    const contentType = mimeTypes[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
+    res.writeHead(200, { ...corsHeaders, 'Content-Type': contentType });
+    res.end(content);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      res.writeHead(404, { ...corsHeaders, 'Content-Type': 'text/plain' });
+      res.end('File not found');
+      return;
+    }
+    console.error('Failed to serve file', filePath, err);
+    res.writeHead(500, { ...corsHeaders, 'Content-Type': 'text/plain' });
+    res.end('Internal server error');
+  }
+}
 
-  // Handle preflight requests
+const server = http.createServer(async (req, res) => {
+  const { pathname } = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
+  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  console.log(`[${new Date().toISOString()}] ${req.method} ${pathname} - ${clientIp}`);
+
   if (req.method === 'OPTIONS') {
-    res.writeHead(200);
+    res.writeHead(204, corsHeaders);
     res.end();
     return;
   }
 
-  console.log(pathname, req.method);
-
-  // Handle static file serving
-  let filePath = path.join(WEB_DIR, pathname);
-
-  // Default to index.html for root path
-  if (pathname === '/') {
-    filePath = path.join(WEB_DIR, 'index.html');
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.writeHead(405, { ...corsHeaders, 'Content-Type': 'text/plain', Allow: 'GET, HEAD, OPTIONS' });
+    res.end('Method not allowed');
+    return;
   }
 
-  if (pathname === '/pulse') {
-    filePath = path.join(WEB_DIR, 'pulse/index.html');
-  }
-
-  // Prevent path traversal attacks
-  const resolvedPath = path.resolve(filePath);
-  const resolvedWebDir = path.resolve(WEB_DIR);
-
-  if (!resolvedPath.startsWith(resolvedWebDir + path.sep) && resolvedPath !== resolvedWebDir) {
-    res.writeHead(403, { 'Content-Type': 'text/plain' });
+  const filePath = resolveFile(pathname);
+  if (!filePath) {
+    res.writeHead(403, { ...corsHeaders, 'Content-Type': 'text/plain' });
     res.end('Access denied');
     return;
   }
 
-  // Check if file exists
-  fs.access(filePath, fs.constants.F_OK, err => {
-    if (err) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('File not found');
-      return;
-    }
-
-    // Get file extension and content type
-    const ext = path.extname(filePath).toLowerCase();
-    const contentType = mimeTypes[ext] || 'application/octet-stream';
-
-    // Read and serve the file
-    fs.readFile(filePath, (err, content) => {
-      if (err) {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end('Internal server error');
-        return;
-      }
-
-      res.writeHead(200, { 'Content-Type': contentType });
-      res.end(content);
-    });
-  });
+  await serveFile(res, filePath);
 });
 
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
   console.log(`Serving static files from: ${WEB_DIR}`);
-  console.log('Available endpoints:');
-  console.log('  GET    / - Roadmap');
 });
