@@ -22,6 +22,9 @@
     <!-- Import IMO Utilities for cross-team search -->
     <script src="./utilities/imo-utility.js"></script>
     <script src="./utilities/imo-view-generator.js"></script>
+
+    <!-- Canonical country list + renderer for the flag-checkbox group -->
+    <script src="./utilities/countries.js"></script>
     
     <!-- Layout Toggle Styles -->
     <style>
@@ -36,21 +39,75 @@
             border-radius: 1px;
         }
 
-        /* Country checkbox list: stable grid so items don't reflow unpredictably on resize */
-        .country-flags-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(125px, 1fr));
-            column-gap: 12px;
-            row-gap: 4px;
+        /* Country checkbox group rendered by renderCountryFlagsHTML().
+           Fixed-column grid keeps items in place across resize; Global is on
+           its own row with a divider to signal the "applies to all" meaning. */
+        .country-flags-fieldset {
+            border: 0;
+            padding: 0;
+            margin: 0;
+            min-width: 0;
         }
 
-        .country-flags-list label {
+        .country-flags-legend {
+            display: block;
+            padding: 0;
+            margin-bottom: 4px;
+            font-size: 13px;
+            font-weight: normal;
+        }
+
+        .country-flags-legend--hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .country-flags-global-row {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed rgba(0, 0, 0, 0.12);
+        }
+
+        .country-flags-list {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            column-gap: 16px;
+            row-gap: 6px;
+        }
+
+        @media (max-width: 720px) {
+            .country-flags-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 480px) {
+            .country-flags-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        .country-flag-option {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 6px;
             cursor: pointer;
             white-space: nowrap;
             font-size: 13px;
+            padding: 2px 0;
+        }
+
+        .country-flags-fieldset--readonly .country-flag-option {
+            cursor: default;
+        }
+
+        .country-flag-option input:focus-visible {
+            outline: 2px solid #007cba;
+            outline-offset: 2px;
+            border-radius: 2px;
         }
 
         /* Disabled select styling */
@@ -1110,50 +1167,7 @@
                         </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label style="display: block; margin-bottom: 4px;">Country Flags:</label>
-                        <div class="country-flags-list">
-                            <label>
-                                <input type="checkbox" id="editFlagGlobal" name="flagGlobal" checked onchange="clearEditCountriesIfGlobalSelected()"> <span><img src="./assets/flags/global.svg" class="flag-icon" alt="Global"> Global</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="editFlagCzechia" name="flagCzechia" onchange="clearEditGlobalIfCountrySelected()"> <span><img src="./assets/flags/cz.svg" class="flag-icon" alt="Czechia"> Czechia</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="editFlagGermany" name="flagGermany" onchange="clearEditGlobalIfCountrySelected()"> <span><img src="./assets/flags/de.svg" class="flag-icon" alt="Germany"> Germany</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="editFlagHungary" name="flagHungary" onchange="clearEditGlobalIfCountrySelected()"> <span><img src="./assets/flags/hu.svg" class="flag-icon" alt="Hungary"> Hungary</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="editFlagIceland" name="flagIceland" onchange="clearEditGlobalIfCountrySelected()"> <span><img src="./assets/flags/is.svg" class="flag-icon" alt="Iceland"> Iceland</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="editFlagItaly" name="flagItaly" onchange="clearEditGlobalIfCountrySelected()"> <span><img src="./assets/flags/it.svg" class="flag-icon" alt="Italy"> Italy</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="editFlagPortugal" name="flagPortugal" onchange="clearEditGlobalIfCountrySelected()"> <span><img src="./assets/flags/pt.svg" class="flag-icon" alt="Portugal"> Portugal</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="editFlagSlovakia" name="flagSlovakia" onchange="clearEditGlobalIfCountrySelected()"> <span><img src="./assets/flags/sk.svg" class="flag-icon" alt="Slovakia"> Slovakia</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="editFlagSlovenia" name="flagSlovenia" onchange="clearEditGlobalIfCountrySelected()"> <span><img src="./assets/flags/si.svg" class="flag-icon" alt="Slovenia"> Slovenia</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="editFlagCroatia" name="flagCroatia" onchange="clearEditGlobalIfCountrySelected()"> <span><img src="./assets/flags/hr.svg" class="flag-icon" alt="Croatia"> Croatia</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="editFlagSpain" name="flagSpain" onchange="clearEditGlobalIfCountrySelected()"> <span><img src="./assets/flags/es.svg" class="flag-icon" alt="Spain"> Spain</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="editFlagUK" name="flagUK" onchange="clearEditGlobalIfCountrySelected()"> <span><img src="./assets/flags/gb.svg" class="flag-icon" alt="UK"> UK</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="editFlagFrance" name="flagFrance" onchange="clearEditGlobalIfCountrySelected()"> <span><img src="./assets/flags/fr.svg" class="flag-icon" alt="France"> France</span>
-                            </label>
-                        </div>
-                    </div>
+                    <div class="form-group" id="editFlagsContainer"></div>
                     
                     <div class="form-group" style="margin-top: 15px;">
                         <label for="editComments">Comments <span style="font-style: italic; color: #888;">(optional, not shown on roadmap)</span>:</label>
@@ -1584,6 +1598,20 @@
 
         // Use DOMContentLoaded instead of window.onload for more reliable initialization
         document.addEventListener('DOMContentLoaded', function() {
+            // Populate the country-flags fieldset in the edit modal once.
+            // Global is checked by default so opening the modal without a
+            // loaded story still matches the existing "empty = Global" rule.
+            const editFlagsContainer = document.getElementById('editFlagsContainer');
+            if (editFlagsContainer && typeof renderCountryFlagsHTML === 'function') {
+                editFlagsContainer.innerHTML = renderCountryFlagsHTML({
+                    id: c => `editFlag${c.name}`,
+                    onChange: c => c.code === 'global'
+                        ? 'clearEditCountriesIfGlobalSelected()'
+                        : 'clearEditGlobalIfCountrySelected()',
+                    checked: c => c.code === 'global'
+                });
+            }
+
             // Add keyboard shortcut listener for KTLO toggle
             document.addEventListener('keydown', handleKTLOToggleShortcut);
 
@@ -2794,50 +2822,13 @@
                         </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label style="display: block; margin-bottom: 4px;">Country Flags:</label>
-                        <div class="country-flags-list">
-                            <label>
-                                <input type="checkbox" id="story-flag-global-${storyId}" checked onchange="clearStoryCountriesIfGlobalSelected('${storyId}')"> <span><img src="./assets/flags/global.svg" class="flag-icon" alt="Global"> Global</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="story-flag-czechia-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span><img src="./assets/flags/cz.svg" class="flag-icon" alt="Czechia"> Czechia</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="story-flag-germany-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span><img src="./assets/flags/de.svg" class="flag-icon" alt="Germany"> Germany</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="story-flag-hungary-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span><img src="./assets/flags/hu.svg" class="flag-icon" alt="Hungary"> Hungary</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="story-flag-iceland-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span><img src="./assets/flags/is.svg" class="flag-icon" alt="Iceland"> Iceland</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="story-flag-italy-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span><img src="./assets/flags/it.svg" class="flag-icon" alt="Italy"> Italy</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="story-flag-portugal-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span><img src="./assets/flags/pt.svg" class="flag-icon" alt="Portugal"> Portugal</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="story-flag-slovakia-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span><img src="./assets/flags/sk.svg" class="flag-icon" alt="Slovakia"> Slovakia</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="story-flag-slovenia-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span><img src="./assets/flags/si.svg" class="flag-icon" alt="Slovenia"> Slovenia</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="story-flag-croatia-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span><img src="./assets/flags/hr.svg" class="flag-icon" alt="Croatia"> Croatia</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="story-flag-spain-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span><img src="./assets/flags/es.svg" class="flag-icon" alt="Spain"> Spain</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="story-flag-uk-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span><img src="./assets/flags/gb.svg" class="flag-icon" alt="UK"> UK</span>
-                            </label>
-                            <label>
-                                <input type="checkbox" id="story-flag-france-${storyId}" onchange="clearStoryGlobalIfCountrySelected('${storyId}')"> <span><img src="./assets/flags/fr.svg" class="flag-icon" alt="France"> France</span>
-                            </label>
-                        </div>
-                    </div>
+                    <div class="form-group">${renderCountryFlagsHTML({
+                        id: c => `story-flag-${c.name.toLowerCase()}-${storyId}`,
+                        onChange: c => c.code === 'global'
+                            ? `clearStoryCountriesIfGlobalSelected('${storyId}')`
+                            : `clearStoryGlobalIfCountrySelected('${storyId}')`,
+                        checked: c => c.code === 'global'
+                    })}</div>
                     
                     <div class="form-group" style="margin-top: 15px;">
                         <label for="story-comments-${storyId}">Comments <span style="font-style: italic; color: #888;">(optional, not shown on roadmap)</span>:</label>
