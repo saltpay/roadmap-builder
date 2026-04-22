@@ -374,7 +374,9 @@ label {
   font-size: 13px;
 }
 
-input, textarea, select {
+input:not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-default);
@@ -385,12 +387,14 @@ input, textarea, select {
   background: var(--surface-0);
   transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
 }
-input:hover:not(:disabled),
+input:not([type="checkbox"]):not([type="radio"]):hover:not(:disabled),
 textarea:hover:not(:disabled),
 select:hover:not(:disabled) {
   border-color: var(--border-strong);
 }
-input:focus, textarea:focus, select:focus {
+input:not([type="checkbox"]):not([type="radio"]):focus,
+textarea:focus,
+select:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: var(--focus-ring);
@@ -398,6 +402,17 @@ input:focus, textarea:focus, select:focus {
 input::placeholder, textarea::placeholder {
   color: var(--text-muted);
   opacity: 1;
+}
+
+input[type="checkbox"], input[type="radio"] {
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
 }
 select:disabled {
   background-color: var(--surface-2);
@@ -806,6 +821,20 @@ button[id*="collapse-btn"], button[id*="collapse"] {
 }
 .form-group .ktlo-percentage-error-message {
   margin-bottom: 0;
+}
+
+/* ---------------- Flags ---------------- */
+
+.flag-icon {
+  display: inline-block;
+  width: 20px;
+  height: 15px;
+  object-fit: cover;
+  border-radius: 2px;
+  border: 1px solid var(--border-subtle);
+  margin-right: 4px;
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 /* ---------------- Misc ---------------- */
