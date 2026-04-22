@@ -87,21 +87,6 @@
             display: none;
         }
         
-        .collapse-btn {
-            background: none;
-            border: none;
-            color: var(--text-on-primary);
-            font-size: 18px;
-            cursor: pointer;
-            padding: 2px;
-            margin: 0;
-            line-height: 1;
-            transform: translateY(-10px) translateX(10px);
-            opacity: 0.85;
-            transition: opacity var(--motion-fast);
-        }
-        .collapse-btn:hover { opacity: 1; }
-
         .file-browser-content {
             flex: 1;
             padding: var(--space-4);
@@ -129,14 +114,6 @@
             gap: 6px;
         }
 
-        /* Show Files button is only visible when file browser is collapsed */
-        .expand-file-browser-btn {
-            display: none;
-        }
-        .expand-file-browser-btn.visible {
-            display: inline-flex;
-        }
-        
         .file-browser-actions {
             margin-bottom: var(--space-4);
         }
@@ -356,7 +333,6 @@
         <div class="file-browser-panel collapsed" id="fileBrowserPanel">
             <div class="file-browser-header">
                 <h3>📁 Roadmap Files</h3>
-                <button onclick="toggleFileBrowser()" class="collapse-btn" id="fileBrowserToggle" title="Close File Browser">×</button>
             </div>
             <div class="file-browser-content" id="fileBrowserContent">
                 <div class="file-browser-actions">
@@ -378,8 +354,8 @@
             <div class="builder-panel">
             <div class="header-with-buttons">
                 <div class="builder-toolbar-buttons">
-                    <button class="secondary builder-toolbar-btn expand-file-browser-btn visible" id="expandFileBrowserBtn" onclick="toggleFileBrowser()" title="Show File Browser">
-                        <span class="btn-chevron">▶</span> Show Files
+                    <button class="secondary builder-toolbar-btn" id="expandFileBrowserBtn" onclick="toggleFileBrowser()" title="Toggle File Browser">
+                        ▶ Show Files
                     </button>
                     <button onclick="toggleBuilderCollapse()" id="builderCollapseBtn" class="secondary builder-toolbar-btn">▲ Hide Builder</button>
                 </div>
@@ -9264,19 +9240,14 @@
         // Toggle file browser collapse
         function toggleFileBrowser() {
             const panel = document.getElementById('fileBrowserPanel');
-            const toggle = document.getElementById('fileBrowserToggle');
             const expandBtn = document.getElementById('expandFileBrowserBtn');
-            
+
             if (panel.classList.contains('collapsed')) {
-                // Expand file browser
                 panel.classList.remove('collapsed');
-                toggle.textContent = '×';
-                expandBtn.classList.remove('visible');
+                expandBtn.textContent = '◀ Hide Files';
             } else {
-                // Collapse file browser
                 panel.classList.add('collapsed');
-                toggle.textContent = '×';
-                expandBtn.classList.add('visible');
+                expandBtn.textContent = '▶ Show Files';
             }
         }
         
