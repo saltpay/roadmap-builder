@@ -77,24 +77,29 @@
             border: 0;
         }
 
+        /* Both the Global row and the list share the same grid so every
+           option lives in an equally-sized cell and columns line up. */
+        .country-flags-global-row,
+        .country-flags-list {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            column-gap: 12px;
+            row-gap: 6px;
+        }
+
         .country-flags-global-row {
             margin-bottom: 8px;
             padding-bottom: 8px;
             border-bottom: 1px dashed rgba(0, 0, 0, 0.12);
         }
 
-        .country-flags-list {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            column-gap: 16px;
-            row-gap: 6px;
-        }
-
         @media (max-width: 720px) {
+            .country-flags-global-row,
             .country-flags-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
 
         @media (max-width: 480px) {
+            .country-flags-global-row,
             .country-flags-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
