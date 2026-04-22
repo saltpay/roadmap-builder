@@ -4,7 +4,7 @@ EXPOSE 8080
 WORKDIR /app
 
 # Copy the server files and web directory
-COPY server.js .
+COPY server.mjs .
 COPY web/ ./web/
 
 # Change ownership of the app directory to the non-root user
@@ -13,4 +13,4 @@ RUN chown -R node:node /app
 USER node
 
 # Start the Node.js server
-CMD ["node", "server.js"]
+CMD ["node", "server.mjs"]
