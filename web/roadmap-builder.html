@@ -7773,6 +7773,7 @@
                 const globalEl = document.getElementById(`story-flag-global-${storyId}`);
                 if (globalEl) globalEl.checked = false;
             }
+            debouncedGeneratePreview();
         }
 
         /**
@@ -7787,6 +7788,7 @@
                     if (el) el.checked = false;
                 });
             }
+            debouncedGeneratePreview();
         }
 
         function toggleEditTimelineChanges() {
