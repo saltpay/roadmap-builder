@@ -103,18 +103,14 @@
             .country-flags-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
-        /* Each flag row fills its grid cell and pins its content to the
-           cell's left edge. Explicit justify-self / justify-content defeats
-           any browser default that would center an inline-level fallback.
-           Reset the global
+        /* Each option is a content-width inline-flex row pinned to the grid
+           cell's left edge. Resets the global
            `label { display: block; font-weight: bold; margin-bottom: 5px }` rule. */
         .country-flag-option {
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            justify-content: flex-start;
             justify-self: start;
-            width: 100%;
-            gap: 6px;
+            gap: 3px;
             font-size: 13px;
             font-weight: normal;
             color: inherit;
@@ -128,8 +124,12 @@
             cursor: default;
         }
 
-        .country-flag-option input {
+        /* Strip the default browser spacing on the checkbox and flag so the
+           3px flex gap above is the ONLY spacing between them. */
+        .country-flag-option > input,
+        .country-flag-option > img {
             margin: 0;
+            flex-shrink: 0;
         }
 
         .country-flag-option input:focus-visible {
