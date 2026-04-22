@@ -21,6 +21,17 @@
     <script src="./roadmap-generator.js"></script>
     
     <style>
+        /* Country flag icon (local SVG, avoids Windows flag-emoji gaps) */
+        .flag-icon {
+            display: inline-block;
+            height: 1em;
+            width: auto;
+            vertical-align: -0.15em;
+            margin-right: 3px;
+            line-height: 1;
+            border-radius: 1px;
+        }
+
         body {
             margin: 0;
             padding: 0;
@@ -642,46 +653,45 @@
                             <div>
                                 <div style="display: flex; gap: 15px; flex-wrap: wrap; padding: 4px 0;">
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagGlobal" onchange="updateSearchButtonStates()"> <span>🌍 Global</span>
+                                        <input type="checkbox" id="searchFlagGlobal" onchange="updateSearchButtonStates()"> <span><img src="./assets/flags/global.svg" class="flag-icon" alt="Global"> Global</span>
                                     </label>
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagCzechia" onchange="updateSearchButtonStates()"> <span>🇨🇿 Czechia</span>
+                                        <input type="checkbox" id="searchFlagCzechia" onchange="updateSearchButtonStates()"> <span><img src="./assets/flags/cz.svg" class="flag-icon" alt="Czechia"> Czechia</span>
                                     </label>
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagHungary" onchange="updateSearchButtonStates()"> <span>🇭🇺 Hungary</span>
+                                        <input type="checkbox" id="searchFlagHungary" onchange="updateSearchButtonStates()"> <span><img src="./assets/flags/hu.svg" class="flag-icon" alt="Hungary"> Hungary</span>
                                     </label>
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagIceland" onchange="updateSearchButtonStates()"> <span>🇮🇸 Iceland</span>
+                                        <input type="checkbox" id="searchFlagIceland" onchange="updateSearchButtonStates()"> <span><img src="./assets/flags/is.svg" class="flag-icon" alt="Iceland"> Iceland</span>
                                     </label>
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagItaly" onchange="updateSearchButtonStates()"> <span>🇮🇹 Italy</span>
+                                        <input type="checkbox" id="searchFlagItaly" onchange="updateSearchButtonStates()"> <span><img src="./assets/flags/it.svg" class="flag-icon" alt="Italy"> Italy</span>
                                     </label>
                                 </div>
                                 <div style="display: flex; gap: 15px; flex-wrap: wrap; padding: 4px 0;">
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagPortugal" onchange="updateSearchButtonStates()"> <span>🇵🇹 Portugal</span>
+                                        <input type="checkbox" id="searchFlagPortugal" onchange="updateSearchButtonStates()"> <span><img src="./assets/flags/pt.svg" class="flag-icon" alt="Portugal"> Portugal</span>
                                     </label>
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagSlovakia" onchange="updateSearchButtonStates()"> <span>🇸🇰 Slovakia</span>
+                                        <input type="checkbox" id="searchFlagSlovakia" onchange="updateSearchButtonStates()"> <span><img src="./assets/flags/sk.svg" class="flag-icon" alt="Slovakia"> Slovakia</span>
                                     </label>
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagSlovenia" onchange="updateSearchButtonStates()"> <span>🇸🇮 Slovenia</span>
+                                        <input type="checkbox" id="searchFlagSlovenia" onchange="updateSearchButtonStates()"> <span><img src="./assets/flags/si.svg" class="flag-icon" alt="Slovenia"> Slovenia</span>
                                     </label>
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagCroatia" onchange="updateSearchButtonStates()"> <span>🇭🇷 Croatia</span>
+                                        <input type="checkbox" id="searchFlagCroatia" onchange="updateSearchButtonStates()"> <span><img src="./assets/flags/hr.svg" class="flag-icon" alt="Croatia"> Croatia</span>
                                     </label>
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagSpain" onchange="updateSearchButtonStates()"> <span>🇪🇸 Spain</span>
+                                        <input type="checkbox" id="searchFlagSpain" onchange="updateSearchButtonStates()"> <span><img src="./assets/flags/es.svg" class="flag-icon" alt="Spain"> Spain</span>
                                     </label>
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagUK" onchange="updateSearchButtonStates()"> <span>🇬🇧 UK</span>
+                                        <input type="checkbox" id="searchFlagUK" onchange="updateSearchButtonStates()"> <span><img src="./assets/flags/gb.svg" class="flag-icon" alt="UK"> UK</span>
                                     </label>
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagDE" onchange="updateSearchButtonStates()"> <span>🇩🇪 Germany</span>
-                                    </label>
+                                        <input type="checkbox" id="searchFlagDE" onchange="updateSearchButtonStates()"> <span><img src="./assets/flags/de.svg" class="flag-icon" alt="Germany"> Germany</span>
                                     </label>
                                     <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagFR" onchange="updateSearchButtonStates()"> <span>🇫🇷 France</span>
+                                        <input type="checkbox" id="searchFlagFR" onchange="updateSearchButtonStates()"> <span><img src="./assets/flags/fr.svg" class="flag-icon" alt="France"> France</span>
                                     </label>
                                 </div>
                             </div>
@@ -940,41 +950,40 @@
                         <label style="display: block; margin-bottom: 4px;">Country Flags:</label>
                         <div style="display: flex; gap: 12px 15px; flex-wrap: wrap; row-gap: 4px;">
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagGlobal"> <span>🌍 Global</span>
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagGlobal"> <span><img src="./assets/flags/global.svg" class="flag-icon" alt="Global"> Global</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagCzechia"> <span>🇨🇿 Czechia</span>
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagCzechia"> <span><img src="./assets/flags/cz.svg" class="flag-icon" alt="Czechia"> Czechia</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagHungary"> <span>🇭🇺 Hungary</span>
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagHungary"> <span><img src="./assets/flags/hu.svg" class="flag-icon" alt="Hungary"> Hungary</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagIceland"> <span>🇮🇸 Iceland</span>
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagIceland"> <span><img src="./assets/flags/is.svg" class="flag-icon" alt="Iceland"> Iceland</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagItaly"> <span>🇮🇹 Italy</span>
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagItaly"> <span><img src="./assets/flags/it.svg" class="flag-icon" alt="Italy"> Italy</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagPortugal"> <span>🇵🇹 Portugal</span>
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagPortugal"> <span><img src="./assets/flags/pt.svg" class="flag-icon" alt="Portugal"> Portugal</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagSlovakia"> <span>🇸🇰 Slovakia</span>
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagSlovakia"> <span><img src="./assets/flags/sk.svg" class="flag-icon" alt="Slovakia"> Slovakia</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagSlovenia"> <span>🇸🇮 Slovenia</span>
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagSlovenia"> <span><img src="./assets/flags/si.svg" class="flag-icon" alt="Slovenia"> Slovenia</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagCroatia"> <span>🇭🇷 Croatia</span>
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagCroatia"> <span><img src="./assets/flags/hr.svg" class="flag-icon" alt="Croatia"> Croatia</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagSpain"> <span>🇪🇸 Spain</span>
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagSpain"> <span><img src="./assets/flags/es.svg" class="flag-icon" alt="Spain"> Spain</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagUK"> <span>🇬🇧 UK</span>
-                            </label>
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagUK"> <span><img src="./assets/flags/gb.svg" class="flag-icon" alt="UK"> UK</span>
                             </label>
                             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagFrance"> <span>🇫🇷 France</span>
+                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagFrance"> <span><img src="./assets/flags/fr.svg" class="flag-icon" alt="France"> France</span>
                             </label>
                         </div>
                     </div>

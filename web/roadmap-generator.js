@@ -798,29 +798,33 @@ class RoadmapGenerator {
         const transferredInIconHTML = showTransferredInIcon ? '<div class="transferredin-icon">➡️</div>' : '';
         const proposedIconHTML = showProposedIcon ? '<div class="proposed-icon">💡</div>' : '';
         
-        // Generate country flags HTML
+        // Generate country flags HTML (local SVGs, avoids Windows flag-emoji gaps)
         let countryFlagsHTML = '';
         if (story.countryFlags && story.countryFlags.length > 0) {
             const flagMap = {
-                'Global': '🌍',
-                'UK': '🇬🇧',
-                'Iceland': '🇮🇸',
-                'Hungary': '🇭🇺',
-                'Spain': '🇪🇸',
-                'Italy': '🇮🇹',
-                'Portugal': '🇵🇹',
-                'Czechia': '🇨🇿',
-                'Slovakia': '🇸🇰',
-                'Slovenia': '🇸🇮',
-                'Croatia': '🇭🇷',
-                'Germany': '🇩🇪',
-                'France': '🇫🇷'
+                'Global': 'global',
+                'UK': 'gb',
+                'Iceland': 'is',
+                'Hungary': 'hu',
+                'Spain': 'es',
+                'Italy': 'it',
+                'Portugal': 'pt',
+                'Czechia': 'cz',
+                'Slovakia': 'sk',
+                'Slovenia': 'si',
+                'Croatia': 'hr',
+                'Germany': 'de',
+                'France': 'fr'
             };
-            const flagEmojis = story.countryFlags.map(f => flagMap[f] || '').filter(f => f).join('');
+            const flagImgs = story.countryFlags
+                .map(f => flagMap[f])
+                .filter(Boolean)
+                .map(code => `<img src="./assets/flags/${code}.svg" class="flag-icon" alt="${code}">`)
+                .join('');
             const hasTimelineIcon = iconHTML !== '';
             const topOffset = hasTimelineIcon ? '3px' : '3px';
             const rightOffset = hasTimelineIcon ? '11px' : '4px';
-            countryFlagsHTML = `<div class="country-flags-display" style="position: absolute; top: ${topOffset}; right: ${rightOffset}; font-size: 10px; z-index: 9998; line-height: 1;">${flagEmojis}</div>`;
+            countryFlagsHTML = `<div class="country-flags-display" style="position: absolute; top: ${topOffset}; right: ${rightOffset}; z-index: 9998; line-height: 1;">${flagImgs}</div>`;
         }
         
         const cancelledClass = story.isCancelled ? ' story-cancelled' : '';

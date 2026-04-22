@@ -386,6 +386,28 @@ body {
     min-height: 40px;
 }
 
+/* Country flag icon (local SVG, avoids Windows flag-emoji gaps) */
+.flag-icon {
+    display: inline-block;
+    height: 11px;
+    width: auto;
+    vertical-align: -1px;
+    margin-right: 1px;
+    line-height: 1;
+    border-radius: 1px;
+}
+
+.country-flags-display {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+}
+
+.country-flags-display .flag-icon {
+    height: 11px;
+    margin-right: 0;
+}
+
 /* Tags row (IMO + Priority) shown above a story */
 .story-tags {
     position: absolute;
