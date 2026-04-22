@@ -43,7 +43,7 @@ All attributions are documented in the NOTICE file.
 - Maintain security best practices (no hardcoded secrets, validate inputs)
 
 ### File Structure
-- Server code: `server.js` (main entry point)
+- Server code: `server.mjs` (main entry point)
 - Frontend: `web/` directory
 - Utilities: `web/utilities/` directory
 - Static assets: served from `web/` directory
