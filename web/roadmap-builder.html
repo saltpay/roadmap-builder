@@ -42,17 +42,25 @@
         /* Country checkbox group rendered by renderCountryFlagsHTML().
            Fixed-column grid keeps items in place across resize; Global is on
            its own row with a divider to signal the "applies to all" meaning. */
+        /* Fieldset has an implicit `min-inline-size: min-content` in Chrome/Safari
+           that makes it grow past the parent and overflow the modal. Force it to
+           honour the parent width. */
         .country-flags-fieldset {
             border: 0;
             padding: 0;
             margin: 0;
+            width: 100%;
             min-width: 0;
+            min-inline-size: 0;
+            box-sizing: border-box;
         }
 
         .country-flags-legend {
             display: block;
             padding: 0;
-            margin-bottom: 4px;
+            margin: 0 0 4px;
+            float: none;
+            width: auto;
             font-size: 13px;
             font-weight: normal;
         }
@@ -104,22 +112,26 @@
             margin: 0;
             padding: 2px 0;
             cursor: pointer;
-            white-space: nowrap;
             min-width: 0;
+            overflow: hidden;
+        }
+
+        .country-flag-option > input,
+        .country-flag-option > img {
+            flex: 0 0 auto;
+            margin: 0;
         }
 
         .country-flag-option > span {
+            flex: 1 1 auto;
+            min-width: 0;
+            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
         .country-flags-fieldset--readonly .country-flag-option {
             cursor: default;
-        }
-
-        .country-flag-option input {
-            margin: 0;
-            flex-shrink: 0;
         }
 
         .country-flag-option input:focus-visible {
