@@ -98,12 +98,12 @@
             .country-flags-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
-        /* Each flag row is an inline-flex item that sits at the grid cell's
-           start; cells are wide enough for every name so we don't need any
-           overflow or truncation gymnastics. Reset the global
+        /* Each flag row is a block-level flex item that fills its grid cell,
+           so the checkbox/flag/text anchor at the cell's left edge and align
+           vertically across rows. Reset the global
            `label { display: block; font-weight: bold; margin-bottom: 5px }` rule. */
         .country-flag-option {
-            display: inline-flex;
+            display: flex;
             align-items: center;
             gap: 6px;
             font-size: 13px;
