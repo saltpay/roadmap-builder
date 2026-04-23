@@ -124,10 +124,20 @@
             cursor: default;
         }
 
-        /* Strip the default browser spacing on the checkbox and flag so the
-           3px flex gap above is the ONLY spacing between them. */
-        .country-flag-option > input,
-        .country-flag-option > img {
+        /* Undo the global `input, textarea, select { width: 100%; padding: 8px;
+           border: 1px solid #ddd }` styles.css rule for our checkbox — it was
+           making the checkbox fill the whole cell. Also zero out the default
+           flag-icon right-margin so only the 3px flex gap separates them. */
+        .country-flag-option > input[type="checkbox"] {
+            width: auto;
+            height: auto;
+            padding: 0;
+            border: 0;
+            margin: 0;
+            flex-shrink: 0;
+        }
+
+        .country-flag-option > img.flag-icon {
             margin: 0;
             flex-shrink: 0;
         }
