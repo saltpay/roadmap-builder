@@ -87,21 +87,6 @@
             display: none;
         }
         
-        .collapse-btn {
-            background: none;
-            border: none;
-            color: var(--text-on-primary);
-            font-size: 18px;
-            cursor: pointer;
-            padding: 2px;
-            margin: 0;
-            line-height: 1;
-            transform: translateY(-10px) translateX(10px);
-            opacity: 0.85;
-            transition: opacity var(--motion-fast);
-        }
-        .collapse-btn:hover { opacity: 1; }
-
         .file-browser-content {
             flex: 1;
             padding: var(--space-4);
@@ -112,31 +97,23 @@
             display: none;
         }
 
-        /* Expand file browser button */
-        .expand-file-browser-btn {
-            background: none;
-            border: none;
-            color: var(--primary);
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            padding: var(--space-1) var(--space-2);
-            margin-right: var(--space-2);
-            display: none;
-            line-height: 1;
-            border-radius: var(--radius-sm);
-            transition: background-color var(--motion-fast), color var(--motion-fast);
+        /* Builder toolbar (Show Files / Hide Builder) buttons */
+        .builder-toolbar-buttons {
+            display: flex;
+            gap: var(--space-2);
+            margin-bottom: var(--space-2);
+            flex-wrap: wrap;
         }
 
-        .expand-file-browser-btn:hover {
-            color: var(--primary-hover);
-            background: var(--primary-soft);
+        .builder-toolbar-btn {
+            font-size: 12px;
+            padding: var(--space-2) var(--space-3);
+            margin: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
-        
-        .expand-file-browser-btn.visible {
-            display: inline-block;
-        }
-        
+
         .file-browser-actions {
             margin-bottom: var(--space-4);
         }
@@ -224,7 +201,7 @@
             width: 100%;
             overflow-y: auto;
             padding: var(--space-6);
-            background: #f5f5f5;
+            background: var(--surface-0);
             border: 1px solid var(--border-subtle);
             border-radius: var(--radius-xl);
             box-shadow: var(--shadow-sm);
@@ -241,23 +218,23 @@
             flex-shrink: 0;
             transition: height var(--motion-slow), border-color var(--motion-slow), box-shadow var(--motion-slow);
         }
-        
+
         /* Collapsed builder - minimize to just header */
         .builder-panel.collapsed {
             flex: none;
             height: auto;
             overflow: hidden;
         }
-        
+
         .builder-panel.collapsed > *:not(.header-with-buttons) {
             display: none;
         }
-        
+
         /* Hide filename display when builder is collapsed */
         .builder-panel.collapsed #currentFilenameDisplay {
             display: none !important;
         }
-        
+
         /* When builder collapsed, expand preview */
         .builder-panel.collapsed + .preview-panel {
             height: calc(100vh - 80px);
@@ -356,7 +333,6 @@
         <div class="file-browser-panel collapsed" id="fileBrowserPanel">
             <div class="file-browser-header">
                 <h3>📁 Roadmap Files</h3>
-                <button onclick="toggleFileBrowser()" class="collapse-btn" id="fileBrowserToggle" title="Close File Browser">×</button>
             </div>
             <div class="file-browser-content" id="fileBrowserContent">
                 <div class="file-browser-actions">
@@ -377,11 +353,11 @@
             <!-- Builder Panel -->
             <div class="builder-panel">
             <div class="header-with-buttons">
-                <div style="margin-bottom: 10px;">
-                    <button class="expand-file-browser-btn visible" id="expandFileBrowserBtn" onclick="toggleFileBrowser()" title="Show File Browser">
+                <div class="builder-toolbar-buttons">
+                    <button class="secondary builder-toolbar-btn" id="expandFileBrowserBtn" onclick="toggleFileBrowser()" title="Toggle File Browser">
                         ▶ Show Files
                     </button>
-                    <button onclick="toggleBuilderCollapse()" id="builderCollapseBtn" class="secondary" style="font-size: 14px; padding: 4px 8px; background: none; border: none; color: #007cba; cursor: pointer;">▲ Hide Builder</button>
+                    <button onclick="toggleBuilderCollapse()" id="builderCollapseBtn" class="secondary builder-toolbar-btn">▲ Hide Builder</button>
                 </div>
                 <div class="title-and-buttons">
                     <h1 style="margin: 0; padding: 0; text-align: left;"><span id="roadmapIcon">🗺️</span> Roadmap Builder</h1>
@@ -9167,14 +9143,12 @@
         function toggleBuilderCollapse() {
             const builderPanel = document.querySelector('.builder-panel');
             const collapseBtn = document.getElementById('builderCollapseBtn');
-            
+
             if (isBuilderCollapsed) {
-                // Expand builder
                 builderPanel.classList.remove('collapsed');
                 collapseBtn.textContent = '▲ Hide Builder';
                 isBuilderCollapsed = false;
             } else {
-                // Collapse builder
                 builderPanel.classList.add('collapsed');
                 collapseBtn.textContent = '▼ Show Builder';
                 isBuilderCollapsed = true;
@@ -9266,19 +9240,14 @@
         // Toggle file browser collapse
         function toggleFileBrowser() {
             const panel = document.getElementById('fileBrowserPanel');
-            const toggle = document.getElementById('fileBrowserToggle');
             const expandBtn = document.getElementById('expandFileBrowserBtn');
-            
+
             if (panel.classList.contains('collapsed')) {
-                // Expand file browser
                 panel.classList.remove('collapsed');
-                toggle.textContent = '×';
-                expandBtn.classList.remove('visible');
+                expandBtn.textContent = '◀ Hide Files';
             } else {
-                // Collapse file browser
                 panel.classList.add('collapsed');
-                toggle.textContent = '×';
-                expandBtn.classList.add('visible');
+                expandBtn.textContent = '▶ Show Files';
             }
         }
         
