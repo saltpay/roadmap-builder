@@ -1,31 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-label="Global">
-    <defs>
-        <clipPath id="gl-disc">
-            <circle cx="320" cy="240" r="220"/>
-        </clipPath>
-    </defs>
-    <!-- Ocean -->
-    <circle cx="320" cy="240" r="220" fill="#4a90e2"/>
-    <!-- Simplified continents clipped to the disc -->
-    <g clip-path="url(#gl-disc)" fill="#3c8f4c">
-        <!-- Eurasia -->
-        <path d="M210 160 Q260 135 330 140 Q400 145 450 165 Q480 180 470 205 Q450 225 410 225 Q380 222 360 235 Q340 245 320 235 Q295 220 275 225 Q245 230 220 215 Q205 200 210 180 Z"/>
-        <!-- Africa -->
-        <path d="M300 240 Q335 238 355 258 Q375 290 365 325 Q352 360 335 380 Q320 392 312 372 Q302 345 298 315 Q296 285 300 260 Z"/>
-        <!-- South America hint -->
-        <path d="M150 245 Q170 248 178 270 Q180 300 165 325 Q150 338 140 320 Q132 295 138 270 Z"/>
-        <!-- North America hint -->
-        <path d="M120 160 Q155 150 185 170 Q195 195 175 210 Q150 220 130 205 Q115 185 120 170 Z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Global">
+    <circle cx="12" cy="12" r="11" fill="#2f80ed"/>
+    <g fill="none" stroke="#ffffff" stroke-width="0.8" opacity="0.9">
+        <ellipse cx="12" cy="12" rx="11" ry="3.5"/>
+        <ellipse cx="12" cy="12" rx="11" ry="7"/>
+        <ellipse cx="12" cy="12" rx="3.5" ry="11"/>
+        <ellipse cx="12" cy="12" rx="7" ry="11"/>
+        <line x1="12" y1="1" x2="12" y2="23"/>
+        <line x1="1" y1="12" x2="23" y2="12"/>
     </g>
-    <!-- Graticule (meridians & parallels) -->
-    <g clip-path="url(#gl-disc)" fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.35">
-        <ellipse cx="320" cy="240" rx="220" ry="70"/>
-        <ellipse cx="320" cy="240" rx="220" ry="140"/>
-        <ellipse cx="320" cy="240" rx="70" ry="220"/>
-        <ellipse cx="320" cy="240" rx="140" ry="220"/>
-        <line x1="320" y1="20" x2="320" y2="460"/>
-        <line x1="100" y1="240" x2="540" y2="240"/>
-    </g>
-    <!-- Outline -->
-    <circle cx="320" cy="240" r="220" fill="none" stroke="#1f5aa3" stroke-width="4"/>
+    <circle cx="12" cy="12" r="11" fill="none" stroke="#134b90" stroke-width="0.8"/>
 </svg>
