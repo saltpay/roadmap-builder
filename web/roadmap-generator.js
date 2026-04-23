@@ -905,9 +905,9 @@ class RoadmapGenerator {
                 ${proposedIconHTML}
             ${editIconHTML}
             ${continuationYearHTML}
-            ${(story.imo || story.priority) ? `<div class="story-tags">
+            ${story.imo ? `<div class="story-tags">
                 ${story.priority ? `<div class="priority-tag priority-${story.priority.toLowerCase()}">${story.priority}</div>` : ''}
-                ${story.imo ? `<div class="imo-tag" style="text-shadow: -2px -2px 0 ${backgroundColor}, 2px -2px 0 ${backgroundColor}, -2px 2px 0 ${backgroundColor}, 2px 2px 0 ${backgroundColor}, 0 -2px 0 ${backgroundColor}, 0 2px 0 ${backgroundColor}, -2px 0 0 ${backgroundColor}, 2px 0 0 ${backgroundColor}, -1px -1px 0 ${backgroundColor}, 1px -1px 0 ${backgroundColor}, -1px 1px 0 ${backgroundColor}, 1px 1px 0 ${backgroundColor}, 0 -1px 0 ${backgroundColor}, 0 1px 0 ${backgroundColor}, -1px 0 0 ${backgroundColor}, 1px 0 0 ${backgroundColor};">(${story.imo})</div>` : ''}
+                <div class="imo-tag" style="text-shadow: -2px -2px 0 ${backgroundColor}, 2px -2px 0 ${backgroundColor}, -2px 2px 0 ${backgroundColor}, 2px 2px 0 ${backgroundColor}, 0 -2px 0 ${backgroundColor}, 0 2px 0 ${backgroundColor}, -2px 0 0 ${backgroundColor}, 2px 0 0 ${backgroundColor}, -1px -1px 0 ${backgroundColor}, 1px -1px 0 ${backgroundColor}, -1px 1px 0 ${backgroundColor}, 1px 1px 0 ${backgroundColor}, 0 -1px 0 ${backgroundColor}, 0 1px 0 ${backgroundColor}, -1px 0 0 ${backgroundColor}, 1px 0 0 ${backgroundColor};">(${story.imo})</div>
             </div>` : ''}
                                 <div class="task-title">${this.getStoryTitleWithStartInfo(story)}</div>
             ${bulletsHTML}

@@ -2813,12 +2813,15 @@
                     result = IMOUtility.filterStoriesByIMO(result, imoQuery);
                 }
 
-                // Priority filter
+                // Priority filter — only include stories that also have an IMO,
+                // mirroring the roadmap which hides the priority tag when IMO is empty.
                 const priorityQuery = document.getElementById('prioritySelect')?.value;
                 if (!opts.skipPriority && priorityQuery) {
+                    const wanted = priorityQuery.toLowerCase();
                     result = result.filter(story => {
-                        const storyPriority = (story.priority || '').toLowerCase();
-                        return storyPriority === priorityQuery.toLowerCase();
+                        const hasIMO = Boolean((story.imo || '').toString().trim());
+                        if (!hasIMO) return false;
+                        return (story.priority || '').toLowerCase() === wanted;
                     });
                 }
 
