@@ -798,27 +798,33 @@ class RoadmapGenerator {
         const transferredInIconHTML = showTransferredInIcon ? '<div class="transferredin-icon">➡️</div>' : '';
         const proposedIconHTML = showProposedIcon ? '<div class="proposed-icon">💡</div>' : '';
         
-        // Generate country flags HTML
+        // Generate country flags HTML (local SVGs, avoids Windows flag-emoji gaps)
         let countryFlagsHTML = '';
         if (story.countryFlags && story.countryFlags.length > 0) {
-            const flagImgStyle = 'width:13px;height:10px;vertical-align:middle;border-radius:1px;box-shadow:0 0 0 0.5px rgba(0,0,0,0.15);margin-left:1px;';
-            const countryCodes = {
-                UK: 'gb', Iceland: 'is', Hungary: 'hu', Spain: 'es', Italy: 'it',
-                Portugal: 'pt', Czechia: 'cz', Slovakia: 'sk', Slovenia: 'si',
-                Croatia: 'hr', Germany: 'de', France: 'fr'
+            const flagMap = {
+                'Global': 'global',
+                'UK': 'gb',
+                'Iceland': 'is',
+                'Hungary': 'hu',
+                'Spain': 'es',
+                'Italy': 'it',
+                'Portugal': 'pt',
+                'Czechia': 'cz',
+                'Slovakia': 'sk',
+                'Slovenia': 'si',
+                'Croatia': 'hr',
+                'Germany': 'de',
+                'France': 'fr'
             };
-            const flagFor = (name) => {
-                if (name === 'Global') return '<span style="font-size:12px;vertical-align:middle;margin-left:1px;">🌍</span>';
-                const code = countryCodes[name];
-                return code
-                    ? `<img src="https://flagcdn.com/w40/${code}.png" alt="${name}" style="${flagImgStyle}" crossorigin="anonymous">`
-                    : '';
-            };
-            const flagsHTML = story.countryFlags.map(flagFor).filter(Boolean).join('');
+            const flagImgs = story.countryFlags
+                .map(f => flagMap[f])
+                .filter(Boolean)
+                .map(code => `<img src="./assets/flags/${code}.svg" class="flag-icon" alt="${code}">`)
+                .join('');
             const hasTimelineIcon = iconHTML !== '';
-            const topOffset = '3px';
+            const topOffset = hasTimelineIcon ? '3px' : '3px';
             const rightOffset = hasTimelineIcon ? '11px' : '4px';
-            countryFlagsHTML = `<div class="country-flags-display" style="position: absolute; top: ${topOffset}; right: ${rightOffset}; z-index: 9998; line-height: 1; display:flex; align-items:center;">${flagsHTML}</div>`;
+            countryFlagsHTML = `<div class="country-flags-display" style="position: absolute; top: ${topOffset}; right: ${rightOffset}; z-index: 9998; line-height: 1;">${flagImgs}</div>`;
         }
         
         const cancelledClass = story.isCancelled ? ' story-cancelled' : '';
