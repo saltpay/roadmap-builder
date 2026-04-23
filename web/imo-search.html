@@ -18,9 +18,146 @@
     <script src="./utilities/config-utility.js"></script>
     <script src="./utilities/imo-utility.js"></script>
     <script src="./utilities/imo-view-generator.js"></script>
+    <script src="./utilities/countries.js"></script>
     <script src="./roadmap-generator.js"></script>
     
     <style>
+        /* Country flag icon (local SVG, avoids Windows flag-emoji gaps) */
+        .flag-icon {
+            display: inline-block;
+            height: 1em;
+            width: auto;
+            vertical-align: -0.15em;
+            margin-right: 3px;
+            line-height: 1;
+            border-radius: 1px;
+        }
+
+        /* Country checkbox group rendered by renderCountryFlagsHTML().
+           Fixed-column grid keeps items in place across resize; Global is on
+           its own row with a divider to signal the "applies to all" meaning. */
+        /* Fieldset has an implicit `min-inline-size: min-content` in Chrome/Safari
+           that makes it grow past the parent and overflow the container. Force it
+           to honour the parent width. */
+        .country-flags-fieldset {
+            border: 0;
+            padding: 0;
+            margin: 0;
+            width: 100%;
+            min-width: 0;
+            min-inline-size: 0;
+            box-sizing: border-box;
+        }
+
+        .country-flags-legend {
+            display: block;
+            padding: 0;
+            margin: 0 0 4px;
+            float: none;
+            width: auto;
+            font-size: 13px;
+            font-weight: normal;
+        }
+
+        .country-flags-legend--hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* Both the Global row and the list share the same grid so every
+           option lives in an equally-sized cell and columns line up. */
+        .country-flags-global-row,
+        .country-flags-list {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            column-gap: 12px;
+            row-gap: 6px;
+        }
+
+        .country-flags-global-row {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed rgba(0, 0, 0, 0.12);
+        }
+
+        @media (max-width: 720px) {
+            .country-flags-global-row,
+            .country-flags-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 480px) {
+            .country-flags-global-row,
+            .country-flags-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        /* Each option is a content-width inline-flex row pinned to the grid
+           cell's left edge. Resets the global
+           `label { display: block; font-weight: bold; margin-bottom: 5px }` rule. */
+        .country-flag-option {
+            display: inline-flex;
+            align-items: center;
+            justify-self: start;
+            gap: 3px;
+            font-size: 13px;
+            font-weight: normal;
+            color: inherit;
+            margin: 0;
+            padding: 2px 0;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .country-flags-fieldset--readonly .country-flag-option {
+            cursor: default;
+        }
+
+        /* Undo the global `input, textarea, select { width: 100%; padding: 8px;
+           border: 1px solid #ddd }` styles.css rule for our checkbox — it was
+           making the checkbox fill the whole cell. Also zero out the default
+           flag-icon right-margin so only the 3px flex gap separates them. */
+        .country-flag-option > input[type="checkbox"] {
+            width: auto;
+            height: auto;
+            padding: 0;
+            border: 0;
+            margin: 0;
+            flex-shrink: 0;
+        }
+
+        .country-flag-option > img.flag-icon {
+            margin: 0;
+            flex-shrink: 0;
+        }
+
+        .country-flag-option input:focus-visible {
+            outline: 2px solid #007cba;
+            outline-offset: 2px;
+            border-radius: 2px;
+        }
+
+        /* Search filter section: fieldset fills remaining space, button sits to its right */
+        .country-flags-search-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 15px;
+        }
+
+        .country-flags-search-slot {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .country-flags-search-row .search-button {
+            flex-shrink: 0;
+        }
+
         body {
             margin: 0;
             padding: 0;
@@ -637,58 +774,11 @@
                 <!-- Country Flag Search -->
                 <div class="search-section">
                     <h3 class="search-section-title">🌍 Country Flag Search</h3>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            <div>
-                                <div style="display: flex; gap: 15px; flex-wrap: wrap; padding: 4px 0;">
-                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagGlobal" onchange="updateSearchButtonStates()"> <span>🌍 Global</span>
-                                    </label>
-                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagCzechia" onchange="updateSearchButtonStates()"> <span><img src="https://flagcdn.com/w40/cz.png" alt="" class="flag-icon" crossorigin="anonymous"> Czechia</span>
-                                    </label>
-                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagHungary" onchange="updateSearchButtonStates()"> <span><img src="https://flagcdn.com/w40/hu.png" alt="" class="flag-icon" crossorigin="anonymous"> Hungary</span>
-                                    </label>
-                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagIceland" onchange="updateSearchButtonStates()"> <span><img src="https://flagcdn.com/w40/is.png" alt="" class="flag-icon" crossorigin="anonymous"> Iceland</span>
-                                    </label>
-                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagItaly" onchange="updateSearchButtonStates()"> <span><img src="https://flagcdn.com/w40/it.png" alt="" class="flag-icon" crossorigin="anonymous"> Italy</span>
-                                    </label>
-                                </div>
-                                <div style="display: flex; gap: 15px; flex-wrap: wrap; padding: 4px 0;">
-                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagPortugal" onchange="updateSearchButtonStates()"> <span><img src="https://flagcdn.com/w40/pt.png" alt="" class="flag-icon" crossorigin="anonymous"> Portugal</span>
-                                    </label>
-                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagSlovakia" onchange="updateSearchButtonStates()"> <span><img src="https://flagcdn.com/w40/sk.png" alt="" class="flag-icon" crossorigin="anonymous"> Slovakia</span>
-                                    </label>
-                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagSlovenia" onchange="updateSearchButtonStates()"> <span><img src="https://flagcdn.com/w40/si.png" alt="" class="flag-icon" crossorigin="anonymous"> Slovenia</span>
-                                    </label>
-                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagCroatia" onchange="updateSearchButtonStates()"> <span><img src="https://flagcdn.com/w40/hr.png" alt="" class="flag-icon" crossorigin="anonymous"> Croatia</span>
-                                    </label>
-                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagSpain" onchange="updateSearchButtonStates()"> <span><img src="https://flagcdn.com/w40/es.png" alt="" class="flag-icon" crossorigin="anonymous"> Spain</span>
-                                    </label>
-                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagUK" onchange="updateSearchButtonStates()"> <span><img src="https://flagcdn.com/w40/gb.png" alt="" class="flag-icon" crossorigin="anonymous"> UK</span>
-                                    </label>
-                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagDE" onchange="updateSearchButtonStates()"> <span><img src="https://flagcdn.com/w40/de.png" alt="" class="flag-icon" crossorigin="anonymous"> Germany</span>
-                                    </label>
-                                    </label>
-                                    <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; font-size: 13px;">
-                                        <input type="checkbox" id="searchFlagFR" onchange="updateSearchButtonStates()"> <span><img src="https://flagcdn.com/w40/fr.png" alt="" class="flag-icon" crossorigin="anonymous"> France</span>
-                                    </label>
-                                </div>
-                            </div>
-                            <button class="search-button" id="countryFlagSearchBtn" onclick="performCountryFlagSearch()" disabled>
-                                🌍 Search Countries
-                            </button>
-                        </div>
+                    <div class="country-flags-search-row">
+                        <div id="searchFlagsContainer" class="country-flags-search-slot"></div>
+                        <button class="search-button" id="countryFlagSearchBtn" onclick="performCountryFlagSearch()" disabled>
+                            🌍 Search Countries
+                        </button>
                     </div>
                 </div>
 
@@ -936,48 +1026,7 @@
                         </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label style="display: block; margin-bottom: 4px;">Country Flags:</label>
-                        <div style="display: flex; gap: 12px 15px; flex-wrap: wrap; row-gap: 4px;">
-                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagGlobal"> <span>🌍 Global</span>
-                            </label>
-                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagCzechia"> <span><img src="https://flagcdn.com/w40/cz.png" alt="" class="flag-icon" crossorigin="anonymous"> Czechia</span>
-                            </label>
-                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagHungary"> <span><img src="https://flagcdn.com/w40/hu.png" alt="" class="flag-icon" crossorigin="anonymous"> Hungary</span>
-                            </label>
-                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagIceland"> <span><img src="https://flagcdn.com/w40/is.png" alt="" class="flag-icon" crossorigin="anonymous"> Iceland</span>
-                            </label>
-                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagItaly"> <span><img src="https://flagcdn.com/w40/it.png" alt="" class="flag-icon" crossorigin="anonymous"> Italy</span>
-                            </label>
-                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagPortugal"> <span><img src="https://flagcdn.com/w40/pt.png" alt="" class="flag-icon" crossorigin="anonymous"> Portugal</span>
-                            </label>
-                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagSlovakia"> <span><img src="https://flagcdn.com/w40/sk.png" alt="" class="flag-icon" crossorigin="anonymous"> Slovakia</span>
-                            </label>
-                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagSlovenia"> <span><img src="https://flagcdn.com/w40/si.png" alt="" class="flag-icon" crossorigin="anonymous"> Slovenia</span>
-                            </label>
-                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagCroatia"> <span><img src="https://flagcdn.com/w40/hr.png" alt="" class="flag-icon" crossorigin="anonymous"> Croatia</span>
-                            </label>
-                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagSpain"> <span><img src="https://flagcdn.com/w40/es.png" alt="" class="flag-icon" crossorigin="anonymous"> Spain</span>
-                            </label>
-                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagUK"> <span><img src="https://flagcdn.com/w40/gb.png" alt="" class="flag-icon" crossorigin="anonymous"> UK</span>
-                            </label>
-                            </label>
-                            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; white-space: nowrap; font-size: 13px;">
-                                <input type="checkbox" class="view-flag-checkbox" id="viewFlagFrance"> <span><img src="https://flagcdn.com/w40/fr.png" alt="" class="flag-icon" crossorigin="anonymous"> France</span>
-                            </label>
-                        </div>
-                    </div>
+                    <div class="form-group" id="viewFlagsContainer"></div>
                     
                     <div class="form-group" style="margin-top: 15px;">
                         <label style="display: block; margin-bottom: 4px;">Product Roadmap:</label>
@@ -3641,8 +3690,8 @@
             if (document.getElementById('searchFlagCroatia')?.checked) flags.push('Croatia');
             if (document.getElementById('searchFlagSpain')?.checked) flags.push('Spain');
             if (document.getElementById('searchFlagUK')?.checked) flags.push('UK');
-            if (document.getElementById('searchFlagDE')?.checked) flags.push('Germany');
-            if (document.getElementById('searchFlagFR')?.checked) flags.push('France');
+            if (document.getElementById('searchFlagGermany')?.checked) flags.push('Germany');
+            if (document.getElementById('searchFlagFrance')?.checked) flags.push('France');
             return flags;
         }
 
@@ -3661,8 +3710,8 @@
             document.getElementById('searchFlagCroatia').checked = false;
             document.getElementById('searchFlagSpain').checked = false;
             document.getElementById('searchFlagUK').checked = false;
-            document.getElementById('searchFlagDE').checked = false;
-            document.getElementById('searchFlagFR').checked = false;
+            document.getElementById('searchFlagGermany').checked = false;
+            document.getElementById('searchFlagFrance').checked = false;
         }
 
         async function performCountryFlagSearch() {
@@ -3745,12 +3794,34 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            // Populate the country-flags fieldsets once. Existing save/load
+            // logic references the checkbox ids directly, so keep the id scheme
+            // it expects (searchFlag<Name>, viewFlag<Name>).
+            if (typeof renderCountryFlagsHTML === 'function') {
+                const searchContainer = document.getElementById('searchFlagsContainer');
+                if (searchContainer) {
+                    searchContainer.innerHTML = renderCountryFlagsHTML({
+                        id: c => `searchFlag${c.name}`,
+                        onChange: () => 'updateSearchButtonStates()',
+                        visuallyHiddenLegend: true
+                    });
+                }
+                const viewContainer = document.getElementById('viewFlagsContainer');
+                if (viewContainer) {
+                    viewContainer.innerHTML = renderCountryFlagsHTML({
+                        id: c => `viewFlag${c.name}`,
+                        readOnly: true,
+                        visuallyHiddenLegend: true
+                    });
+                }
+            }
+
             // Check if modal exists and is properly structured
             const modal = document.getElementById('storyDetailsModal');
             if (!modal) {
-                
+
             }
-            
+
             // Add input listeners for real-time button state updates
             document.getElementById('searchInput').addEventListener('input', updateSearchButtonStates);
             document.getElementById('titleSearchInput').addEventListener('input', updateSearchButtonStates);
