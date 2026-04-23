@@ -26,7 +26,8 @@
     <!-- Canonical country list + renderer for the flag-checkbox group -->
     <script src="./utilities/countries.js"></script>
     
-    <!-- Layout Toggle Styles -->
+    <!-- Page-specific styles (country-flag layout, page-scoped helpers).
+         All shared layout/panel/card/token styling lives in styles.css. -->
     <style>
         /* Country flag icon (local SVG, avoids Windows flag-emoji gaps) */
         .flag-icon {
@@ -41,10 +42,10 @@
 
         /* Country checkbox group rendered by renderCountryFlagsHTML().
            Fixed-column grid keeps items in place across resize; Global is on
-           its own row with a divider to signal the "applies to all" meaning. */
-        /* Fieldset has an implicit `min-inline-size: min-content` in Chrome/Safari
-           that makes it grow past the parent and overflow the modal. Force it to
-           honour the parent width. */
+           its own row with a divider to signal the "applies to all" meaning.
+           Fieldset has an implicit `min-inline-size: min-content` in Chrome/Safari
+           that makes it grow past the parent and overflow the modal — force it
+           to honour the parent width. */
         .country-flags-fieldset {
             border: 0;
             padding: 0;
@@ -77,8 +78,6 @@
             border: 0;
         }
 
-        /* Both the Global row and the list share the same grid so every
-           option lives in an equally-sized cell and columns line up. */
         .country-flags-global-row,
         .country-flags-list {
             display: grid;
@@ -90,7 +89,7 @@
         .country-flags-global-row {
             margin-bottom: 8px;
             padding-bottom: 8px;
-            border-bottom: 1px dashed rgba(0, 0, 0, 0.12);
+            border-bottom: 1px dashed var(--border-subtle);
         }
 
         @media (max-width: 720px) {
@@ -104,8 +103,7 @@
         }
 
         /* Each option is a content-width inline-flex row pinned to the grid
-           cell's left edge. Resets the global
-           `label { display: block; font-weight: bold; margin-bottom: 5px }` rule. */
+           cell's left edge. Resets the global label-block rule. */
         .country-flag-option {
             display: inline-flex;
             align-items: center;
@@ -124,10 +122,8 @@
             cursor: default;
         }
 
-        /* Undo the global `input, textarea, select { width: 100%; padding: 8px;
-           border: 1px solid #ddd }` styles.css rule for our checkbox — it was
-           making the checkbox fill the whole cell. Also zero out the default
-           flag-icon right-margin so only the 3px flex gap separates them. */
+        /* Undo the global full-width input style for the checkbox inside the
+           flag option — we want a native-sized checkbox here. */
         .country-flag-option > input[type="checkbox"] {
             width: auto;
             height: auto;
@@ -143,338 +139,27 @@
         }
 
         .country-flag-option input:focus-visible {
-            outline: 2px solid #007cba;
+            outline: 2px solid var(--primary);
             outline-offset: 2px;
             border-radius: 2px;
         }
 
-        /* Disabled select styling */
-        select:disabled {
-            background-color: #e9ecef;
-            color: #6c757d;
-            cursor: not-allowed;
-            opacity: 0.65;
-        }
-        
-        /* Horizontal layout with file browser, builder, and preview */
-        .builder-container {
-            display: flex;
-            flex-direction: row;
-            min-height: 100vh;
-            gap: 20px;
-            padding: 10px;
-        }
-        
-        /* File Browser Panel */
-        .file-browser-panel {
-            width: 200px;
-            background: white;
-            border: 2px solid #007cba;
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            transition: width 0.3s ease;
-            overflow: hidden;
-            flex-shrink: 0;
-        }
-        
-        .file-browser-panel.collapsed {
-            width: 0px;
-            border: none;
-            padding: 0;
-            margin: 0;
-            min-width: 0;
-        }
-        
-        .file-browser-header {
-            background: #007cba;
-            color: white;
-            padding: 10px 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            white-space: nowrap;
-        }
-        
-        .file-browser-header h3 {
-            margin: 0;
-            font-size: 16px;
-            color: white;
-        }
-        
-        .file-browser-panel.collapsed .file-browser-header {
-            display: none;
-        }
-        
-        .collapse-btn {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-            padding: 2px;
-            margin: 0;
-            line-height: 1;
-            transform: translateY(-10px) translateX(10px);
-        }
-        
-        .file-browser-content {
-            flex: 1;
-            padding: 15px;
-            overflow-y: auto;
-        }
-        
-        .file-browser-panel.collapsed .file-browser-content {
-            display: none;
-        }
-        
-        /* Expand file browser button (shown with builder controls) */
-        .expand-file-browser-btn {
-            background: none;
-            border: none;
-            color: #007cba;
-            font-size: 11px;
-            cursor: pointer;
-            padding: 4px 8px;
-            margin-right: 10px;
-            display: none;
-            line-height: 1;
-        }
-        
-        .expand-file-browser-btn:hover {
-            color: #007cba;
-            background: none;
-        }
-        
-        .expand-file-browser-btn.visible {
-            display: inline-block;
-        }
-        
-        .file-browser-actions {
-            margin-bottom: 15px;
-        }
-        
-        .file-list {
-            max-height: calc(100vh - 200px);
-            overflow-y: auto;
-        }
-        
-        .file-item {
-            display: flex;
-            align-items: center;
-            padding: 4px 8px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            border-left: 2px solid transparent;
-            font-family: 'Courier New', monospace;
-        }
-        
-        .file-item:hover {
-            background-color: #f0f8ff;
-            border-left-color: #007cba;
-        }
-        
-        .file-item-icon {
-            margin-right: 8px;
-            font-size: 14px;
-            width: 16px;
-            text-align: center;
-        }
-        
-        .file-item-info {
-            flex: 1;
-        }
-        
-        .file-item-name {
-            font-weight: normal;
-            color: #333;
-            font-size: 12px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 120px;
-        }
-        
-        .file-item::before {
-            content: "├─ ";
-            color: #666;
-            font-size: 12px;
-            margin-right: 4px;
-        }
-        
-        .file-item:last-child::before {
-            content: "└─ ";
-        }
-        
-        .no-directory-message {
-            text-align: center;
-            color: #666;
-            font-style: italic;
-            padding: 20px;
-            font-size: 12px;
-            font-family: 'Courier New', monospace;
-        }
-        
-        .directory-path {
-            font-size: 12px;
-            color: #333;
-            margin-bottom: 8px;
-            word-break: break-all;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            padding: 4px 8px;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        .main-content {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            min-width: 0;
-        }
-        
-        .builder-panel {
-            width: 100%;
-            overflow-y: auto;
-            padding: 20px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #cfd8dc;
-            flex: 1;
-            min-height: 0;
-            transition: all 0.3s ease;
-        }
-        
-        .preview-panel {
-            width: 100%;
-            height: 70vh;
-            min-height: 600px;
-            overflow: auto;
-            flex-shrink: 0;
-            transition: all 0.3s ease;
-        }
-        
-        /* Collapsed builder - minimize to just header */
-        .builder-panel.collapsed {
-            flex: none;
-            height: auto;
-            overflow: hidden;
-        }
-        
-        .builder-panel.collapsed > *:not(.header-with-buttons) {
-            display: none;
-        }
-        
-        /* Hide filename display when builder is collapsed */
-        .builder-panel.collapsed #currentFilenameDisplay {
-            display: none !important;
-        }
-        
-        /* When builder collapsed, expand preview */
-        .builder-panel.collapsed + .preview-panel {
-            height: calc(100vh - 80px);
-            flex: 1;
-        }
-        
-
-        
-        /* Ensure iframe fills container properly in both layouts */
-        .preview-panel {
-            min-height: 600px;
-        }
-        
-        #preview-area {
-            width: 100%;
-            height: 1000px;
-            border: none;
-        }
-
-        /* Fullscreen mode - make preview fill the screen */
-        .preview-panel:fullscreen {
-            width: 100vw;
-            height: 100vh;
-            background: white;
-        }
-
-        .preview-panel:fullscreen #preview-area {
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Webkit browsers (Chrome, Safari) */
-        .preview-panel:-webkit-full-screen {
-            width: 100vw;
-            height: 100vh;
-            background: white;
-        }
-
-        .preview-panel:-webkit-full-screen #preview-area {
-            width: 100%;
-            height: 100%;
-        }
-
-        /* In preview-first layout, make iframe responsive to container height */
-        .builder-container.preview-first-layout #preview-area {
-            height: 100%;
-            min-height: 600px;
-        }
-
-        /* Builder Panel Drag and Drop */
-        .builder-panel {
-            transition: all 0.3s ease;
-        }
-
-        .builder-panel.drag-over {
-            background: rgba(0, 123, 186, 0.03);
-            border: 2px dashed #007cba;
-            border-radius: 8px;
-        }
-
-        .builder-panel.drag-over::before {
-            content: '📁 Drop roadmap file anywhere on this form (.json)';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 123, 186, 0.9);
-            color: white;
-            padding: 15px 25px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            text-align: center;
-            z-index: 1000;
-            pointer-events: none;
-            white-space: nowrap;
-        }
-
-        /* Auto-filled timeline change date fields styling */
+        /* Auto-filled timeline change date fields */
         .auto-filled {
             font-style: italic;
-            color: #666;
+            color: var(--text-muted);
         }
 
-        /* Fullscreen button label visibility */
-        .fullscreen-button {
-            color: #111;
-        }
-        .fullscreen-button .fullscreen-label {
-            font-size: 12px;
-            margin-left: 6px;
-            color: #111;
-        }
-
-        /* Bar chart expand/collapse styles */
+        /* Bar chart expand/collapse (stats modal) */
         .bar-chart-container[data-tooltip="breakdown"]:hover {
-            background: #e5e7eb !important;
+            background: var(--surface-2) !important;
         }
-        
         .expand-chevron {
             display: inline-block;
-            transition: transform 0.2s ease;
+            transition: transform var(--motion-fast);
         }
-        
         .bar-chart-container:hover .expand-chevron {
-            color: #374151;
+            color: var(--text-strong);
         }
     </style>
 </head>
@@ -511,7 +196,7 @@
                     <button class="expand-file-browser-btn visible" id="expandFileBrowserBtn" onclick="toggleFileBrowser()" title="Show File Browser">
                         ▶ Show Files
                     </button>
-                    <button onclick="toggleBuilderCollapse()" id="builderCollapseBtn" class="secondary" style="font-size: 12px; padding: 4px 8px; background: none; border: none; color: #007cba; cursor: pointer;">▲ Hide Builder</button>
+                    <button onclick="toggleBuilderCollapse()" id="builderCollapseBtn" class="secondary builder-collapse-btn">▲ Hide Builder</button>
                 </div>
                 <div class="title-and-buttons">
                     <h1 style="margin: 0; padding: 0; text-align: left;"><span id="roadmapIcon">🗺️</span> Roadmap Builder</h1>
@@ -521,41 +206,6 @@
                     <button onclick="saveRoadmap()" class="secondary">💾 Save Roadmap</button>
                     <button onclick="openIMOSearch()" class="secondary">🔍 Search</button>
                     <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
-                    <style>
-                        .dropdown-content {
-                            display: none;
-                            position: absolute;
-                            background: #f8f9fa;
-                            min-width: 120px;
-                            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-                            z-index: 10000;
-                            right: 0;
-                            top: 100%;
-                            border-radius: 6px;
-                            border: 1px solid #cfd8dc;
-                            padding: 4px 0;
-                        }
-                        .dropdown-content a {
-                            display: block;
-                            color: #222;
-                            background: none;
-                            padding: 8px 18px;
-                            text-decoration: none;
-                            font-family: inherit;
-                            font-size: 15px;
-                            border: none;
-                            border-radius: 0;
-                            transition: background 0.15s;
-                            cursor: pointer;
-                        }
-                        .dropdown-content a:hover {
-                            background: #e0e0e0;
-                            color: #007cba;
-                        }
-                        .dropdown .secondary {
-                            border-radius: 6px 6px 6px 6px;
-                        }
-                    </style>
                     <div class="dropdown" style="display: inline-block; position: relative;">
                         <button id="shareDropdownBtn" class="secondary" onclick="toggleShareDropdown(event)">🌐 Share ▼</button>
                         <div id="shareDropdownMenu" class="dropdown-content">
@@ -869,16 +519,16 @@
             </div>
             
             <!-- Stats Modal -->
-            <div id="statsModal" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
-                <div style="background: #fff; border-radius: 10px; width: 60vw; max-width: 500px; max-height: 90vh; box-shadow: 0 10px 30px rgba(0,0,0,0.25); display: flex; flex-direction: column;">
-                    <div style="display:flex; align-items:center; justify-content:space-between; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;">
-                        <h3 style="margin:0; font-size: 18px;">Roadmap Statistics</h3>
-                        <button onclick="closeStatsModal()" class="secondary" style="border:none; background:none; font-size: 20px; line-height: 1; cursor:pointer; color: #666; padding: 4px;">×</button>
+            <div id="statsModal" class="modal" style="display: none;">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h3>Roadmap Statistics</h3>
+                        <span class="close" onclick="closeStatsModal()">&times;</span>
                     </div>
-                    <div id="statsModalBody" style="padding: 16px; overflow-y: auto; flex: 1; min-height: 0;">
+                    <div class="modal-body" id="statsModalBody">
                         <!-- Stats content injected here -->
                     </div>
-                    <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb; text-align: right; flex-shrink: 0;">
+                    <div class="modal-footer" style="justify-content: flex-end;">
                         <button onclick="closeStatsModal()" class="secondary">Close</button>
                     </div>
                 </div>
@@ -1007,7 +657,7 @@
             
             <!-- Below The Line Section -->
             <h2>Below The Line</h2>
-            <div class="btl-section" style="border: 2px solid #007cba; border-radius: 8px; padding: 15px; margin-bottom: 20px; background: #f8f9fa;">
+            <div class="btl-section">
                 <div class="flex-header">
                     <div class="flex-center">
                         <button id="btl-collapse-btn" onclick="toggleBTLCollapse()" title="Expand Below The Line" class="collapse-btn-collapsed">▶</button>
@@ -2008,8 +1658,8 @@
                 collapseBtn.textContent = '▶';
                 collapseBtn.title = 'Expand Story';
                 collapseBtn.classList.add('collapse-btn-collapsed');
-                collapseBtn.style.background = '#007cba';
-                collapseBtn.style.color = 'white';
+                collapseBtn.style.background = '';
+                collapseBtn.style.color = '';
                 // Add title suffix when collapsed
                 updateStoryHeaderTitle(storyId, true);
                 // Enable dragging when collapsed
@@ -2795,7 +2445,7 @@
                 <div class="story-section" id="story-${storyId}" data-story-id="${storyUniqueId}" draggable="true" ondragstart="handleStoryDragStart(event, '${storyId}')" ondragover="handleStoryDragOver(event)" ondrop="handleStoryDrop(event, '${storyId}')" ondragend="handleStoryDragEnd(event)">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <button id="story-collapse-btn-${storyId}" class="collapse-btn-collapsed" onclick="toggleStoryCollapse('${storyId}')" title="Expand Story" style="background: #007cba; color: white;">▶</button>
+                            <button id="story-collapse-btn-${storyId}" class="collapse-btn-collapsed" onclick="toggleStoryCollapse('${storyId}')" title="Expand Story">▶</button>
                             <h4 id="story-header-title-${storyId}" style="margin: 0; cursor: default;">📋 Story ${storyCounters[epicId]}</h4>
                         </div>
                         <div style="display: flex; gap: 5px; align-items: center;">
@@ -3185,7 +2835,7 @@
                 <div class="story-section" id="story-${storyId}" draggable="true" ondragstart="handleStoryDragStart(event, '${storyId}')" ondragover="handleStoryDragOver(event)" ondrop="handleStoryDrop(event, '${storyId}')" ondragend="handleStoryDragEnd(event)">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
-                            <button id="story-collapse-btn-${storyId}" class="collapse-btn-collapsed" onclick="toggleStoryCollapse('${storyId}')" title="Expand Story" style="background: #007cba; color: white;">▶</button>
+                            <button id="story-collapse-btn-${storyId}" class="collapse-btn-collapsed" onclick="toggleStoryCollapse('${storyId}')" title="Expand Story">▶</button>
                             <h4 id="story-header-title-${storyId}" style="margin: 0; cursor: default;">📋 Story ${btlStoryCounter}</h4>
                         </div>
                         <div style="display: flex; gap: 5px; align-items: center;">
