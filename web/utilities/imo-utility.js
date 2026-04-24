@@ -3,48 +3,61 @@
  * Handles directory scanning, story extraction, and filtering across multiple roadmap files
  */
 class IMOUtility {
-    
+
+    static scanCache = new WeakMap();
+
     /**
-     * Scan a directory handle and extract all roadmap JSON files
-     * @param {FileSystemDirectoryHandle} directoryHandle - Directory containing roadmap files
-     * @returns {Promise<Array>} - Array of {fileName, fileContent, teamData} objects
+     * Scan a directory handle and extract all roadmap JSON files.
+     * Results are cached per directory handle; pass {refresh: true} to force a rescan.
+     * @param {FileSystemDirectoryHandle} directoryHandle
+     * @param {{refresh?: boolean}} [options]
+     * @returns {Promise<Array>}
      */
-    static async scanRoadmapDirectory(directoryHandle) {
-        const roadmapFiles = [];
-        
+    static async scanRoadmapDirectory(directoryHandle, { refresh = false } = {}) {
+        if (!refresh && this.scanCache.has(directoryHandle)) {
+            return this.scanCache.get(directoryHandle);
+        }
+
+        const jsonHandles = [];
         try {
             for await (const [name, handle] of directoryHandle.entries()) {
                 if (handle.kind === 'file' && name.toLowerCase().endsWith('.json')) {
-                    try {
-                        const file = await handle.getFile();
-                        const content = await file.text();
-                        const roadmapData = JSON.parse(content);
-                        
-                        // Handle both new format (with metadata) and legacy format (direct teamData)
-                        const teamData = roadmapData.teamData || roadmapData;
-                        
-                        if (teamData && teamData.teamName) {
-                            roadmapFiles.push({
-                                fileName: name,
-                                fileContent: content,
-                                teamData: teamData,
-                                fileHandle: handle
-                            });
-                        }
-                    } catch (error) {
-                        console.warn(`Skipping invalid JSON file: ${name}`, error);
-                    }
+                    jsonHandles.push([name, handle]);
                 }
             }
         } catch (error) {
             console.error('Error scanning directory:', error);
             throw new Error('Failed to scan roadmap directory: ' + error.message);
         }
-        
-        // Sort files alphabetically by filename for consistent ordering
-        roadmapFiles.sort((a, b) => a.fileName.localeCompare(b.fileName));
-        
+
+        const results = await Promise.all(jsonHandles.map(async ([name, handle]) => {
+            try {
+                const file = await handle.getFile();
+                const content = await file.text();
+                const roadmapData = JSON.parse(content);
+                const teamData = roadmapData.teamData || roadmapData;
+                if (teamData && teamData.teamName) {
+                    return { fileName: name, fileContent: content, teamData, fileHandle: handle };
+                }
+                return null;
+            } catch (error) {
+                console.warn(`Skipping invalid JSON file: ${name}`, error);
+                return null;
+            }
+        }));
+
+        const roadmapFiles = results
+            .filter(Boolean)
+            .sort((a, b) => a.fileName.localeCompare(b.fileName));
+
+        this.scanCache.set(directoryHandle, roadmapFiles);
         return roadmapFiles;
+    }
+
+    static clearScanCache(directoryHandle) {
+        if (directoryHandle) {
+            this.scanCache.delete(directoryHandle);
+        }
     }
     
     /**
