@@ -1744,7 +1744,7 @@ class RoadmapGenerator {
                     if (!selectedStory) return;
                     
                     // Open roadmap builder with story details
-                    const builderUrl = 'roadmap-builder.html';
+                    const builderUrl = '/builder';
                     const params = new URLSearchParams({
                         action: 'edit',
                         epic: selectedStory.epicName,

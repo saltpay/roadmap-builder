@@ -1,4 +1,160 @@
-<html>
-    <!-- redirect to roadmap-builder.html -->
-    <meta http-equiv="refresh" content="0; url=roadmap-builder.html" />
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>🗺️ Roadmap Builder</title>
+
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/roadmap-styles.css">
+
+    <!-- Shared utilities — loaded once, available to every view -->
+    <script src="/utilities/date-utility.js"></script>
+    <script src="/utilities/ui-utility.js"></script>
+    <script src="/utilities/config-utility.js"></script>
+    <script src="/utilities/imo-utility.js"></script>
+    <script src="/utilities/imo-view-generator.js"></script>
+    <script src="/utilities/countries.js"></script>
+    <script src="/roadmap-generator.js"></script>
+
+    <!-- Export libs used by the builder -->
+    <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+    <style>
+        /* SPA shell nav — fully self-contained. Hard-coded colors + !important
+           so view-level <style> blocks can't shift its appearance on navigation.
+           Fixed positioning keeps it locked in place; main content is offset
+           to match. Two-row layout: brand on top, tabs + folder below. */
+        :root {
+            --app-nav-top-h: 44px;
+            --app-nav-bottom-h: 42px;
+            --app-nav-height: calc(var(--app-nav-top-h) + var(--app-nav-bottom-h));
+            --app-brand-bg: #00587A;
+            --app-nav-bg: #00739A;
+            --app-nav-border: #004A68;
+        }
+
+        .app-nav {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            box-sizing: border-box !important;
+            display: flex !important;
+            flex-direction: column !important;
+            background: var(--app-nav-bg) !important;
+            border-bottom: 1px solid var(--app-nav-border) !important;
+            font: 500 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+            z-index: 100 !important;
+        }
+        .app-nav * { box-sizing: border-box !important; }
+
+        .app-nav__top {
+            height: var(--app-nav-top-h) !important;
+            display: flex !important;
+            align-items: center !important;
+            padding: 0 20px !important;
+            background: var(--app-brand-bg) !important;
+        }
+
+        .app-nav__brand {
+            color: #ffffff !important;
+            text-decoration: none !important;
+            font-weight: 700 !important;
+            font-size: 22px !important;
+            letter-spacing: 0.3px !important;
+            line-height: 1 !important;
+        }
+        .app-nav__brand:hover { opacity: 0.92 !important; }
+
+        .app-nav__bottom {
+            height: var(--app-nav-bottom-h) !important;
+            display: flex !important;
+            align-items: stretch !important;
+            padding: 0 20px !important;
+            gap: 4px !important;
+        }
+
+        .app-nav__links {
+            display: flex !important;
+            align-items: stretch !important;
+            gap: 4px !important;
+            flex: 1 1 auto !important;
+        }
+
+        .app-nav__link {
+            display: inline-flex !important;
+            align-items: center !important;
+            padding: 0 14px !important;
+            color: rgba(255, 255, 255, 0.75) !important;
+            text-decoration: none !important;
+            background: transparent !important;
+            border: 0 !important;
+            border-bottom: 2px solid transparent !important;
+            font-weight: 500 !important;
+            font-size: 14px !important;
+            line-height: 1 !important;
+            transition: color 120ms ease, border-color 120ms ease !important;
+        }
+        .app-nav__link:hover {
+            color: #ffffff !important;
+            border-bottom-color: rgba(255, 255, 255, 0.35) !important;
+        }
+        .app-nav__link[aria-current="page"] {
+            color: #ffffff !important;
+            border-bottom-color: #ffffff !important;
+            font-weight: 600 !important;
+        }
+
+        .app-nav__folder {
+            align-self: center !important;
+            appearance: none !important;
+            -webkit-appearance: none !important;
+            border: 1px solid rgba(255, 255, 255, 0.35) !important;
+            background: #ffffff !important;
+            color: #00587A !important;
+            font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+            padding: 8px 14px !important;
+            border-radius: 999px !important;
+            cursor: pointer !important;
+            max-width: 360px !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12) !important;
+            transition: background 120ms ease, color 120ms ease, border-color 120ms ease !important;
+        }
+        .app-nav__folder:hover { background: #f0fbff !important; }
+        .app-nav__folder[data-state="empty"] {
+            background: transparent !important;
+            color: #ffffff !important;
+            border-color: rgba(255, 255, 255, 0.5) !important;
+            box-shadow: none !important;
+        }
+        .app-nav__folder[data-state="empty"]:hover { background: rgba(255, 255, 255, 0.1) !important; }
+        .app-nav__folder[data-state="prompt"] {
+            background: #fef3c7 !important;
+            color: #92400e !important;
+            border-color: #fbbf24 !important;
+        }
+        .app-nav__folder[data-state="prompt"]:hover { background: #fde68a !important; }
+
+        .app-main {
+            padding-top: var(--app-nav-height);
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <nav class="app-nav" id="appNav" aria-label="Primary"></nav>
+    <main class="app-main" id="app"></main>
+
+    <script src="/app/directory-store.js"></script>
+    <script src="/app/nav.js"></script>
+    <script src="/app/router.js"></script>
+</body>
 </html>
