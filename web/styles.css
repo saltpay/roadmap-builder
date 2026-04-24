@@ -129,7 +129,7 @@
 body {
   font-family: var(--font-sans);
   margin: 0;
-  padding: var(--space-5);
+  padding: var(--space-4);
   background: var(--surface-1);
   color: var(--text-default);
   -webkit-font-smoothing: antialiased;
@@ -162,39 +162,293 @@ body {
 .builder-container {
   margin: 0 auto;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: var(--space-5);
   min-height: calc(100vh - 40px);
   width: 100%;
+  padding: var(--space-2);
 }
 
-.builder-panel {
-  background: var(--surface-0);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  padding: var(--space-6);
-  box-shadow: var(--shadow-sm);
-  width: 100%;
+.main-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: var(--space-5);
 }
 
+/* Shared card surface for the two main panels (builder input + rendered roadmap).
+   Both respond identically to dark mode via tokens. */
+.builder-panel,
 .preview-panel {
   background: var(--surface-0);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
+  width: 100%;
+  transition: border-color var(--motion-base), box-shadow var(--motion-base),
+              background-color var(--motion-base);
+}
+
+.builder-panel {
+  padding: var(--space-6);
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.preview-panel {
   padding: 0;
-  overflow: visible;
+  overflow: hidden;
   position: relative;
   cursor: pointer;
-  transition: border-color var(--motion-base), box-shadow var(--motion-base);
   min-height: 600px;
-  width: 100%;
-  min-width: 1200px;
+  flex-shrink: 0;
+  height: 70vh;
 }
 
 .preview-panel:hover {
   border-color: var(--primary);
   box-shadow: var(--shadow-md);
+}
+
+/* Collapsed builder: shrink to header only so preview can take the remaining space */
+.builder-panel.collapsed {
+  flex: none;
+  height: auto;
+  overflow: hidden;
+  padding: var(--space-4) var(--space-6);
+}
+.builder-panel.collapsed > *:not(.header-with-buttons) { display: none; }
+.builder-panel.collapsed #currentFilenameDisplay { display: none !important; }
+.builder-panel.collapsed + .preview-panel {
+  height: calc(100vh - 80px);
+  flex: 1;
+}
+
+/* Drag-and-drop state for the builder panel */
+.builder-panel.drag-over {
+  border: 2px dashed var(--primary);
+  background: color-mix(in srgb, var(--primary) 4%, var(--surface-0));
+}
+.builder-panel.drag-over::before {
+  content: '📁 Drop roadmap file anywhere on this form (.json)';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--primary);
+  color: var(--text-on-primary);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  z-index: 1000;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: var(--shadow-md);
+}
+
+/* Fullscreen mode for preview */
+.preview-panel:fullscreen,
+.preview-panel:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  background: var(--surface-0);
+  border-radius: 0;
+  border: none;
+}
+.preview-panel:fullscreen #preview-area,
+.preview-panel:-webkit-full-screen #preview-area {
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------------- File Browser Panel ---------------- */
+
+.file-browser-panel {
+  width: 220px;
+  background: var(--surface-0);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  transition: width var(--motion-slow), opacity var(--motion-base),
+              border-color var(--motion-base), box-shadow var(--motion-base);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.file-browser-panel.collapsed {
+  width: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  opacity: 0;
+}
+
+.file-browser-header {
+  background: var(--surface-2);
+  color: var(--text-strong);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+.file-browser-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.file-browser-panel.collapsed .file-browser-header,
+.file-browser-panel.collapsed .file-browser-content { display: none; }
+
+.file-browser-content {
+  flex: 1;
+  padding: var(--space-4);
+  overflow-y: auto;
+}
+
+.file-browser-actions { margin-bottom: var(--space-3); }
+
+.expand-file-browser-btn {
+  background: none;
+  border: 1px solid var(--border-default);
+  color: var(--text-default);
+  font-size: 12px;
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  margin-right: var(--space-2);
+  border-radius: var(--radius-sm);
+  display: none;
+  line-height: 1.25;
+  transition: background-color var(--motion-fast), color var(--motion-fast),
+              border-color var(--motion-fast);
+}
+.expand-file-browser-btn:hover {
+  background: var(--surface-2);
+  color: var(--text-strong);
+  border-color: var(--border-strong);
+}
+.expand-file-browser-btn.visible { display: inline-block; }
+
+.file-browser-panel .collapse-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: var(--space-1);
+  margin: 0;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  transition: color var(--motion-fast), background-color var(--motion-fast);
+}
+.file-browser-panel .collapse-btn:hover {
+  color: var(--text-strong);
+  background: color-mix(in srgb, var(--text-strong) 6%, transparent);
+}
+
+.file-list {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+  transition: background-color var(--motion-fast), border-color var(--motion-fast);
+  border-left: 2px solid transparent;
+  font-family: var(--font-mono);
+  border-radius: var(--radius-sm);
+}
+.file-item:hover {
+  background-color: var(--surface-2);
+  border-left-color: var(--primary);
+}
+.file-item-icon {
+  margin-right: var(--space-2);
+  font-size: 14px;
+  width: 16px;
+  text-align: center;
+}
+.file-item-info { flex: 1; }
+.file-item-name {
+  font-weight: normal;
+  color: var(--text-default);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+.file-item::before {
+  content: "├─ ";
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-right: 4px;
+}
+.file-item:last-child::before { content: "└─ "; }
+
+.no-directory-message {
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: var(--space-5);
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+.directory-path {
+  font-size: 12px;
+  color: var(--text-default);
+  margin-bottom: var(--space-2);
+  word-break: break-all;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* ---------------- Dropdown menu ---------------- */
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background: var(--surface-0);
+  min-width: 140px;
+  box-shadow: var(--shadow-lg);
+  z-index: 10000;
+  right: 0;
+  top: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-1) 0;
+  overflow: hidden;
+}
+.dropdown-content a {
+  display: block;
+  color: var(--text-default);
+  background: none;
+  padding: var(--space-2) var(--space-4);
+  text-decoration: none;
+  font-family: inherit;
+  font-size: 14px;
+  border: none;
+  transition: background-color var(--motion-fast), color var(--motion-fast);
+  cursor: pointer;
+}
+.dropdown-content a:hover {
+  background: var(--surface-2);
+  color: var(--text-strong);
 }
 
 /* ---------------- Fullscreen ---------------- */
@@ -203,7 +457,8 @@ body {
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
-  background: rgb(255 255 255 / 0.9);
+  background: color-mix(in srgb, var(--surface-0) 90%, transparent);
+  color: var(--text-strong);
   backdrop-filter: saturate(180%) blur(6px);
   -webkit-backdrop-filter: saturate(180%) blur(6px);
   border: 1px solid var(--border-subtle);
@@ -217,6 +472,11 @@ body {
   background: var(--primary);
   color: var(--text-on-primary);
   border-color: var(--primary);
+}
+.fullscreen-button .fullscreen-label {
+  font-size: 12px;
+  margin-left: var(--space-2);
+  color: inherit;
 }
 .fullscreen-icon {
   font-size: 16px;
@@ -561,7 +821,8 @@ button.danger:hover { background: var(--danger-hover); }
 /* ---------------- Sections ---------------- */
 
 .epic-section,
-.ktlo-section {
+.ktlo-section,
+.btl-section {
   border: 1px solid var(--border-subtle);
   border-left: 3px solid var(--primary);
   border-radius: var(--radius-lg);
@@ -569,6 +830,20 @@ button.danger:hover { background: var(--danger-hover); }
   margin-bottom: var(--space-5);
   background: var(--surface-1);
   box-shadow: var(--shadow-xs);
+}
+
+.builder-collapse-btn {
+  font-size: 12px;
+  padding: var(--space-1) var(--space-2);
+  background: none;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  margin: 0;
+}
+.builder-collapse-btn:hover {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--primary-hover);
 }
 
 .story-section {
@@ -608,8 +883,11 @@ button.danger:hover { background: var(--danger-hover); }
 
 #preview-area {
   width: 100%;
-  height: 1000px;
+  height: 100%;
+  min-height: 600px;
   border: none;
+  border-radius: var(--radius-xl);
+  display: block;
 }
 
 .action-buttons {
