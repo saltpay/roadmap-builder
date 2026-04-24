@@ -742,9 +742,13 @@
                 
                 <!-- Directory Selection - Top Priority -->
                 <div class="directory-selection">
+                    <input type="file" id="directoryFileInput" style="display: none;" multiple webkitdirectory>
                     <div class="directory-row">
                         <button class="directory-button" id="selectDirBtn" onclick="selectDirectory()">
                             📁 Select Directory
+                        </button>
+                        <button class="directory-button" id="reloadDirBtn" onclick="reloadDirectory()" style="display: none; background: #6c757d; border-color: #6c757d;">
+                            🔄 Reload
                         </button>
                         <span class="directory-status" id="directoryStatus">No directory selected</span>
                     </div>
@@ -2353,43 +2357,98 @@
          */
         async function selectDirectory() {
             if (!('showDirectoryPicker' in window)) {
-                showDirectoryPickerUnsupported();
+                openFallbackDirectoryPicker();
                 return;
             }
             try {
                 selectedDirectory = await window.showDirectoryPicker();
+                await warmDirectoryCache({ refresh: true });
+                updateSearchButtonStates();
+            } catch (error) {
+                if (error.name === 'AbortError') return;
+                // Some browsers (or restrictive policies) reject the picker; fall back to the file input.
+                openFallbackDirectoryPicker();
+            }
+        }
 
-                // Update UI
-                const dirBtn = document.getElementById('selectDirBtn');
-                const dirStatus = document.getElementById('directoryStatus');
+        function openFallbackDirectoryPicker() {
+            const input = document.getElementById('directoryFileInput');
+            input.value = '';
+            input.onchange = handleFallbackDirectorySelection;
+            input.click();
+        }
 
+        async function handleFallbackDirectorySelection(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
+
+            const dirName = files[0].webkitRelativePath?.split('/')[0] || 'selected folder';
+
+            // webkitdirectory yields every descendant; keep only files immediately inside the picked folder
+            // so we match the non-recursive behaviour of showDirectoryPicker().
+            const topLevelFiles = Array.from(files).filter(f => {
+                const path = f.webkitRelativePath || f.name;
+                return path.split('/').length === 2;
+            });
+
+            selectedDirectory = {
+                kind: 'directory',
+                name: dirName,
+                entries: async function*() {
+                    for (const file of topLevelFiles) {
+                        yield [file.name, {
+                            kind: 'file',
+                            name: file.name,
+                            getFile: async () => file
+                        }];
+                    }
+                }
+            };
+
+            await warmDirectoryCache({ refresh: true });
+            updateSearchButtonStates();
+        }
+
+        async function reloadDirectory() {
+            if (!selectedDirectory) return;
+            await warmDirectoryCache({ refresh: true });
+        }
+
+        async function warmDirectoryCache({ refresh = false } = {}) {
+            const dirBtn = document.getElementById('selectDirBtn');
+            const reloadBtn = document.getElementById('reloadDirBtn');
+            const dirStatus = document.getElementById('directoryStatus');
+
+            const originalText = dirBtn.textContent;
+            dirBtn.textContent = '⏳ Scanning...';
+            dirBtn.disabled = true;
+            if (reloadBtn) reloadBtn.disabled = true;
+            dirStatus.textContent = `Scanning ${selectedDirectory.name}…`;
+            dirStatus.style.color = '';
+
+            try {
+                const files = await IMOUtility.scanRoadmapDirectory(selectedDirectory, { refresh });
                 dirBtn.textContent = '✓ ' + selectedDirectory.name;
                 dirBtn.classList.add('selected');
-                dirStatus.textContent = `Selected: ${selectedDirectory.name}`;
-
-                // Update all search button states
-                updateSearchButtonStates();
-
+                const count = files.length;
+                dirStatus.textContent = `Selected: ${selectedDirectory.name} (${count} roadmap${count === 1 ? '' : 's'})`;
+                if (reloadBtn) reloadBtn.style.display = '';
             } catch (error) {
-                if (error.name !== 'AbortError') {
-
-                    alert('Error selecting directory: ' + error.message);
-                }
+                dirBtn.textContent = originalText;
+                dirStatus.style.color = '#dc3545';
+                dirStatus.textContent = 'Failed to scan: ' + error.message;
+            } finally {
+                dirBtn.disabled = false;
+                if (reloadBtn) reloadBtn.disabled = false;
             }
         }
 
         function showDirectoryPickerUnsupported() {
-            const dirBtn = document.getElementById('selectDirBtn');
             const dirStatus = document.getElementById('directoryStatus');
-            if (dirBtn) {
-                dirBtn.disabled = true;
-                dirBtn.style.opacity = '0.6';
-                dirBtn.style.cursor = 'not-allowed';
-            }
             if (dirStatus) {
                 dirStatus.style.color = '#dc3545';
                 dirStatus.style.fontStyle = 'normal';
-                dirStatus.innerHTML = '<strong>File Browser Not Supported</strong> &mdash; please use Chrome, Edge, or another compatible browser.';
+                dirStatus.innerHTML = '<strong>This browser may not fully support folder selection</strong> &mdash; Chrome or Edge recommended.';
             }
         }
         
