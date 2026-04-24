@@ -24,6 +24,10 @@ const ROUTES = {
   '/': 'index.html',
 };
 
+// Client-side routes served by the SPA shell. Any GET that matches one of
+// these (or /) falls back to index.html so deep links and reloads work.
+const SPA_ROUTES = new Set(['/', '/builder', '/imo-search', '/example']);
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -31,6 +35,7 @@ const CORS_HEADERS = {
 };
 
 function resolveFilePath(pathname) {
+  if (SPA_ROUTES.has(pathname)) return resolve(join(WEB_DIR, 'index.html'));
   const relative = ROUTES[pathname] ?? pathname.replace(/^\/+/, '');
   return resolve(join(WEB_DIR, relative));
 }
@@ -88,8 +93,8 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
   console.log(`Serving static files from: ${WEB_DIR}`);
-  console.log('Available endpoints:');
-  for (const route of Object.keys(ROUTES)) {
+  console.log('SPA routes (served by index.html):');
+  for (const route of SPA_ROUTES) {
     console.log(`  GET    ${route}`);
   }
 });
