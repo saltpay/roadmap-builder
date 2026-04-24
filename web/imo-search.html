@@ -2352,25 +2352,44 @@
          * Select directory containing roadmap files
          */
         async function selectDirectory() {
+            if (!('showDirectoryPicker' in window)) {
+                showDirectoryPickerUnsupported();
+                return;
+            }
             try {
                 selectedDirectory = await window.showDirectoryPicker();
-                
+
                 // Update UI
                 const dirBtn = document.getElementById('selectDirBtn');
                 const dirStatus = document.getElementById('directoryStatus');
-                
+
                 dirBtn.textContent = '✓ ' + selectedDirectory.name;
                 dirBtn.classList.add('selected');
                 dirStatus.textContent = `Selected: ${selectedDirectory.name}`;
-                
+
                 // Update all search button states
                 updateSearchButtonStates();
-                
+
             } catch (error) {
                 if (error.name !== 'AbortError') {
-                    
+
                     alert('Error selecting directory: ' + error.message);
                 }
+            }
+        }
+
+        function showDirectoryPickerUnsupported() {
+            const dirBtn = document.getElementById('selectDirBtn');
+            const dirStatus = document.getElementById('directoryStatus');
+            if (dirBtn) {
+                dirBtn.disabled = true;
+                dirBtn.style.opacity = '0.6';
+                dirBtn.style.cursor = 'not-allowed';
+            }
+            if (dirStatus) {
+                dirStatus.style.color = '#dc3545';
+                dirStatus.style.fontStyle = 'normal';
+                dirStatus.innerHTML = '<strong>File Browser Not Supported</strong> &mdash; please use Chrome, Edge, or another compatible browser.';
             }
         }
         
@@ -3840,6 +3859,10 @@
             
             // Set initial state for all search controls
             updateSearchButtonStates();
+
+            if (!('showDirectoryPicker' in window)) {
+                showDirectoryPickerUnsupported();
+            }
         });
     </script>
 </body>
