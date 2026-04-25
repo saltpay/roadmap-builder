@@ -2660,12 +2660,20 @@
                 setTimeout(() => {
                     addStoryClickHandlers(stories);
                     insertStatsButtonNearHeader();
+                    scrollToSearchResults();
                 }, 100);
                 
             } catch (error) {
                 
                 showMessage('Error displaying results: ' + error.message, 'error');
             }
+        }
+
+        // Scroll the page so the results header is at the top of the viewport
+        function scrollToSearchResults() {
+            const header = document.querySelector('.search-results-header');
+            if (!header) return;
+            header.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         // Insert Stats button inside the search results header
