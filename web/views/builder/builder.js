@@ -20,15 +20,19 @@ export function init(_root) {
     // exports re-attached here on every mount.
     Object.assign(window, share, exportLib);
 
-    // The legacy body calls getConfigUtility()/getDateUtility()/getUIUtility()
-    // as if they were globals - they were, before Phase 1 made the utilities
-    // ES modules. Re-declare them in this scope as thin pointers to the
-    // window-aliased classes so the 26 call sites below keep working.
-    // Phase 3 follow-up: replace the call sites with direct ConfigUtility refs
-    // and remove these shims.
+    // Phase 1 regressed the legacy body's reliance on `<script>`-tag globals.
+    // The utility classes/functions and the getX() wrappers used to live in
+    // the global scope; converting their files to ES modules made them
+    // module-scoped. Each one is still aliased to window by a Phase 1 shim,
+    // so we point the legacy names at window.* here and the 30+ call sites
+    // below keep working unchanged. Phase 3 follow-up: rewrite the call sites
+    // with direct imports and delete this block.
     const getConfigUtility = () => window.ConfigUtility;
     const getDateUtility = () => window.DateUtility;
     const getUIUtility = () => window.UIUtility;
+    const DateUtility = window.DateUtility;
+    const RoadmapGenerator = window.RoadmapGenerator;
+    const renderCountryFlagsHTML = window.renderCountryFlagsHTML;
 
     const __viewReady = [];
     const __origAdd = document.addEventListener.bind(document);
@@ -8100,12 +8104,9 @@ export function init(_root) {
         // Expose function declarations to window so inline onclick="foo()"
         // handlers in the view markup keep resolving. Phase 3 will migrate
         // these to delegated addEventListener wiring and remove these.
-        if (typeof toggleShareDropdown === 'function') window.toggleShareDropdown = toggleShareDropdown;
-if (typeof closeShareDropdown === 'function') window.closeShareDropdown = closeShareDropdown;
-if (typeof toggleShareDropdownBottom === 'function') window.toggleShareDropdownBottom = toggleShareDropdownBottom;
-if (typeof closeShareDropdownBottom === 'function') window.closeShareDropdownBottom = closeShareDropdownBottom;
-if (typeof exportJPG === 'function') window.exportJPG = exportJPG;
-if (typeof exportPDF === 'function') window.exportPDF = exportPDF;
+        // toggleShareDropdown, closeShareDropdown, toggleShareDropdownBottom,
+        // closeShareDropdownBottom, exportJPG, exportPDF are exposed at the top
+        // of init() via Object.assign(window, share, exportLib).
 if (typeof createEpicId === 'function') window.createEpicId = createEpicId;
 if (typeof createStoryId === 'function') window.createStoryId = createStoryId;
 if (typeof loadDefaultTemplate === 'function') window.loadDefaultTemplate = loadDefaultTemplate;

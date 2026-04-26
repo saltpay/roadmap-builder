@@ -10,6 +10,17 @@
  *                              legacy code reaches DOM via document.* directly)
  */
 export function init(_root) {
+    // Phase 1 regressed the legacy body's reliance on `<script>`-tag globals.
+    // The utility classes/functions used to live in the global scope; their
+    // files are now ES modules. Each one is still aliased to window by a
+    // Phase 1 shim, so we point the legacy names at window.* here and the
+    // call sites below keep working unchanged. Phase 3 follow-up: rewrite
+    // the call sites with direct imports and delete this block.
+    const IMOUtility = window.IMOUtility;
+    const IMOViewGenerator = window.IMOViewGenerator;
+    const RoadmapGenerator = window.RoadmapGenerator;
+    const renderCountryFlagsHTML = window.renderCountryFlagsHTML;
+
     const __viewReady = [];
     const __origAdd = document.addEventListener.bind(document);
     document.addEventListener = function (type, listener, opts) {
