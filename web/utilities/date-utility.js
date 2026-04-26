@@ -2,7 +2,7 @@
  * Centralized European Date Utility
  * Handles all date parsing, formatting, and validation with European DD/MM/YY preference
  */
-class DateUtility {
+export class DateUtility {
     static monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     static fullMonthNames = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
     
@@ -714,9 +714,8 @@ class DateUtility {
     }
 }
 
-// Support both CommonJS and ES6 module exports
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-    module.exports = DateUtility;
-} else if (typeof window !== 'undefined') {
+// Phase 2 will remove this. Inline scripts in views still resolve `DateUtility`
+// against window; we keep that working until those scripts move to imports.
+if (typeof window !== 'undefined') {
     window.DateUtility = DateUtility;
 } 

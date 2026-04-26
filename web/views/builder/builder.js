@@ -1,1074 +1,44 @@
-<style>
-        /* Country flag icon (local SVG, avoids Windows flag-emoji gaps) */
-        .flag-icon {
-            display: inline-block;
-            height: 1em;
-            width: auto;
-            vertical-align: -0.15em;
-            margin-right: 3px;
-            line-height: 1;
-            border-radius: 1px;
-        }
+// Auto-extracted from views/builder.html during Phase 2 of the v2 migration.
+// Phase 3 is gradually slicing this into smaller modules. So far:
+//   - Share dropdown UI moved to ./share.js
+//   - PDF/JPG export moved to ./export.js
+// The remainder is still legacy script-body code that depends on window
+// globals set by the utilities (DateUtility, RoadmapGenerator, etc.).
 
-        /* Country checkbox group rendered by renderCountryFlagsHTML().
-           Fixed-column grid keeps items in place across resize; Global is on
-           its own row with a divider to signal the "applies to all" meaning.
-           Fieldset has an implicit `min-inline-size: min-content` in Chrome/Safari
-           that makes it grow past the parent and overflow the modal — force it
-           to honour the parent width. */
-        .country-flags-fieldset {
-            border: 0;
-            padding: 0;
-            margin: 0;
-            width: 100%;
-            min-width: 0;
-            min-inline-size: 0;
-            box-sizing: border-box;
-        }
+import * as share from './share.js';
+import * as exportLib from './export.js';
 
-        .country-flags-legend {
-            display: block;
-            padding: 0;
-            margin: 0 0 4px;
-            float: none;
-            width: auto;
-            font-size: 13px;
-            font-weight: normal;
-        }
+/**
+ * Mount this view. Called by the SPA router on every navigation here.
+ *
+ * @param {HTMLElement} _root - The container element (currently unused;
+ *                              legacy code reaches DOM via document.* directly)
+ */
+export function init(_root) {
+    // Inline onclick="toggleShareDropdown(event)" etc. resolves names against
+    // window. Slices that have been pulled out of the legacy body need their
+    // exports re-attached here on every mount.
+    Object.assign(window, share, exportLib);
 
-        .country-flags-legend--hidden {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0 0 0 0);
-            white-space: nowrap;
-            border: 0;
-        }
+    // The legacy body calls getConfigUtility()/getDateUtility()/getUIUtility()
+    // as if they were globals - they were, before Phase 1 made the utilities
+    // ES modules. Re-declare them in this scope as thin pointers to the
+    // window-aliased classes so the 26 call sites below keep working.
+    // Phase 3 follow-up: replace the call sites with direct ConfigUtility refs
+    // and remove these shims.
+    const getConfigUtility = () => window.ConfigUtility;
+    const getDateUtility = () => window.DateUtility;
+    const getUIUtility = () => window.UIUtility;
 
-        .country-flags-global-row,
-        .country-flags-list {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            column-gap: 12px;
-            row-gap: 6px;
-        }
+    const __viewReady = [];
+    const __origAdd = document.addEventListener.bind(document);
+    document.addEventListener = function (type, listener, opts) {
+        if (type === 'DOMContentLoaded') { __viewReady.push(listener); return; }
+        return __origAdd(type, listener, opts);
+    };
+    try {
+        // === BEGIN legacy script body ===
 
-        .country-flags-global-row {
-            margin-bottom: 8px;
-            padding-bottom: 8px;
-            border-bottom: 1px dashed var(--border-subtle);
-        }
-
-        @media (max-width: 720px) {
-            .country-flags-global-row,
-            .country-flags-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        }
-
-        @media (max-width: 480px) {
-            .country-flags-global-row,
-            .country-flags-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-
-        /* Each option is a content-width inline-flex row pinned to the grid
-           cell's left edge. Resets the global label-block rule. */
-        .country-flag-option {
-            display: inline-flex;
-            align-items: center;
-            justify-self: start;
-            gap: 3px;
-            font-size: 13px;
-            font-weight: normal;
-            color: inherit;
-            margin: 0;
-            padding: 2px 0;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .country-flags-fieldset--readonly .country-flag-option {
-            cursor: default;
-        }
-
-        /* Undo the global full-width input style for the checkbox inside the
-           flag option — we want a native-sized checkbox here. */
-        .country-flag-option > input[type="checkbox"] {
-            width: auto;
-            height: auto;
-            padding: 0;
-            border: 0;
-            margin: 0;
-            flex-shrink: 0;
-        }
-
-        .country-flag-option > img.flag-icon {
-            margin: 0;
-            flex-shrink: 0;
-        }
-
-        .country-flag-option input:focus-visible {
-            outline: 2px solid var(--primary);
-            outline-offset: 2px;
-            border-radius: 2px;
-        }
-
-        /* Auto-filled timeline change date fields */
-        .auto-filled {
-            font-style: italic;
-            color: var(--text-muted);
-        }
-
-        /* Bar chart expand/collapse (stats modal) */
-        .bar-chart-container[data-tooltip="breakdown"]:hover {
-            background: var(--surface-2) !important;
-        }
-        .expand-chevron {
-            display: inline-block;
-            transition: transform var(--motion-fast);
-        }
-        .bar-chart-container:hover .expand-chevron {
-            color: var(--text-strong);
-        }
-    </style>
-
-
-
-    <div class="builder-container">
-        <!-- File Browser Panel -->
-        <div class="file-browser-panel collapsed" id="fileBrowserPanel">
-            <div class="file-browser-header">
-                <h3>📁 Roadmap Files</h3>
-                <button onclick="toggleFileBrowser()" class="collapse-btn" id="fileBrowserToggle" title="Close File Browser">×</button>
-            </div>
-            <div class="file-browser-content" id="fileBrowserContent">
-                <div class="file-list" id="fileList">
-                    <div class="no-directory-message">
-                        Pick a folder from the top bar to browse your roadmap files
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Main Content (Builder + Preview) -->
-        <div class="main-content">
-            <!-- Builder Panel -->
-            <div class="builder-panel">
-            <div class="header-with-buttons">
-                <div style="margin-bottom: 10px;">
-                    <button class="expand-file-browser-btn visible" id="expandFileBrowserBtn" onclick="toggleFileBrowser()" title="Show File Browser">
-                        ▶ Show Files
-                    </button>
-                    <button onclick="toggleBuilderCollapse()" id="builderCollapseBtn" class="secondary builder-collapse-btn">▲ Hide Builder</button>
-                </div>
-                <div class="title-and-buttons">
-                    <h1 style="margin: 0; padding: 0; text-align: left;"><span id="roadmapIcon">🗺️</span> Roadmap Builder</h1>
-                    <div class="top-action-buttons">
-                    <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
-                    <button onclick="loadRoadmap()" class="secondary">📂 Load Roadmap</button>
-                    <button onclick="saveRoadmap()" class="secondary">💾 Save Roadmap</button>
-                    <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
-                    <div class="dropdown" style="display: inline-block; position: relative;">
-                        <button id="shareDropdownBtn" class="secondary" onclick="toggleShareDropdown(event)">🌐 Share ▼</button>
-                        <div id="shareDropdownMenu" class="dropdown-content">
-                            <a href="#" onclick="exportHTML(); closeShareDropdown(); return false;">HTML</a>
-                            <a href="#" onclick="exportJPG(); closeShareDropdown(); return false;">JPG</a>
-                            <a href="#" onclick="exportPDF(); closeShareDropdown(); return false;">PDF</a>
-                        </div>
-                    </div>
-                        <script>
-    // --- Share Dropdown Logic ---
-    function toggleShareDropdown(event) {
-        event.stopPropagation();
-        const menu = document.getElementById('shareDropdownMenu');
-        const builderPanel = document.querySelector('.builder-panel');
-        
-        if (menu.style.display === 'block') {
-            menu.style.display = 'none';
-            return;
-        }
-        
-        // Check if builder is collapsed
-        const isCollapsed = builderPanel.classList.contains('collapsed');
-        
-        if (isCollapsed) {
-            // When collapsed, use fixed positioning to drop down below button
-            const shareButton = document.getElementById('shareDropdownBtn');
-            const buttonRect = shareButton.getBoundingClientRect();
-            
-            // Position dropdown below the button using fixed positioning
-            menu.style.position = 'fixed';
-            menu.style.top = (buttonRect.bottom + 2) + 'px';  // 2px below button
-            menu.style.left = (buttonRect.right - 120) + 'px';  // Align with right edge of button
-            menu.style.right = 'auto';
-            menu.style.bottom = 'auto';
-        } else {
-            // When expanded, use normal relative positioning
-            menu.style.position = 'absolute';
-            menu.style.top = '100%';
-            menu.style.left = 'auto';
-            menu.style.right = '0';
-            menu.style.bottom = 'auto';
-        }
-        
-        menu.style.display = 'block';
-        
-        // Close on outside click
-        setTimeout(() => {
-            document.addEventListener('click', closeShareDropdown, { once: true });
-        }, 0);
-    }
-    function closeShareDropdown() {
-        const menu = document.getElementById('shareDropdownMenu');
-        if (menu) menu.style.display = 'none';
-    }
-
-    // --- Bottom Share Dropdown Logic ---
-    function toggleShareDropdownBottom(event) {
-        event.stopPropagation();
-        const menu = document.getElementById('shareDropdownMenuBottom');
-        
-        if (menu.style.display === 'block') {
-            menu.style.display = 'none';
-            return;
-        }
-        
-        // Position dropdown to open upward (above the button) to avoid iframe obstruction
-        menu.style.position = 'absolute';
-        menu.style.top = 'auto';
-        menu.style.left = 'auto';
-        menu.style.right = '0';
-        menu.style.bottom = '100%';
-        
-        menu.style.display = 'block';
-        
-        // Close on outside click
-        setTimeout(() => {
-            document.addEventListener('click', closeShareDropdownBottom, { once: true });
-        }, 0);
-    }
-
-    function closeShareDropdownBottom() {
-        const menu = document.getElementById('shareDropdownMenuBottom');
-        if (menu) menu.style.display = 'none';
-    }
-
-    // --- Export as JPG ---
-    async function exportJPG() {
-        // Find the preview iframe and get its document
-        const iframe = document.getElementById('preview-area');
-        if (!iframe || !iframe.contentWindow || !iframe.contentDocument) {
-            alert('Preview not available.');
-            return;
-        }
-        const previewDoc = iframe.contentDocument;
-        // Try to find the main roadmap content (assume full document)
-        // Use the HTML element for true full height/width
-        const htmlElem = previewDoc.documentElement;
-        if (!htmlElem) {
-            alert('Preview not available.');
-            return;
-        }
-        try {
-            // Get the true full scrollable size (html > body)
-            const width = Math.max(htmlElem.scrollWidth, htmlElem.offsetWidth, htmlElem.clientWidth, 1200);
-            // Add extra padding to height to avoid clipping bottom
-            const height = Math.max(htmlElem.scrollHeight, htmlElem.offsetHeight, htmlElem.clientHeight, 800) + 32;
-            // Clone the HTML element for rendering
-            const clone = htmlElem.cloneNode(true);
-            clone.style.background = '#fff';
-            clone.style.overflow = 'visible';
-            clone.style.width = width + 'px';
-            clone.style.height = height + 'px';
-            // Container for offscreen rendering
-            const container = document.createElement('div');
-            container.style.position = 'fixed';
-            container.style.left = '-9999px';
-            container.style.top = '0';
-            container.style.background = '#fff';
-            container.style.width = width + 'px';
-            container.style.height = height + 'px';
-            container.appendChild(clone);
-            document.body.appendChild(container);
-            
-            // Hide edit icons in the clone for JPG export
-            const style = document.createElement('style');
-            style.textContent = `
-                .edit-icon,
-                .monthly-edit-icon {
-                    display: none !important;
-                }
-            `;
-            clone.appendChild(style);
-            
-            // Wait for images/fonts to load (best effort)
-            await new Promise(resolve => setTimeout(resolve, 200));
-            const dataUrl = await window.htmlToImage.toJpeg(clone, { quality: 0.95, backgroundColor: '#fff', width, height });
-            
-            // Get team name and year for default filename
-            const teamName = document.getElementById('teamName').value.trim() || 'MyTeam';
-            const roadmapYear = document.getElementById('roadmapYear').value || '2025';
-            const defaultFilename = `${teamName}.Teya-Roadmap.${roadmapYear}.jpg`;
-            
-            // Try to use File System Access API for save dialog (if supported)
-            if ('showSaveFilePicker' in window) {
-                try {
-                    const fileHandle = await window.showSaveFilePicker({
-                        suggestedName: defaultFilename,
-                        types: [{
-                            description: 'JPEG images',
-                            accept: { 'image/jpeg': ['.jpg', '.jpeg'] }
-                        }]
-                    });
-                    
-                    // Convert dataUrl to blob
-                    const response = await fetch(dataUrl);
-                    const blob = await response.blob();
-                    
-                    // Write to file
-                    const writable = await fileHandle.createWritable();
-                    await writable.write(blob);
-                    await writable.close();
-                    
-                    document.body.removeChild(container);
-                    return;
-                } catch (err) {
-                    // If user cancelled, don't do anything
-                    if (err.name === 'AbortError') {
-                        document.body.removeChild(container);
-                        return;
-                    }
-                    
-                    // For other errors, fall back to automatic download
-                }
-            }
-            
-            // Fallback: automatic download (original behavior)
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = defaultFilename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            document.body.removeChild(container);
-        } catch (err) {
-            alert('Failed to export JPG: ' + err);
-        }
-    }
-
-    // --- Export as PDF ---
-    async function exportPDF() {
-        // Find the preview iframe and get its document
-        const iframe = document.getElementById('preview-area');
-        if (!iframe || !iframe.contentWindow || !iframe.contentDocument) {
-            alert('Preview not available.');
-            return;
-        }
-        const previewDoc = iframe.contentDocument;
-        // Try to find the main roadmap content (assume full document)
-        // Use the HTML element for true full height/width
-        const htmlElem = previewDoc.documentElement;
-        if (!htmlElem) {
-            alert('Preview not available.');
-            return;
-        }
-        try {
-            // Get the true full scrollable size (html > body)
-            const width = Math.max(htmlElem.scrollWidth, htmlElem.offsetWidth, htmlElem.clientWidth, 1200);
-            // Add extra padding to height to avoid clipping bottom
-            const height = Math.max(htmlElem.scrollHeight, htmlElem.offsetHeight, htmlElem.clientHeight, 800) + 32;
-            // Clone the HTML element for rendering
-            const clone = htmlElem.cloneNode(true);
-            clone.style.background = '#fff';
-            clone.style.overflow = 'visible';
-            clone.style.width = width + 'px';
-            clone.style.height = height + 'px';
-            // Container for offscreen rendering
-            const container = document.createElement('div');
-            container.style.position = 'fixed';
-            container.style.left = '-9999px';
-            container.style.top = '0';
-            container.style.background = '#fff';
-            container.style.width = width + 'px';
-            container.style.height = height + 'px';
-            container.appendChild(clone);
-            document.body.appendChild(container);
-            
-            // Hide edit icons in the clone for PDF export
-            const stylePDF = document.createElement('style');
-            stylePDF.textContent = `
-                .edit-icon,
-                .monthly-edit-icon {
-                    display: none !important;
-                }
-            `;
-            clone.appendChild(stylePDF);
-            
-            // Wait for images/fonts to load (best effort)
-            await new Promise(resolve => setTimeout(resolve, 200));
-            
-            // Generate image data (same as JPG export)
-            const dataUrl = await window.htmlToImage.toJpeg(clone, { quality: 0.95, backgroundColor: '#fff', width, height });
-            
-            // Convert to PDF using jsPDF
-            const { jsPDF } = window.jspdf;
-            
-            // Calculate PDF dimensions (landscape orientation for roadmaps)
-            const pdfWidth = Math.min(width / 4, 420); // A3 landscape width in mm (420mm)
-            const pdfHeight = (height / width) * pdfWidth;
-            
-            // Create PDF in landscape orientation
-            const pdf = new jsPDF({
-                orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
-                unit: 'mm',
-                format: [pdfWidth, pdfHeight]
-            });
-            
-            // Add the image to PDF
-            pdf.addImage(dataUrl, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-            
-            // Get team name and year for default filename
-            const teamName = document.getElementById('teamName').value.trim() || 'MyTeam';
-            const roadmapYear = document.getElementById('roadmapYear').value || '2025';
-            const defaultFilename = `${teamName}.Teya-Roadmap.${roadmapYear}.pdf`;
-            
-            // Try to use File System Access API for save dialog (if supported)
-            if ('showSaveFilePicker' in window) {
-                try {
-                    const fileHandle = await window.showSaveFilePicker({
-                        suggestedName: defaultFilename,
-                        types: [{
-                            description: 'PDF documents',
-                            accept: { 'application/pdf': ['.pdf'] }
-                        }]
-                    });
-                    
-                    // Generate PDF as blob
-                    const pdfBlob = pdf.output('blob');
-                    
-                    // Write to file
-                    const writable = await fileHandle.createWritable();
-                    await writable.write(pdfBlob);
-                    await writable.close();
-                    
-                    document.body.removeChild(container);
-                    return;
-                } catch (err) {
-                    // If user cancelled, don't do anything
-                    if (err.name === 'AbortError') {
-                        document.body.removeChild(container);
-                        return;
-                    }
-                    
-                    // For other errors, fall back to automatic download
-                }
-            }
-            
-            // Fallback: automatic download (original behavior)
-            pdf.save(defaultFilename);
-            document.body.removeChild(container);
-        } catch (err) {
-            alert('Failed to export PDF: ' + err);
-        }
-    }
-    </script>
-                </div>
-                </div>
-            </div>
-            
-            <!-- Stats Modal -->
-            <div id="statsModal" class="modal" style="display: none;">
-                <div class="modal-content" style="max-width: 500px;">
-                    <div class="modal-header">
-                        <h3>Roadmap Statistics</h3>
-                        <span class="close" onclick="closeStatsModal()">&times;</span>
-                    </div>
-                    <div class="modal-body" id="statsModalBody">
-                        <!-- Stats content injected here -->
-                    </div>
-                    <div class="modal-footer" style="justify-content: flex-end;">
-                        <button onclick="closeStatsModal()" class="secondary">Close</button>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="form-group" style="max-width: 70px;">
-                <label for="roadmapYear">Year:</label>
-                <input type="number" id="roadmapYear" placeholder="2025" value="2025" min="2020" max="2030">
-            </div>
-            
-            <!-- Current Filename (editable) -->
-            <div id="currentFilenameDisplay" style="display: none;">
-                <div class="inline-group">
-                    <div class="form-group">
-                        <label for="currentFilename">Current Filename:</label>
-                        <input type="text" id="currentFilename" placeholder="Roadmap filename">
-                    </div>
-                    <div class="form-group" style="visibility: hidden;">
-                        <!-- Empty space to match inline-group layout -->
-                    </div>
-                </div>
-            </div>
-            
-            <div class="inline-group">
-                <div class="form-group">
-                    <label for="teamName">Team Name:</label>
-                    <input type="text" id="teamName" placeholder="e.g., eCommerce">
-                </div>
-                <div class="form-group">
-                    <label for="directorVP">Engineering Director/VP:</label>
-                    <input type="text" id="directorVP" placeholder="Director or VP Name">
-                </div>
-            </div>
-            <div class="inline-group">
-                <div class="form-group">
-                    <label for="em">Engineering Manager:</label>
-                    <input type="text" id="em" placeholder="EM Name">
-                </div>
-                <div class="form-group">
-                    <label for="pm">Product Manager:</label>
-                    <input type="text" id="pm" placeholder="PM Name">
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="teamDescription">Team Description:</label>
-                <textarea id="teamDescription" placeholder="Describe your team's mission, goals, and context" rows="3" style="resize: vertical;"></textarea>
-            </div>
-            
-            <!-- KTLO Section -->
-            <h2>KTLO (Keep The Lights On)</h2>
-            <div class="ktlo-section" style="border-color: #28a745;">
-                <div class="flex-header">
-                    <div class="flex-center">
-                        <button id="ktlo-collapse-btn" onclick="toggleKTLOCollapse()" title="Collapse KTLO">▼</button>
-                        <h4 class="no-margin">KTLO Configuration</h4>
-                    </div>
-                </div>
-                
-                <div id="ktlo-content">
-                    <div class="form-group">
-                        <label for="ktlo-position-toggle">KTLO Position: <span style="font-weight: normal; color: #666;">(Shift+K to toggle)</span></label>
-                        <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 5px; text-align: left; margin-left: 3px;">
-                            <input type="checkbox" id="ktlo-position-toggle" style="width: auto; flex-shrink: 0;">
-                            Top (Before the Epics)
-                        </label>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="ktlo-title">KTLO Story Title:</label>
-                        <input type="text" id="ktlo-title" placeholder="e.g., KTLO">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="ktlo-bullets">KTLO Bullet Points (one per line):</label>
-                        <textarea id="ktlo-bullets" placeholder="Keep the Lights On&#10;Operational Excellence&#10;Infrastructure Maintenance"></textarea>
-                    </div>
-                    
-                    <h4>Monthly KTLO Data</h4>
-                    
-                    <div id="ktlo-monthly-content">
-                        <div class="form-group">
-                            <label for="ktlo-month-selector">Select Month:</label>
-                            <select id="ktlo-month-selector" onchange="switchKTLOMonth()" style="width: 120px; display: inline-block;">
-                                <option value="jan">JAN</option>
-                                <option value="feb">FEB</option>
-                                <option value="mar">MAR</option>
-                                <option value="apr">APR</option>
-                                <option value="may">MAY</option>
-                                <option value="jun">JUN</option>
-                                <option value="jul">JUL</option>
-                                <option value="aug">AUG</option>
-                                <option value="sep">SEP</option>
-                                <option value="oct">OCT</option>
-                                <option value="nov">NOV</option>
-                                <option value="dec">DEC</option>
-                            </select>
-                        </div>
-                        
-                        <div style="display: flex; gap: 100px; align-items: flex-end;">
-                            <div class="form-group" style="flex: none; width: auto;">
-                                <label for="ktlo-current-number">Team Size:</label>
-                                <input type="number" id="ktlo-current-number" placeholder="5" min="0" style="width: 200px;">
-                            </div>
-                            
-                            <div class="form-group" style="flex: none; width: auto;">
-                                <label for="ktlo-current-percentage">KTLO %:</label>
-                                <input type="number" id="ktlo-current-percentage" placeholder="15" min="0" max="100" step="5" style="width: 200px;">
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="ktlo-current-description">Description:</label>
-                            <textarea id="ktlo-current-description" placeholder="Line 1: Main activity&#10;Line 2: Additional details" rows="2" style="resize: vertical;"></textarea>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- EPICs Section -->
-            <h2>EPICs</h2>
-            <div id="epics-container">
-                <!-- EPICs will be added here dynamically -->
-            </div>
-            <button onclick="addEpic()">+ Add EPIC</button>
-            
-            <!-- Below The Line Section -->
-            <h2>Below The Line</h2>
-            <div class="btl-section">
-                <div class="flex-header">
-                    <div class="flex-center">
-                        <button id="btl-collapse-btn" onclick="toggleBTLCollapse()" title="Expand Below The Line" class="collapse-btn-collapsed">▶</button>
-                        <h4 class="no-margin">Below The Line Stories</h4>
-                    </div>
-                </div>
-                
-                <div id="btl-content" style="display: none;">
-                    <p style="margin-bottom: 15px; color: #666; font-style: italic;">Stories that are below the line - placeholder items for potential future consideration. <strong>Maximum of 3 stories.</strong></p>
-                    
-                    <div id="btl-stories-container">
-                        <!-- BTL stories will be added here -->
-                    </div>
-                    <button onclick="addBTLStory()">+ Add Story</button>
-                </div>
-            </div>
-            
-            <!-- Story Sorting Settings -->
-            <div class="form-group" style="margin-bottom: 20px;">
-                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal;">
-                    <input type="checkbox" id="story-sorting-toggle" style="width: auto; flex-shrink: 0;" onchange="handleSortingToggle()">
-                    Sort stories by start date within each epic
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 6px;">
-                    <input type="checkbox" id="story-sorting-end-toggle" style="width: auto; flex-shrink: 0;" onchange="handleEndSortingToggle()">
-                    Sort stories by end date within each epic
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 6px;">
-                    <input type="checkbox" id="force-text-below-toggle" style="width: auto; flex-shrink: 0;" onchange="handleForceTextBelowToggle()">
-                    Force all text boxes below stories
-                </label>
-            </div>
-            
-            <!-- Action Buttons -->
-            <div class="action-buttons">
-                <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
-                <button onclick="loadRoadmap()" class="secondary">📂 Load Roadmap</button>
-                <button onclick="saveRoadmap()" class="secondary">💾 Save Roadmap</button>
-                <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
-                <div class="dropdown" style="display: inline-block; position: relative;">
-                    <button id="shareDropdownBtnBottom" class="secondary" onclick="toggleShareDropdownBottom(event)">🌐 Share ▼</button>
-                    <div id="shareDropdownMenuBottom" class="dropdown-content">
-                        <a href="#" onclick="exportHTML(); closeShareDropdownBottom(); return false;">HTML</a>
-                        <a href="#" onclick="exportJPG(); closeShareDropdownBottom(); return false;">JPG</a>
-                        <a href="#" onclick="exportPDF(); closeShareDropdownBottom(); return false;">PDF</a>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Hidden file input for loading roadmaps (JSON only) -->
-            <input type="file" id="roadmapLoadInput" accept=".json" style="display: none;" onchange="handleRoadmapLoad(event)">
-            <!-- Legacy inputs kept for compatibility -->
-            <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="handleFileLoad(event)">
-            <!-- Fallback directory picker for browsers without File System Access API -->
-            <input type="file" id="directoryFileInput" style="display: none;" multiple webkitdirectory>
-
-        </div>
-        
-            <!-- Preview Panel -->
-            <div class="preview-panel" onclick="showFullscreen()">
-                <button class="fullscreen-button" onclick="event.stopPropagation(); toggleFullscreen()" title="Enter Fullscreen">
-                    <span class="fullscreen-icon">⛶</span>
-                </button>
-                <iframe id="preview-area" src="about:blank"></iframe>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Fullscreen Overlay -->
-    <div class="fullscreen-overlay" id="fullscreen-overlay" onclick="hideFullscreen()">
-        <div class="fullscreen-content" onclick="event.stopPropagation()">
-            <button class="fullscreen-close" onclick="hideFullscreen()">✕ Close</button>
-            <iframe id="fullscreen-preview" src="about:blank"></iframe>
-        </div>
-    </div>
-    <!-- Edit Story Modal -->
-    <div id="editStoryModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="editStoryTitle">Edit Story</h3>
-                <span class="close" onclick="closeEditModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="editStoryForm" onsubmit="return false;">
-                    <!-- Story Details Box -->
-                    <div class="section-box">
-                        <div class="section-box-title" style="display: flex; justify-content: space-between; align-items: center;">
-                            <span>Story Details</span>
-                            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; font-weight: normal; color: #555; background: #f0f0f0; padding: 4px 10px; border-radius: 4px; border: 1px solid #ddd;">
-                                <span style="text-align: left; line-height: 1.3;"><span style="white-space: nowrap;">Include in</span><br><span style="white-space: nowrap;">Product Roadmap</span></span>
-                                <input type="checkbox" id="editIncludeInProductRoadmap" name="includeInProductRoadmap" checked style="margin: 0;"> 
-                            </label>
-                        </div>
-                    <div class="form-group">
-                        <label for="editTitle">Story Title:</label>
-                        <input type="text" id="editTitle" name="title" required>
-                    </div>
-                    
-                    <!-- KTLO Position Toggle (only shown for KTLO) -->
-                    <div class="form-group" id="editKTLOPositionGroup" style="display: none;">
-                        <label for="editKTLOPosition">KTLO Position:</label>
-                        <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 5px; text-align: left; margin-left: 3px;">
-                            <input type="checkbox" id="editKTLOPosition" style="width: auto; flex-shrink: 0;">
-                            Top (Before the Epics)
-                        </label>
-                    </div>
-                    
-                    <div class="inline-group">
-                        <div class="form-group">
-                            <label for="editStart">Start Date/Month:</label>
-                            <input type="text" id="editStart" name="start" placeholder="JAN, SEPT, or 15/1/25">
-                        </div>
-                        <div class="form-group">
-                            <label for="editEnd">End Date/Month:</label>
-                            <input type="text" id="editEnd" name="end" placeholder="MAR, SEPT, or 15/3/25">
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editBullets">Bullet Points (one per line):</label>
-                        <textarea id="editBullets" name="bullets" rows="4"></textarea>
-                    </div>
-                    
-                    <!-- BTL Date Added field (only shown for BTL) -->
-                    <div id="editBTLDateAddedGroup" class="form-group" style="display: none;">
-                        <label for="editBTLDateAdded">Date Added:</label>
-                        <input type="text" id="editBTLDateAdded" placeholder="15/01/25 or 15-01-2025">
-                    </div>
-                    
-                    <div id="editBTLDescriptionGroup" class="form-group" style="display: none;">
-                        <label for="editBTLDescription">Description (optional):</label>
-                        <input type="text" id="editBTLDescription" placeholder="Why was this added?">
-                    </div>
-                    
-                    <!-- Monthly KTLO Data (only shown for KTLO) -->
-                    <div id="editKTLOMonthlySection" style="display: none; margin-top: 15px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
-                        <h4 style="margin: 0 0 15px 0;">Monthly KTLO Data</h4>
-                        <div id="editKTLOMonthsContainer">
-                            <div class="form-group">
-                                <label for="edit-ktlo-month-selector">Select Month:</label>
-                                <select id="edit-ktlo-month-selector" onchange="switchEditKTLOMonth()" style="width: 120px; display: inline-block;">
-                                    <option value="jan">JAN</option>
-                                    <option value="feb">FEB</option>
-                                    <option value="mar">MAR</option>
-                                    <option value="apr">APR</option>
-                                    <option value="may">MAY</option>
-                                    <option value="jun">JUN</option>
-                                    <option value="jul">JUL</option>
-                                    <option value="aug">AUG</option>
-                                    <option value="sep">SEP</option>
-                                    <option value="oct">OCT</option>
-                                    <option value="nov">NOV</option>
-                                    <option value="dec">DEC</option>
-                                </select>
-                            </div>
-                            
-                            <div style="display: flex; gap: 100px; align-items: flex-end;">
-                                <div class="form-group" style="flex: none; width: auto;">
-                                    <label for="edit-ktlo-current-number">Team Size:</label>
-                                    <input type="number" id="edit-ktlo-current-number" min="0" style="width: 200px;" placeholder="5">
-                                </div>
-                                
-                                <div class="form-group" style="flex: none; width: auto;">
-                                    <label for="edit-ktlo-current-percentage">KTLO %:</label>
-                                    <input type="number" id="edit-ktlo-current-percentage" min="0" max="100" step="5" style="width: 200px;" placeholder="15">
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="edit-ktlo-current-description">Description:</label>
-                                <textarea id="edit-ktlo-current-description" rows="2" style="resize: vertical;"></textarea>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group" style="margin-top: 20px;">
-                        <label for="editDirectorVPId">Director/VP ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
-                        <input type="text" id="editDirectorVPId" name="directorVPId" placeholder="Enter identifier for filtering">
-                    </div>
-                    
-                    <div class="form-group" style="display: flex; gap: 15px; align-items: flex-end;">
-                        <div style="flex: 1;">
-                            <label for="editIMO">IMO/Project ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
-                            <input type="text" id="editIMO" name="imo" placeholder="0001">
-                        </div>
-                        <div style="flex: 1;">
-                            <label for="editPriority">Priority <span style="font-style: italic; color: #888;">(optional)</span>:</label>
-                            <select id="editPriority" name="priority" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-                                <option value="">Select...</option>
-                                <option value="High">High</option>
-                                <option value="Medium">Medium</option>
-                                <option value="Low">Low</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group" id="editFlagsContainer"></div>
-                    
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label for="editComments">Comments <span style="font-style: italic; color: #888;">(optional, not shown on roadmap)</span>:</label>
-                        <textarea id="editComments" name="comments" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical;" placeholder="Add any notes or comments..."></textarea>
-                    </div>
-                    </div><!-- End Story Details Box -->
-                    
-                    <!-- Story Status Box -->
-                    <div class="section-box">
-                        <div class="section-box-title">Story Status</div>
-                    
-                    <!-- Row 1: New, Done, Cancelled, Info, Timeline -->
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="editNewStory" name="newstory" onchange="toggleEditStatusFields()">
-                        <label for="editNewStory">New</label>
-                        
-                        <input type="checkbox" id="editDone" name="done" onchange="toggleEditStatusFields()">
-                        <label for="editDone">Done</label>
-                        
-                        <input type="checkbox" id="editCancelled" name="cancelled" onchange="toggleEditStatusFields()">
-                        <label for="editCancelled">Cancelled</label>
-                        
-                        <input type="checkbox" id="editInfo" name="info" onchange="toggleEditStatusFields()">
-                        <label for="editInfo">Info</label>
-                        
-                        <input type="checkbox" id="editTimelineChanges" name="timelinechanges" onchange="toggleEditTimelineChanges()">
-                        <label for="editTimelineChanges">Timeline</label>
-                    </div>
-                    
-                    <!-- Row 2: At Risk, Proposed, Transferred: In, Out -->
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="editAtRisk" name="atrisk" onchange="toggleEditStatusFields()">
-                        <label for="editAtRisk">At Risk</label>
-                        
-                        <input type="checkbox" id="editProposed" name="proposed" onchange="toggleEditStatusFields()">
-                        <label for="editProposed">Proposed</label>
-                        
-                        <label style="margin-left: 8px; margin-right: 2px;">Transferred:</label>
-                        <input type="checkbox" id="editTransferredIn" name="transferredin" onchange="toggleEditStatusFields()">
-                        <label for="editTransferredIn" style="margin-right: 5px;">In</label>
-                        
-                        <input type="checkbox" id="editTransferredOut" name="transferredout" onchange="toggleEditStatusFields()">
-                        <label for="editTransferredOut">Out</label>
-                    </div>
-                    
-                    <div id="editStatusFields" style="margin-top: 10px;">
-                        <div id="editDoneFields" class="border-card" style="display: none;">
-                            <h5>Story Complete</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editDoneDate">Done Date:</label>
-                                    <input type="text" id="editDoneDate" placeholder="15/3/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editDoneNotes">Done Notes:</label>
-                                    <input type="text" id="editDoneNotes">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div id="editCancelFields" class="border-card" style="display: none;">
-                            <h5>Story Cancellation</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editCancelDate">Cancel Date:</label>
-                                    <input type="text" id="editCancelDate" placeholder="15/3/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editCancelNotes">Cancel Notes:</label>
-                                    <input type="text" id="editCancelNotes">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div id="editAtRiskFields" class="border-card" style="display: none;">
-                            <h5>Story At Risk</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editAtRiskDate">Risk Date:</label>
-                                    <input type="text" id="editAtRiskDate" placeholder="15/3/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editAtRiskNotes">Risk Notes:</label>
-                                    <input type="text" id="editAtRiskNotes">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div id="editNewStoryFields" class="border-card" style="display: none;">
-                            <h5>New Story</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editNewStoryDate">New Date:</label>
-                                    <input type="text" id="editNewStoryDate" placeholder="15/3/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editNewStoryNotes">New Notes:</label>
-                                    <input type="text" id="editNewStoryNotes">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div id="editInfoFields" class="border-card" style="display: none; margin-bottom: 5px;">
-                            <h5 style="margin-top: 0; margin-bottom: 10px;">Story Information</h5>
-                            <div id="editInfoEntries">
-                                <!-- Info entries will be added here -->
-                                </div>
-                            <button id="add-edit-info-btn" onclick="addEditInfoEntry()" class="secondary" style="margin-top: 10px;">+ Add Info Entry</button>
-                        </div>
-
-                                                <div id="editTransferredInFields" class="border-card" style="display: none;">
-                            <h5>Story Transferred In Details</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editTransferredInDate">Transfer In Date:</label>
-                                    <input type="text" id="editTransferredInDate" placeholder="15/01/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editTransferredInNotes">Transfer In Notes:</label>
-                                    <input type="text" id="editTransferredInNotes">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="editTransferredOutFields" class="border-card" style="display: none;">
-                            <h5>Story Transferred Out Details</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editTransferredOutDate">Transfer Out Date:</label>
-                                    <input type="text" id="editTransferredOutDate" placeholder="15/12/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editTransferredOutNotes">Transfer Out Notes:</label>
-                                    <input type="text" id="editTransferredOutNotes">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="editProposedFields" class="border-card" style="display: none;">
-                            <h5>Proposed Story</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editProposedDate">Proposed Date:</label>
-                                    <input type="text" id="editProposedDate" placeholder="15/01/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editProposedNotes">Proposed Notes:</label>
-                                    <input type="text" id="editProposedNotes">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Story Timeline Section -->
-                    <div id="editTimelineChangesSection" class="border-section" style="display: none; margin-top: 0px;">
-                        <h4 style="margin-top: 0; margin-bottom: 10px;">Story Timeline</h4>
-                        <div id="editChangesContainer">
-                            <!-- Story timeline entries will be added here -->
-                        </div>
-                        <button type="button" id="add-edit-change-btn" class="secondary" onclick="addEditChange()" style="margin-top: 10px;">+ Add Timeline Entry</button>
-                    </div>
-                    </div><!-- End Story Status Box -->
-                </form>
-            </div>
-            <div class="modal-footer">
-                <div class="flex-form">
-                    <button type="button" class="btn-modal" style="background: #28a745; color: white; border: none; padding: 6px 8px; font-size: 14px; margin-right: 2px; cursor: pointer;" onclick="moveCurrentStoryUp()" title="Move story up" tabindex="-1">▲</button>
-                    <button type="button" class="btn-modal" style="background: #28a745; color: white; border: none; padding: 6px 8px; font-size: 14px; margin-right: 2px; cursor: pointer;" onclick="moveCurrentStoryDown()" title="Move story down" tabindex="-1">▼</button>
-                    <button type="button" class="btn-modal danger" style="padding: 6px 8px; font-size: 14px; cursor: pointer;" onclick="deleteCurrentStory()" title="Delete story" tabindex="-1">🗑️</button>
-                </div>
-                <div class="flex-modal-footer">
-                    <button type="button" class="primary" onclick="saveStoryChanges()" tabindex="-1">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- New Roadmap Modal -->
-    <div id="newRoadmapModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>New Roadmap</h2>
-                <button class="close" onclick="closeNewRoadmapModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p style="margin-bottom: 20px;">Select the year for your new roadmap. All current data will be cleared.</p>
-                <div class="form-group">
-                    <label for="newRoadmapYear">Roadmap Year:</label>
-                    <input type="number" id="newRoadmapYear" value="2025" min="2020" max="2030" style="width: 100px;" onkeydown="if(event.key === 'Enter') confirmNewRoadmap();">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <div class="flex-modal-footer">
-                    <button type="button" onclick="closeNewRoadmapModal()" class="secondary">Cancel</button>
-                    <button type="button" onclick="confirmNewRoadmap()" class="btn-modal">Create New Roadmap</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Monthly KTLO Edit Modal -->
-    <div id="editMonthlyKTLOModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="editMonthlyKTLOTitle">Edit Monthly KTLO</h2>
-                <button class="close" onclick="closeEditMonthlyKTLOModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="editMonthlyKTLOForm">
-                    <div class="form-group">
-                        <label for="editMonthlyKTLOMonth">Month:</label>
-                        <select id="editMonthlyKTLOMonth" disabled style="width: 120px;">
-                            <option value="jan">January</option>
-                            <option value="feb">February</option>
-                            <option value="mar">March</option>
-                            <option value="apr">April</option>
-                            <option value="may">May</option>
-                            <option value="jun">June</option>
-                            <option value="jul">July</option>
-                            <option value="aug">August</option>
-                            <option value="sep">September</option>
-                            <option value="oct">October</option>
-                            <option value="nov">November</option>
-                            <option value="dec">December</option>
-                        </select>
-                    </div>
-                    
-                    <div class="inline-group">
-                        <div class="form-group">
-                            <label for="editMonthlyKTLONumber">Team Size:</label>
-                            <input type="number" id="editMonthlyKTLONumber" min="0" placeholder="5" style="width: 200px;">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="editMonthlyKTLOPercentage">KTLO %:</label>
-                            <input type="number" id="editMonthlyKTLOPercentage" min="0" max="100" step="5" placeholder="15" style="width: 200px;">
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editMonthlyKTLODescription">Description:</label>
-                        <textarea id="editMonthlyKTLODescription" rows="2" style="resize: vertical;" placeholder="Line 1: Main activity&#10;Line 2: Additional details"></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <div></div>
-                <div class="flex-modal-footer">
-                    <button type="button" class="primary" onclick="saveMonthlyKTLOChanges()">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
         let epicCounter = 0;
         let storyCounters = {};
         let changeCounter = 0;
@@ -8856,9 +7826,9 @@
                 updateDocumentTitle();
             }
         });
-    </script>
     
-    <script>
+;
+
         // File Browser functionality. Directory selection is owned by the
         // shared AppDir store (see /app/directory-store.js) — we just read
         // from it and re-render the file list when it changes.
@@ -8944,9 +7914,7 @@
                 
                 // Sort files by team name
                 roadmapFiles.sort((a, b) => a.name.localeCompare(b.name));
-                
-                
-                
+
                 if (roadmapFiles.length === 0) {
                     fileList.innerHTML = '<div class="no-directory-message">No roadmap (.json) files found in this folder</div>';
                     return;
@@ -9126,4 +8094,184 @@
             }
         });
         
-    </script>
+    
+        // === END legacy script body ===
+
+        // Expose function declarations to window so inline onclick="foo()"
+        // handlers in the view markup keep resolving. Phase 3 will migrate
+        // these to delegated addEventListener wiring and remove these.
+        if (typeof toggleShareDropdown === 'function') window.toggleShareDropdown = toggleShareDropdown;
+if (typeof closeShareDropdown === 'function') window.closeShareDropdown = closeShareDropdown;
+if (typeof toggleShareDropdownBottom === 'function') window.toggleShareDropdownBottom = toggleShareDropdownBottom;
+if (typeof closeShareDropdownBottom === 'function') window.closeShareDropdownBottom = closeShareDropdownBottom;
+if (typeof exportJPG === 'function') window.exportJPG = exportJPG;
+if (typeof exportPDF === 'function') window.exportPDF = exportPDF;
+if (typeof createEpicId === 'function') window.createEpicId = createEpicId;
+if (typeof createStoryId === 'function') window.createStoryId = createStoryId;
+if (typeof loadDefaultTemplate === 'function') window.loadDefaultTemplate = loadDefaultTemplate;
+if (typeof initializeBasicTemplate === 'function') window.initializeBasicTemplate = initializeBasicTemplate;
+if (typeof attemptInitialization === 'function') window.attemptInitialization = attemptInitialization;
+if (typeof initializeKTLOMonths === 'function') window.initializeKTLOMonths = initializeKTLOMonths;
+if (typeof switchKTLOMonth === 'function') window.switchKTLOMonth = switchKTLOMonth;
+if (typeof loadKTLOMonth === 'function') window.loadKTLOMonth = loadKTLOMonth;
+if (typeof saveCurrentKTLOData === 'function') window.saveCurrentKTLOData = saveCurrentKTLOData;
+if (typeof addEpic === 'function') window.addEpic = addEpic;
+if (typeof removeEpic === 'function') window.removeEpic = removeEpic;
+if (typeof toggleEpicCollapse === 'function') window.toggleEpicCollapse = toggleEpicCollapse;
+if (typeof initializeDatePickersForEpic === 'function') window.initializeDatePickersForEpic = initializeDatePickersForEpic;
+if (typeof initializeDatePickersForSection === 'function') window.initializeDatePickersForSection = initializeDatePickersForSection;
+if (typeof toggleKTLOCollapse === 'function') window.toggleKTLOCollapse = toggleKTLOCollapse;
+if (typeof toggleCollapse === 'function') window.toggleCollapse = toggleCollapse;
+if (typeof toggleBTLCollapse === 'function') window.toggleBTLCollapse = toggleBTLCollapse;
+if (typeof toggleStoryCollapse === 'function') window.toggleStoryCollapse = toggleStoryCollapse;
+if (typeof updateStoryHeaderTitle === 'function') window.updateStoryHeaderTitle = updateStoryHeaderTitle;
+if (typeof handleStoryDragStart === 'function') window.handleStoryDragStart = handleStoryDragStart;
+if (typeof handleStoryDragOver === 'function') window.handleStoryDragOver = handleStoryDragOver;
+if (typeof handleStoryDrop === 'function') window.handleStoryDrop = handleStoryDrop;
+if (typeof handleStoryDragEnd === 'function') window.handleStoryDragEnd = handleStoryDragEnd;
+if (typeof hideKTLOSection === 'function') window.hideKTLOSection = hideKTLOSection;
+if (typeof showKTLOSection === 'function') window.showKTLOSection = showKTLOSection;
+if (typeof repositionKTLOSection === 'function') window.repositionKTLOSection = repositionKTLOSection;
+if (typeof debouncedGeneratePreview === 'function') window.debouncedGeneratePreview = debouncedGeneratePreview;
+if (typeof handleKTLOToggleShortcut === 'function') window.handleKTLOToggleShortcut = handleKTLOToggleShortcut;
+if (typeof toggleKTLOPosition === 'function') window.toggleKTLOPosition = toggleKTLOPosition;
+if (typeof handleSortingToggle === 'function') window.handleSortingToggle = handleSortingToggle;
+if (typeof handleEndSortingToggle === 'function') window.handleEndSortingToggle = handleEndSortingToggle;
+if (typeof handleForceTextBelowToggle === 'function') window.handleForceTextBelowToggle = handleForceTextBelowToggle;
+if (typeof storeOriginalStoryOrder === 'function') window.storeOriginalStoryOrder = storeOriginalStoryOrder;
+if (typeof reorderStoriesInUI === 'function') window.reorderStoriesInUI = reorderStoriesInUI;
+if (typeof restoreOriginalStoryOrder === 'function') window.restoreOriginalStoryOrder = restoreOriginalStoryOrder;
+if (typeof showSortingNotification === 'function') window.showSortingNotification = showSortingNotification;
+if (typeof showKTLOPositionNotification === 'function') window.showKTLOPositionNotification = showKTLOPositionNotification;
+if (typeof addAutoUpdateListeners === 'function') window.addAutoUpdateListeners = addAutoUpdateListeners;
+if (typeof validateEndDate === 'function') window.validateEndDate = validateEndDate;
+if (typeof addListenersToExistingElements === 'function') window.addListenersToExistingElements = addListenersToExistingElements;
+if (typeof addListenersToElement === 'function') window.addListenersToElement = addListenersToElement;
+if (typeof collapseAllSections === 'function') window.collapseAllSections = collapseAllSections;
+if (typeof addStory === 'function') window.addStory = addStory;
+if (typeof removeStory === 'function') window.removeStory = removeStory;
+if (typeof addBTLStory === 'function') window.addBTLStory = addBTLStory;
+if (typeof updateBTLAddButton === 'function') window.updateBTLAddButton = updateBTLAddButton;
+if (typeof moveBTLStoryUp === 'function') window.moveBTLStoryUp = moveBTLStoryUp;
+if (typeof moveBTLStoryDown === 'function') window.moveBTLStoryDown = moveBTLStoryDown;
+if (typeof toggleChanges === 'function') window.toggleChanges = toggleChanges;
+if (typeof getTodaysDateEuropean === 'function') window.getTodaysDateEuropean = getTodaysDateEuropean;
+if (typeof getCurrentRoadmapYear === 'function') window.getCurrentRoadmapYear = getCurrentRoadmapYear;
+if (typeof initializeDatePicker === 'function') window.initializeDatePicker = initializeDatePicker;
+if (typeof refreshAllDatePickers === 'function') window.refreshAllDatePickers = refreshAllDatePickers;
+if (typeof updateAllDatePickerRanges === 'function') window.updateAllDatePickerRanges = updateAllDatePickerRanges;
+if (typeof handleStatusChange === 'function') window.handleStatusChange = handleStatusChange;
+if (typeof handleDoneChange === 'function') window.handleDoneChange = handleDoneChange;
+if (typeof handleCancelledChange === 'function') window.handleCancelledChange = handleCancelledChange;
+if (typeof handleAtRiskChange === 'function') window.handleAtRiskChange = handleAtRiskChange;
+if (typeof handleNewStoryChange === 'function') window.handleNewStoryChange = handleNewStoryChange;
+if (typeof handleInfoChange === 'function') window.handleInfoChange = handleInfoChange;
+if (typeof addInfoEntry === 'function') window.addInfoEntry = addInfoEntry;
+if (typeof removeInfoEntry === 'function') window.removeInfoEntry = removeInfoEntry;
+if (typeof convertSingleInfoToMultiple === 'function') window.convertSingleInfoToMultiple = convertSingleInfoToMultiple;
+if (typeof addEditInfoEntry === 'function') window.addEditInfoEntry = addEditInfoEntry;
+if (typeof removeEditInfoEntry === 'function') window.removeEditInfoEntry = removeEditInfoEntry;
+if (typeof handleTransferredOutChange === 'function') window.handleTransferredOutChange = handleTransferredOutChange;
+if (typeof handleTransferredInChange === 'function') window.handleTransferredInChange = handleTransferredInChange;
+if (typeof handleProposedChange === 'function') window.handleProposedChange = handleProposedChange;
+if (typeof addChange === 'function') window.addChange = addChange;
+if (typeof removeChange === 'function') window.removeChange = removeChange;
+if (typeof updateChangeButton === 'function') window.updateChangeButton = updateChangeButton;
+if (typeof moveStoryUp === 'function') window.moveStoryUp = moveStoryUp;
+if (typeof moveStoryDown === 'function') window.moveStoryDown = moveStoryDown;
+if (typeof updateStoryNumbers === 'function') window.updateStoryNumbers = updateStoryNumbers;
+if (typeof moveStoryUpByEpic === 'function') window.moveStoryUpByEpic = moveStoryUpByEpic;
+if (typeof moveStoryDownByEpic === 'function') window.moveStoryDownByEpic = moveStoryDownByEpic;
+if (typeof generatePreview === 'function') window.generatePreview = generatePreview;
+if (typeof initializeIframeInteraction === 'function') window.initializeIframeInteraction = initializeIframeInteraction;
+if (typeof addAlignmentGuide === 'function') window.addAlignmentGuide = addAlignmentGuide;
+if (typeof collectFormData === 'function') window.collectFormData = collectFormData;
+if (typeof collectStoryData === 'function') window.collectStoryData = collectStoryData;
+if (typeof collectKTLOData === 'function') window.collectKTLOData = collectKTLOData;
+if (typeof collectBTLData === 'function') window.collectBTLData = collectBTLData;
+if (typeof updateFilenameDisplay === 'function') window.updateFilenameDisplay = updateFilenameDisplay;
+if (typeof newRoadmap === 'function') window.newRoadmap = newRoadmap;
+if (typeof closeNewRoadmapModal === 'function') window.closeNewRoadmapModal = closeNewRoadmapModal;
+if (typeof confirmNewRoadmap === 'function') window.confirmNewRoadmap = confirmNewRoadmap;
+if (typeof saveRoadmap === 'function') window.saveRoadmap = saveRoadmap;
+if (typeof loadRoadmap === 'function') window.loadRoadmap = loadRoadmap;
+if (typeof handleRoadmapLoad === 'function') window.handleRoadmapLoad = handleRoadmapLoad;
+if (typeof fixDatesOnLoad === 'function') window.fixDatesOnLoad = fixDatesOnLoad;
+if (typeof handleFileLoad === 'function') window.handleFileLoad = handleFileLoad;
+if (typeof openStatsModal === 'function') window.openStatsModal = openStatsModal;
+if (typeof setupTooltips === 'function') window.setupTooltips = setupTooltips;
+if (typeof toggleDelayBreakdown === 'function') window.toggleDelayBreakdown = toggleDelayBreakdown;
+if (typeof renderOntimeBreakdown === 'function') window.renderOntimeBreakdown = renderOntimeBreakdown;
+if (typeof renderAcceleratedBreakdown === 'function') window.renderAcceleratedBreakdown = renderAcceleratedBreakdown;
+if (typeof renderCancelledBreakdown === 'function') window.renderCancelledBreakdown = renderCancelledBreakdown;
+if (typeof renderDelayBreakdown === 'function') window.renderDelayBreakdown = renderDelayBreakdown;
+if (typeof renderDelaySubBreakdown === 'function') window.renderDelaySubBreakdown = renderDelaySubBreakdown;
+if (typeof compareByTeamEpicTitle === 'function') window.compareByTeamEpicTitle = compareByTeamEpicTitle;
+if (typeof renderDelayDetails === 'function') window.renderDelayDetails = renderDelayDetails;
+if (typeof setupDelayBreakdownInteractions === 'function') window.setupDelayBreakdownInteractions = setupDelayBreakdownInteractions;
+if (typeof closeStatsModal === 'function') window.closeStatsModal = closeStatsModal;
+if (typeof computeRoadmapStats === 'function') window.computeRoadmapStats = computeRoadmapStats;
+if (typeof isDelayChange === 'function') window.isDelayChange = isDelayChange;
+if (typeof renderStatsHtml === 'function') window.renderStatsHtml = renderStatsHtml;
+if (typeof barChart === 'function') window.barChart = barChart;
+if (typeof getDelayBreakdown === 'function') window.getDelayBreakdown = getDelayBreakdown;
+if (typeof card === 'function') window.card = card;
+if (typeof updateIdCountersAfterImport === 'function') window.updateIdCountersAfterImport = updateIdCountersAfterImport;
+if (typeof applyPendingTimelineChanges === 'function') window.applyPendingTimelineChanges = applyPendingTimelineChanges;
+if (typeof loadTeamData === 'function') window.loadTeamData = loadTeamData;
+if (typeof roundToNearestFive === 'function') window.roundToNearestFive = roundToNearestFive;
+if (typeof loadKTLOData === 'function') window.loadKTLOData = loadKTLOData;
+if (typeof loadBTLData === 'function') window.loadBTLData = loadBTLData;
+if (typeof loadStoryData === 'function') window.loadStoryData = loadStoryData;
+if (typeof exportHTML === 'function') window.exportHTML = exportHTML;
+if (typeof showFullscreen === 'function') window.showFullscreen = showFullscreen;
+if (typeof hideFullscreen === 'function') window.hideFullscreen = hideFullscreen;
+if (typeof toggleFullscreen === 'function') window.toggleFullscreen = toggleFullscreen;
+if (typeof setupModalFocusTrap === 'function') window.setupModalFocusTrap = setupModalFocusTrap;
+if (typeof removeModalFocusTrap === 'function') window.removeModalFocusTrap = removeModalFocusTrap;
+if (typeof openEditStoryModal === 'function') window.openEditStoryModal = openEditStoryModal;
+if (typeof closeEditModal === 'function') window.closeEditModal = closeEditModal;
+if (typeof toggleEditStatusFields === 'function') window.toggleEditStatusFields = toggleEditStatusFields;
+if (typeof clearEditGlobalIfCountrySelected === 'function') window.clearEditGlobalIfCountrySelected = clearEditGlobalIfCountrySelected;
+if (typeof clearEditCountriesIfGlobalSelected === 'function') window.clearEditCountriesIfGlobalSelected = clearEditCountriesIfGlobalSelected;
+if (typeof clearStoryGlobalIfCountrySelected === 'function') window.clearStoryGlobalIfCountrySelected = clearStoryGlobalIfCountrySelected;
+if (typeof clearStoryCountriesIfGlobalSelected === 'function') window.clearStoryCountriesIfGlobalSelected = clearStoryCountriesIfGlobalSelected;
+if (typeof toggleEditTimelineChanges === 'function') window.toggleEditTimelineChanges = toggleEditTimelineChanges;
+if (typeof initializeEditKTLOMonths === 'function') window.initializeEditKTLOMonths = initializeEditKTLOMonths;
+if (typeof switchEditKTLOMonth === 'function') window.switchEditKTLOMonth = switchEditKTLOMonth;
+if (typeof loadEditKTLOMonth === 'function') window.loadEditKTLOMonth = loadEditKTLOMonth;
+if (typeof addEditChange === 'function') window.addEditChange = addEditChange;
+if (typeof removeEditChange === 'function') window.removeEditChange = removeEditChange;
+if (typeof sortTimelineChangesByDate === 'function') window.sortTimelineChangesByDate = sortTimelineChangesByDate;
+if (typeof updateEditChangeButton === 'function') window.updateEditChangeButton = updateEditChangeButton;
+if (typeof openEditMonthlyKTLOModal === 'function') window.openEditMonthlyKTLOModal = openEditMonthlyKTLOModal;
+if (typeof closeEditMonthlyKTLOModal === 'function') window.closeEditMonthlyKTLOModal = closeEditMonthlyKTLOModal;
+if (typeof saveMonthlyKTLOChanges === 'function') window.saveMonthlyKTLOChanges = saveMonthlyKTLOChanges;
+if (typeof findStoryInForm === 'function') window.findStoryInForm = findStoryInForm;
+if (typeof saveStoryChanges === 'function') window.saveStoryChanges = saveStoryChanges;
+if (typeof moveCurrentStoryUp === 'function') window.moveCurrentStoryUp = moveCurrentStoryUp;
+if (typeof moveCurrentStoryDown === 'function') window.moveCurrentStoryDown = moveCurrentStoryDown;
+if (typeof deleteCurrentStory === 'function') window.deleteCurrentStory = deleteCurrentStory;
+if (typeof setupMonthlyBoxPriming === 'function') window.setupMonthlyBoxPriming = setupMonthlyBoxPriming;
+if (typeof validateKTLOPercentage === 'function') window.validateKTLOPercentage = validateKTLOPercentage;
+if (typeof showKTLOValidationError === 'function') window.showKTLOValidationError = showKTLOValidationError;
+if (typeof removeKTLOValidationError === 'function') window.removeKTLOValidationError = removeKTLOValidationError;
+if (typeof handleKTLOPercentageValidation === 'function') window.handleKTLOPercentageValidation = handleKTLOPercentageValidation;
+if (typeof initializeKTLOValidation === 'function') window.initializeKTLOValidation = initializeKTLOValidation;
+if (typeof initializeDragAndDrop === 'function') window.initializeDragAndDrop = initializeDragAndDrop;
+if (typeof handleFileDrop === 'function') window.handleFileDrop = handleFileDrop;
+if (typeof toggleBuilderCollapse === 'function') window.toggleBuilderCollapse = toggleBuilderCollapse;
+if (typeof updateDocumentTitle === 'function') window.updateDocumentTitle = updateDocumentTitle;
+if (typeof toggleFileBrowser === 'function') window.toggleFileBrowser = toggleFileBrowser;
+if (typeof updateFileBrowserButtonVisibility === 'function') window.updateFileBrowserButtonVisibility = updateFileBrowserButtonVisibility;
+if (typeof selectDirectory === 'function') window.selectDirectory = selectDirectory;
+if (typeof loadDirectoryFiles === 'function') window.loadDirectoryFiles = loadDirectoryFiles;
+if (typeof openRoadmapFile === 'function') window.openRoadmapFile = openRoadmapFile;
+if (typeof checkForLoadedData === 'function') window.checkForLoadedData = checkForLoadedData;
+    } finally {
+        document.addEventListener = __origAdd;
+    }
+    for (const fn of __viewReady) {
+        try { fn.call(document, new Event('DOMContentLoaded')); } catch (e) { console.error(e); }
+    }
+}

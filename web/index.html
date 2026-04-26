@@ -11,14 +11,16 @@
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/roadmap-styles.css">
 
-    <!-- Shared utilities — loaded once, available to every view -->
-    <script src="/utilities/date-utility.js"></script>
-    <script src="/utilities/ui-utility.js"></script>
-    <script src="/utilities/config-utility.js"></script>
-    <script src="/utilities/imo-utility.js"></script>
-    <script src="/utilities/imo-view-generator.js"></script>
-    <script src="/utilities/countries.js"></script>
-    <script src="/roadmap-generator.js"></script>
+    <!-- Shared utilities, loaded as ES modules. Each module sets the legacy
+         window.* alias for inline view scripts; Phase 2 will switch those
+         scripts to real imports and we'll drop the alias. -->
+    <script type="module" src="/utilities/date-utility.js"></script>
+    <script type="module" src="/utilities/ui-utility.js"></script>
+    <script type="module" src="/utilities/config-utility.js"></script>
+    <script type="module" src="/utilities/imo-utility.js"></script>
+    <script type="module" src="/utilities/imo-view-generator.js"></script>
+    <script type="module" src="/utilities/countries.js"></script>
+    <script type="module" src="/roadmap-generator.js"></script>
 
     <!-- Export libs used by the builder -->
     <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
@@ -155,6 +157,9 @@
 
     <script src="/app/directory-store.js"></script>
     <script src="/app/nav.js"></script>
-    <script src="/app/router.js"></script>
+    <!-- router.js runs as a module so it executes AFTER the utility modules
+         loaded in <head>. View inline scripts depend on window.DateUtility
+         et al, which utilities set as a Phase 1 side effect. -->
+    <script type="module" src="/app/router.js"></script>
 </body>
 </html>

@@ -2,7 +2,7 @@
  * IMO View Generator - Results Display for Cross-Team IMO/Timeline Search
  * Handles rendering search results using existing utilities for consistency
  */
-class IMOViewGenerator {
+export class IMOViewGenerator {
     
     /**
      * Generate complete search results HTML
@@ -1096,9 +1096,8 @@ class IMOViewGenerator {
     }
 }
 
-// Export for both CommonJS and browser environments
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { IMOViewGenerator };
-} else if (typeof window !== 'undefined') {
+// Phase 2 will remove this. Inline scripts in views still resolve `IMOViewGenerator`
+// against window; we keep that working until those scripts move to imports.
+if (typeof window !== 'undefined') {
     window.IMOViewGenerator = IMOViewGenerator;
 }

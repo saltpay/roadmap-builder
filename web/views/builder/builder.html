@@ -1,0 +1,584 @@
+
+
+
+
+    <div class="builder-container">
+        <!-- File Browser Panel -->
+        <div class="file-browser-panel collapsed" id="fileBrowserPanel">
+            <div class="file-browser-header">
+                <h3>📁 Roadmap Files</h3>
+                <button onclick="toggleFileBrowser()" class="collapse-btn" id="fileBrowserToggle" title="Close File Browser">×</button>
+            </div>
+            <div class="file-browser-content" id="fileBrowserContent">
+                <div class="file-list" id="fileList">
+                    <div class="no-directory-message">
+                        Pick a folder from the top bar to browse your roadmap files
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Main Content (Builder + Preview) -->
+        <div class="main-content">
+            <!-- Builder Panel -->
+            <div class="builder-panel">
+            <div class="header-with-buttons">
+                <div style="margin-bottom: 10px;">
+                    <button class="expand-file-browser-btn visible" id="expandFileBrowserBtn" onclick="toggleFileBrowser()" title="Show File Browser">
+                        ▶ Show Files
+                    </button>
+                    <button onclick="toggleBuilderCollapse()" id="builderCollapseBtn" class="secondary builder-collapse-btn">▲ Hide Builder</button>
+                </div>
+                <div class="title-and-buttons">
+                    <h1 style="margin: 0; padding: 0; text-align: left;"><span id="roadmapIcon">🗺️</span> Roadmap Builder</h1>
+                    <div class="top-action-buttons">
+                    <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
+                    <button onclick="loadRoadmap()" class="secondary">📂 Load Roadmap</button>
+                    <button onclick="saveRoadmap()" class="secondary">💾 Save Roadmap</button>
+                    <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
+                    <div class="dropdown" style="display: inline-block; position: relative;">
+                        <button id="shareDropdownBtn" class="secondary" onclick="toggleShareDropdown(event)">🌐 Share ▼</button>
+                        <div id="shareDropdownMenu" class="dropdown-content">
+                            <a href="#" onclick="exportHTML(); closeShareDropdown(); return false;">HTML</a>
+                            <a href="#" onclick="exportJPG(); closeShareDropdown(); return false;">JPG</a>
+                            <a href="#" onclick="exportPDF(); closeShareDropdown(); return false;">PDF</a>
+                        </div>
+                    </div>
+                </div>
+                </div>
+            </div>
+            <!-- Stats Modal -->
+            <div id="statsModal" class="modal" style="display: none;">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h3>Roadmap Statistics</h3>
+                        <span class="close" onclick="closeStatsModal()">&times;</span>
+                    </div>
+                    <div class="modal-body" id="statsModalBody">
+                        <!-- Stats content injected here -->
+                    </div>
+                    <div class="modal-footer" style="justify-content: flex-end;">
+                        <button onclick="closeStatsModal()" class="secondary">Close</button>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group" style="max-width: 70px;">
+                <label for="roadmapYear">Year:</label>
+                <input type="number" id="roadmapYear" placeholder="2025" value="2025" min="2020" max="2030">
+            </div>
+            <!-- Current Filename (editable) -->
+            <div id="currentFilenameDisplay" style="display: none;">
+                <div class="inline-group">
+                    <div class="form-group">
+                        <label for="currentFilename">Current Filename:</label>
+                        <input type="text" id="currentFilename" placeholder="Roadmap filename">
+                    </div>
+                    <div class="form-group" style="visibility: hidden;">
+                        <!-- Empty space to match inline-group layout -->
+                    </div>
+                </div>
+            </div>
+            <div class="inline-group">
+                <div class="form-group">
+                    <label for="teamName">Team Name:</label>
+                    <input type="text" id="teamName" placeholder="e.g., eCommerce">
+                </div>
+                <div class="form-group">
+                    <label for="directorVP">Engineering Director/VP:</label>
+                    <input type="text" id="directorVP" placeholder="Director or VP Name">
+                </div>
+            </div>
+            <div class="inline-group">
+                <div class="form-group">
+                    <label for="em">Engineering Manager:</label>
+                    <input type="text" id="em" placeholder="EM Name">
+                </div>
+                <div class="form-group">
+                    <label for="pm">Product Manager:</label>
+                    <input type="text" id="pm" placeholder="PM Name">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="teamDescription">Team Description:</label>
+                <textarea id="teamDescription" placeholder="Describe your team's mission, goals, and context" rows="3" style="resize: vertical;"></textarea>
+            </div>
+            <!-- KTLO Section -->
+            <h2>KTLO (Keep The Lights On)</h2>
+            <div class="ktlo-section" style="border-color: #28a745;">
+                <div class="flex-header">
+                    <div class="flex-center">
+                        <button id="ktlo-collapse-btn" onclick="toggleKTLOCollapse()" title="Collapse KTLO">▼</button>
+                        <h4 class="no-margin">KTLO Configuration</h4>
+                    </div>
+                </div>
+                <div id="ktlo-content">
+                    <div class="form-group">
+                        <label for="ktlo-position-toggle">KTLO Position: <span style="font-weight: normal; color: #666;">(Shift+K to toggle)</span></label>
+                        <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 5px; text-align: left; margin-left: 3px;">
+                            <input type="checkbox" id="ktlo-position-toggle" style="width: auto; flex-shrink: 0;">
+                            Top (Before the Epics)
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="ktlo-title">KTLO Story Title:</label>
+                        <input type="text" id="ktlo-title" placeholder="e.g., KTLO">
+                    </div>
+                    <div class="form-group">
+                        <label for="ktlo-bullets">KTLO Bullet Points (one per line):</label>
+                        <textarea id="ktlo-bullets" placeholder="Keep the Lights On&#10;Operational Excellence&#10;Infrastructure Maintenance"></textarea>
+                    </div>
+                    <h4>Monthly KTLO Data</h4>
+                    <div id="ktlo-monthly-content">
+                        <div class="form-group">
+                            <label for="ktlo-month-selector">Select Month:</label>
+                            <select id="ktlo-month-selector" onchange="switchKTLOMonth()" style="width: 120px; display: inline-block;">
+                                <option value="jan">JAN</option>
+                                <option value="feb">FEB</option>
+                                <option value="mar">MAR</option>
+                                <option value="apr">APR</option>
+                                <option value="may">MAY</option>
+                                <option value="jun">JUN</option>
+                                <option value="jul">JUL</option>
+                                <option value="aug">AUG</option>
+                                <option value="sep">SEP</option>
+                                <option value="oct">OCT</option>
+                                <option value="nov">NOV</option>
+                                <option value="dec">DEC</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; gap: 100px; align-items: flex-end;">
+                            <div class="form-group" style="flex: none; width: auto;">
+                                <label for="ktlo-current-number">Team Size:</label>
+                                <input type="number" id="ktlo-current-number" placeholder="5" min="0" style="width: 200px;">
+                            </div>
+                            <div class="form-group" style="flex: none; width: auto;">
+                                <label for="ktlo-current-percentage">KTLO %:</label>
+                                <input type="number" id="ktlo-current-percentage" placeholder="15" min="0" max="100" step="5" style="width: 200px;">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="ktlo-current-description">Description:</label>
+                            <textarea id="ktlo-current-description" placeholder="Line 1: Main activity&#10;Line 2: Additional details" rows="2" style="resize: vertical;"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- EPICs Section -->
+            <h2>EPICs</h2>
+            <div id="epics-container">
+                <!-- EPICs will be added here dynamically -->
+            </div>
+            <button onclick="addEpic()">+ Add EPIC</button>
+            <!-- Below The Line Section -->
+            <h2>Below The Line</h2>
+            <div class="btl-section">
+                <div class="flex-header">
+                    <div class="flex-center">
+                        <button id="btl-collapse-btn" onclick="toggleBTLCollapse()" title="Expand Below The Line" class="collapse-btn-collapsed">▶</button>
+                        <h4 class="no-margin">Below The Line Stories</h4>
+                    </div>
+                </div>
+                <div id="btl-content" style="display: none;">
+                    <p style="margin-bottom: 15px; color: #666; font-style: italic;">Stories that are below the line - placeholder items for potential future consideration. <strong>Maximum of 3 stories.</strong></p>
+                    <div id="btl-stories-container">
+                        <!-- BTL stories will be added here -->
+                    </div>
+                    <button onclick="addBTLStory()">+ Add Story</button>
+                </div>
+            </div>
+            <!-- Story Sorting Settings -->
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal;">
+                    <input type="checkbox" id="story-sorting-toggle" style="width: auto; flex-shrink: 0;" onchange="handleSortingToggle()">
+                    Sort stories by start date within each epic
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 6px;">
+                    <input type="checkbox" id="story-sorting-end-toggle" style="width: auto; flex-shrink: 0;" onchange="handleEndSortingToggle()">
+                    Sort stories by end date within each epic
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 6px;">
+                    <input type="checkbox" id="force-text-below-toggle" style="width: auto; flex-shrink: 0;" onchange="handleForceTextBelowToggle()">
+                    Force all text boxes below stories
+                </label>
+            </div>
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
+                <button onclick="loadRoadmap()" class="secondary">📂 Load Roadmap</button>
+                <button onclick="saveRoadmap()" class="secondary">💾 Save Roadmap</button>
+                <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
+                <div class="dropdown" style="display: inline-block; position: relative;">
+                    <button id="shareDropdownBtnBottom" class="secondary" onclick="toggleShareDropdownBottom(event)">🌐 Share ▼</button>
+                    <div id="shareDropdownMenuBottom" class="dropdown-content">
+                        <a href="#" onclick="exportHTML(); closeShareDropdownBottom(); return false;">HTML</a>
+                        <a href="#" onclick="exportJPG(); closeShareDropdownBottom(); return false;">JPG</a>
+                        <a href="#" onclick="exportPDF(); closeShareDropdownBottom(); return false;">PDF</a>
+                    </div>
+                </div>
+            </div>
+            <!-- Hidden file input for loading roadmaps (JSON only) -->
+            <input type="file" id="roadmapLoadInput" accept=".json" style="display: none;" onchange="handleRoadmapLoad(event)">
+            <!-- Legacy inputs kept for compatibility -->
+            <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="handleFileLoad(event)">
+            <!-- Fallback directory picker for browsers without File System Access API -->
+            <input type="file" id="directoryFileInput" style="display: none;" multiple webkitdirectory>
+
+        </div>
+            <!-- Preview Panel -->
+            <div class="preview-panel" onclick="showFullscreen()">
+                <button class="fullscreen-button" onclick="event.stopPropagation(); toggleFullscreen()" title="Enter Fullscreen">
+                    <span class="fullscreen-icon">⛶</span>
+                </button>
+                <iframe id="preview-area" src="about:blank"></iframe>
+            </div>
+        </div>
+    </div>
+    <!-- Fullscreen Overlay -->
+    <div class="fullscreen-overlay" id="fullscreen-overlay" onclick="hideFullscreen()">
+        <div class="fullscreen-content" onclick="event.stopPropagation()">
+            <button class="fullscreen-close" onclick="hideFullscreen()">✕ Close</button>
+            <iframe id="fullscreen-preview" src="about:blank"></iframe>
+        </div>
+    </div>
+    <!-- Edit Story Modal -->
+    <div id="editStoryModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="editStoryTitle">Edit Story</h3>
+                <span class="close" onclick="closeEditModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="editStoryForm" onsubmit="return false;">
+                    <!-- Story Details Box -->
+                    <div class="section-box">
+                        <div class="section-box-title" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Story Details</span>
+                            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; font-weight: normal; color: #555; background: #f0f0f0; padding: 4px 10px; border-radius: 4px; border: 1px solid #ddd;">
+                                <span style="text-align: left; line-height: 1.3;"><span style="white-space: nowrap;">Include in</span><br><span style="white-space: nowrap;">Product Roadmap</span></span>
+                                <input type="checkbox" id="editIncludeInProductRoadmap" name="includeInProductRoadmap" checked style="margin: 0;"> 
+                            </label>
+                        </div>
+                    <div class="form-group">
+                        <label for="editTitle">Story Title:</label>
+                        <input type="text" id="editTitle" name="title" required>
+                    </div>
+                    <!-- KTLO Position Toggle (only shown for KTLO) -->
+                    <div class="form-group" id="editKTLOPositionGroup" style="display: none;">
+                        <label for="editKTLOPosition">KTLO Position:</label>
+                        <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 5px; text-align: left; margin-left: 3px;">
+                            <input type="checkbox" id="editKTLOPosition" style="width: auto; flex-shrink: 0;">
+                            Top (Before the Epics)
+                        </label>
+                    </div>
+                    <div class="inline-group">
+                        <div class="form-group">
+                            <label for="editStart">Start Date/Month:</label>
+                            <input type="text" id="editStart" name="start" placeholder="JAN, SEPT, or 15/1/25">
+                        </div>
+                        <div class="form-group">
+                            <label for="editEnd">End Date/Month:</label>
+                            <input type="text" id="editEnd" name="end" placeholder="MAR, SEPT, or 15/3/25">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="editBullets">Bullet Points (one per line):</label>
+                        <textarea id="editBullets" name="bullets" rows="4"></textarea>
+                    </div>
+                    <!-- BTL Date Added field (only shown for BTL) -->
+                    <div id="editBTLDateAddedGroup" class="form-group" style="display: none;">
+                        <label for="editBTLDateAdded">Date Added:</label>
+                        <input type="text" id="editBTLDateAdded" placeholder="15/01/25 or 15-01-2025">
+                    </div>
+                    <div id="editBTLDescriptionGroup" class="form-group" style="display: none;">
+                        <label for="editBTLDescription">Description (optional):</label>
+                        <input type="text" id="editBTLDescription" placeholder="Why was this added?">
+                    </div>
+                    <!-- Monthly KTLO Data (only shown for KTLO) -->
+                    <div id="editKTLOMonthlySection" style="display: none; margin-top: 15px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
+                        <h4 style="margin: 0 0 15px 0;">Monthly KTLO Data</h4>
+                        <div id="editKTLOMonthsContainer">
+                            <div class="form-group">
+                                <label for="edit-ktlo-month-selector">Select Month:</label>
+                                <select id="edit-ktlo-month-selector" onchange="switchEditKTLOMonth()" style="width: 120px; display: inline-block;">
+                                    <option value="jan">JAN</option>
+                                    <option value="feb">FEB</option>
+                                    <option value="mar">MAR</option>
+                                    <option value="apr">APR</option>
+                                    <option value="may">MAY</option>
+                                    <option value="jun">JUN</option>
+                                    <option value="jul">JUL</option>
+                                    <option value="aug">AUG</option>
+                                    <option value="sep">SEP</option>
+                                    <option value="oct">OCT</option>
+                                    <option value="nov">NOV</option>
+                                    <option value="dec">DEC</option>
+                                </select>
+                            </div>
+                            <div style="display: flex; gap: 100px; align-items: flex-end;">
+                                <div class="form-group" style="flex: none; width: auto;">
+                                    <label for="edit-ktlo-current-number">Team Size:</label>
+                                    <input type="number" id="edit-ktlo-current-number" min="0" style="width: 200px;" placeholder="5">
+                                </div>
+                                <div class="form-group" style="flex: none; width: auto;">
+                                    <label for="edit-ktlo-current-percentage">KTLO %:</label>
+                                    <input type="number" id="edit-ktlo-current-percentage" min="0" max="100" step="5" style="width: 200px;" placeholder="15">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-ktlo-current-description">Description:</label>
+                                <textarea id="edit-ktlo-current-description" rows="2" style="resize: vertical;"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label for="editDirectorVPId">Director/VP ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                        <input type="text" id="editDirectorVPId" name="directorVPId" placeholder="Enter identifier for filtering">
+                    </div>
+                    <div class="form-group" style="display: flex; gap: 15px; align-items: flex-end;">
+                        <div style="flex: 1;">
+                            <label for="editIMO">IMO/Project ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                            <input type="text" id="editIMO" name="imo" placeholder="0001">
+                        </div>
+                        <div style="flex: 1;">
+                            <label for="editPriority">Priority <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                            <select id="editPriority" name="priority" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="">Select...</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" id="editFlagsContainer"></div>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label for="editComments">Comments <span style="font-style: italic; color: #888;">(optional, not shown on roadmap)</span>:</label>
+                        <textarea id="editComments" name="comments" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical;" placeholder="Add any notes or comments..."></textarea>
+                    </div>
+                    </div><!-- End Story Details Box -->
+                    <!-- Story Status Box -->
+                    <div class="section-box">
+                        <div class="section-box-title">Story Status</div>
+                    <!-- Row 1: New, Done, Cancelled, Info, Timeline -->
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="editNewStory" name="newstory" onchange="toggleEditStatusFields()">
+                        <label for="editNewStory">New</label>
+                        <input type="checkbox" id="editDone" name="done" onchange="toggleEditStatusFields()">
+                        <label for="editDone">Done</label>
+                        <input type="checkbox" id="editCancelled" name="cancelled" onchange="toggleEditStatusFields()">
+                        <label for="editCancelled">Cancelled</label>
+                        <input type="checkbox" id="editInfo" name="info" onchange="toggleEditStatusFields()">
+                        <label for="editInfo">Info</label>
+                        <input type="checkbox" id="editTimelineChanges" name="timelinechanges" onchange="toggleEditTimelineChanges()">
+                        <label for="editTimelineChanges">Timeline</label>
+                    </div>
+                    <!-- Row 2: At Risk, Proposed, Transferred: In, Out -->
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="editAtRisk" name="atrisk" onchange="toggleEditStatusFields()">
+                        <label for="editAtRisk">At Risk</label>
+                        <input type="checkbox" id="editProposed" name="proposed" onchange="toggleEditStatusFields()">
+                        <label for="editProposed">Proposed</label>
+                        <label style="margin-left: 8px; margin-right: 2px;">Transferred:</label>
+                        <input type="checkbox" id="editTransferredIn" name="transferredin" onchange="toggleEditStatusFields()">
+                        <label for="editTransferredIn" style="margin-right: 5px;">In</label>
+                        <input type="checkbox" id="editTransferredOut" name="transferredout" onchange="toggleEditStatusFields()">
+                        <label for="editTransferredOut">Out</label>
+                    </div>
+                    <div id="editStatusFields" style="margin-top: 10px;">
+                        <div id="editDoneFields" class="border-card" style="display: none;">
+                            <h5>Story Complete</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label for="editDoneDate">Done Date:</label>
+                                    <input type="text" id="editDoneDate" placeholder="15/3/25">
+                                </div>
+                                <div class="form-group">
+                                    <label for="editDoneNotes">Done Notes:</label>
+                                    <input type="text" id="editDoneNotes">
+                                </div>
+                            </div>
+                        </div>
+                        <div id="editCancelFields" class="border-card" style="display: none;">
+                            <h5>Story Cancellation</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label for="editCancelDate">Cancel Date:</label>
+                                    <input type="text" id="editCancelDate" placeholder="15/3/25">
+                                </div>
+                                <div class="form-group">
+                                    <label for="editCancelNotes">Cancel Notes:</label>
+                                    <input type="text" id="editCancelNotes">
+                                </div>
+                            </div>
+                        </div>
+                        <div id="editAtRiskFields" class="border-card" style="display: none;">
+                            <h5>Story At Risk</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label for="editAtRiskDate">Risk Date:</label>
+                                    <input type="text" id="editAtRiskDate" placeholder="15/3/25">
+                                </div>
+                                <div class="form-group">
+                                    <label for="editAtRiskNotes">Risk Notes:</label>
+                                    <input type="text" id="editAtRiskNotes">
+                                </div>
+                            </div>
+                        </div>
+                        <div id="editNewStoryFields" class="border-card" style="display: none;">
+                            <h5>New Story</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label for="editNewStoryDate">New Date:</label>
+                                    <input type="text" id="editNewStoryDate" placeholder="15/3/25">
+                                </div>
+                                <div class="form-group">
+                                    <label for="editNewStoryNotes">New Notes:</label>
+                                    <input type="text" id="editNewStoryNotes">
+                                </div>
+                            </div>
+                        </div>
+                        <div id="editInfoFields" class="border-card" style="display: none; margin-bottom: 5px;">
+                            <h5 style="margin-top: 0; margin-bottom: 10px;">Story Information</h5>
+                            <div id="editInfoEntries">
+                                <!-- Info entries will be added here -->
+                                </div>
+                            <button id="add-edit-info-btn" onclick="addEditInfoEntry()" class="secondary" style="margin-top: 10px;">+ Add Info Entry</button>
+                        </div>
+
+                                                <div id="editTransferredInFields" class="border-card" style="display: none;">
+                            <h5>Story Transferred In Details</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label for="editTransferredInDate">Transfer In Date:</label>
+                                    <input type="text" id="editTransferredInDate" placeholder="15/01/25">
+                                </div>
+                                <div class="form-group">
+                                    <label for="editTransferredInNotes">Transfer In Notes:</label>
+                                    <input type="text" id="editTransferredInNotes">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="editTransferredOutFields" class="border-card" style="display: none;">
+                            <h5>Story Transferred Out Details</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label for="editTransferredOutDate">Transfer Out Date:</label>
+                                    <input type="text" id="editTransferredOutDate" placeholder="15/12/25">
+                                </div>
+                                <div class="form-group">
+                                    <label for="editTransferredOutNotes">Transfer Out Notes:</label>
+                                    <input type="text" id="editTransferredOutNotes">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="editProposedFields" class="border-card" style="display: none;">
+                            <h5>Proposed Story</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label for="editProposedDate">Proposed Date:</label>
+                                    <input type="text" id="editProposedDate" placeholder="15/01/25">
+                                </div>
+                                <div class="form-group">
+                                    <label for="editProposedNotes">Proposed Notes:</label>
+                                    <input type="text" id="editProposedNotes">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Story Timeline Section -->
+                    <div id="editTimelineChangesSection" class="border-section" style="display: none; margin-top: 0px;">
+                        <h4 style="margin-top: 0; margin-bottom: 10px;">Story Timeline</h4>
+                        <div id="editChangesContainer">
+                            <!-- Story timeline entries will be added here -->
+                        </div>
+                        <button type="button" id="add-edit-change-btn" class="secondary" onclick="addEditChange()" style="margin-top: 10px;">+ Add Timeline Entry</button>
+                    </div>
+                    </div><!-- End Story Status Box -->
+                </form>
+            </div>
+            <div class="modal-footer">
+                <div class="flex-form">
+                    <button type="button" class="btn-modal" style="background: #28a745; color: white; border: none; padding: 6px 8px; font-size: 14px; margin-right: 2px; cursor: pointer;" onclick="moveCurrentStoryUp()" title="Move story up" tabindex="-1">▲</button>
+                    <button type="button" class="btn-modal" style="background: #28a745; color: white; border: none; padding: 6px 8px; font-size: 14px; margin-right: 2px; cursor: pointer;" onclick="moveCurrentStoryDown()" title="Move story down" tabindex="-1">▼</button>
+                    <button type="button" class="btn-modal danger" style="padding: 6px 8px; font-size: 14px; cursor: pointer;" onclick="deleteCurrentStory()" title="Delete story" tabindex="-1">🗑️</button>
+                </div>
+                <div class="flex-modal-footer">
+                    <button type="button" class="primary" onclick="saveStoryChanges()" tabindex="-1">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Roadmap Modal -->
+    <div id="newRoadmapModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>New Roadmap</h2>
+                <button class="close" onclick="closeNewRoadmapModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 20px;">Select the year for your new roadmap. All current data will be cleared.</p>
+                <div class="form-group">
+                    <label for="newRoadmapYear">Roadmap Year:</label>
+                    <input type="number" id="newRoadmapYear" value="2025" min="2020" max="2030" style="width: 100px;" onkeydown="if(event.key === 'Enter') confirmNewRoadmap();">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="flex-modal-footer">
+                    <button type="button" onclick="closeNewRoadmapModal()" class="secondary">Cancel</button>
+                    <button type="button" onclick="confirmNewRoadmap()" class="btn-modal">Create New Roadmap</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly KTLO Edit Modal -->
+    <div id="editMonthlyKTLOModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="editMonthlyKTLOTitle">Edit Monthly KTLO</h2>
+                <button class="close" onclick="closeEditMonthlyKTLOModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editMonthlyKTLOForm">
+                    <div class="form-group">
+                        <label for="editMonthlyKTLOMonth">Month:</label>
+                        <select id="editMonthlyKTLOMonth" disabled style="width: 120px;">
+                            <option value="jan">January</option>
+                            <option value="feb">February</option>
+                            <option value="mar">March</option>
+                            <option value="apr">April</option>
+                            <option value="may">May</option>
+                            <option value="jun">June</option>
+                            <option value="jul">July</option>
+                            <option value="aug">August</option>
+                            <option value="sep">September</option>
+                            <option value="oct">October</option>
+                            <option value="nov">November</option>
+                            <option value="dec">December</option>
+                        </select>
+                    </div>
+                    <div class="inline-group">
+                        <div class="form-group">
+                            <label for="editMonthlyKTLONumber">Team Size:</label>
+                            <input type="number" id="editMonthlyKTLONumber" min="0" placeholder="5" style="width: 200px;">
+                        </div>
+                        <div class="form-group">
+                            <label for="editMonthlyKTLOPercentage">KTLO %:</label>
+                            <input type="number" id="editMonthlyKTLOPercentage" min="0" max="100" step="5" placeholder="15" style="width: 200px;">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="editMonthlyKTLODescription">Description:</label>
+                        <textarea id="editMonthlyKTLODescription" rows="2" style="resize: vertical;" placeholder="Line 1: Main activity&#10;Line 2: Additional details"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <div></div>
+                <div class="flex-modal-footer">
+                    <button type="button" class="primary" onclick="saveMonthlyKTLOChanges()">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
