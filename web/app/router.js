@@ -62,8 +62,6 @@
         const route = resolveRoute();
         const src = ROUTES[route];
 
-        clearPreviousView();
-
         let text;
         try {
             const res = await fetch(src, { cache: 'no-store' });
@@ -71,11 +69,17 @@
             text = await res.text();
         } catch (err) {
             console.error(err);
+            clearPreviousView();
             main.innerHTML = `<div style="padding:24px">Failed to load view: ${err.message}</div>`;
             return;
         }
 
         const doc = new DOMParser().parseFromString(text, 'text/html');
+
+        // Tear down the previous view only once we have the new markup ready - tearing
+        // down before the fetch resolves leaves the old DOM mounted without its styles
+        // for one paint, which shows up as a flicker when switching tabs.
+        clearPreviousView();
 
         // Inject view-specific <style> into <head>, tagged for cleanup on next nav.
         doc.querySelectorAll('style').forEach(s => {
