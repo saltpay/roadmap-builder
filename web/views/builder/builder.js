@@ -2,11 +2,19 @@
 // Phase 3 is gradually slicing this into smaller modules. So far:
 //   - Share dropdown UI moved to ./share.js
 //   - PDF/JPG export moved to ./export.js
+//   - Story drag-and-drop handlers moved to ./drag-drop.js
+//   - Country-flag mutual-exclusion handlers moved to ./country-flags.js
+//   - Modal focus trap moved to ./focus-trap.js
+//   - Story status checkboxes moved to ./status.js
 // The remainder is still legacy script-body code that depends on window
 // globals set by the utilities (DateUtility, RoadmapGenerator, etc.).
 
 import * as share from './share.js';
 import * as exportLib from './export.js';
+import { createStoryDragHandlers } from './drag-drop.js';
+import { createCountryFlagHandlers } from './country-flags.js';
+import { createModalFocusTrap } from './focus-trap.js';
+import { createStatusHandlers } from './status.js';
 
 /**
  * Mount this view. Called by the SPA router on every navigation here.
@@ -616,118 +624,35 @@ export function init(_root) {
             }
         }
         
-        // Drag and drop handlers for story reordering
-        let draggedStoryElement = null;
-        
-        function handleStoryDragStart(event, storyId) {
-            // Only allow dragging if story is collapsed
-            const contentDiv = document.getElementById(`story-content-${storyId}`);
-            const isCollapsed = contentDiv && contentDiv.style.display === 'none';
-            
-            if (!isCollapsed) {
-                // Story is expanded, don't allow dragging
-                event.preventDefault();
-                return false;
-            }
-            
-            draggedStoryElement = document.getElementById(`story-${storyId}`);
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/html', draggedStoryElement.innerHTML);
-            
-            // Add visual feedback
-            setTimeout(() => {
-                if (draggedStoryElement) {
-                    draggedStoryElement.style.opacity = '0.4';
-                }
-            }, 0);
-        }
-        
-        function handleStoryDragOver(event) {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = 'move';
-            
-            const targetStory = event.currentTarget;
-            if (targetStory && targetStory.classList.contains('story-section') && targetStory !== draggedStoryElement) {
-                // Check if both stories are in the same epic
-                const draggedEpic = draggedStoryElement.closest('.epic-section');
-                const targetEpic = targetStory.closest('.epic-section');
-                
-                if (draggedEpic !== targetEpic) {
-                    return false; // Can't drag between epics
-                }
-                
-                const container = targetStory.parentNode;
-                const allStories = Array.from(container.querySelectorAll('.story-section'));
-                const draggedIndex = allStories.indexOf(draggedStoryElement);
-                const targetIndex = allStories.indexOf(targetStory);
-                
-                if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) {
-                    return false;
-                }
-                
-                // Determine if we should insert before or after based on mouse position
-                const rect = targetStory.getBoundingClientRect();
-                const midpoint = rect.top + rect.height / 2;
-                const insertBefore = event.clientY < midpoint;
-                
-                // Perform live reordering
-                if (insertBefore) {
-                    if (draggedIndex < targetIndex) {
-                        // Moving down, insert before target
-                        container.insertBefore(draggedStoryElement, targetStory);
-                    } else if (draggedIndex > targetIndex) {
-                        // Moving up, insert before target
-                        container.insertBefore(draggedStoryElement, targetStory);
-                    }
-                } else {
-                    if (draggedIndex < targetIndex) {
-                        // Moving down, insert after target
-                        container.insertBefore(draggedStoryElement, targetStory.nextSibling);
-                    } else if (draggedIndex > targetIndex) {
-                        // Moving up, insert after target
-                        container.insertBefore(draggedStoryElement, targetStory.nextSibling);
-                    }
-                }
-            }
-            
-            return false;
-        }
-        
-        function handleStoryDrop(event, targetStoryId) {
-            event.stopPropagation();
-            event.preventDefault();
-            
-            // Reordering already happened during dragover
-            // Just update the story numbers and refresh preview
-            if (draggedStoryElement) {
-                const draggedEpic = draggedStoryElement.closest('.epic-section');
-                if (draggedEpic) {
-                    updateStoryNumbers(draggedEpic);
-                    setTimeout(generatePreview, 100);
-                }
-            }
-            
-            return false;
-        }
-        
-        function handleStoryDragEnd(event) {
-            // Reset opacity
-            if (draggedStoryElement) {
-                draggedStoryElement.style.opacity = '1';
-            }
-            
-            // Clear all drop zone indicators
-            const allStories = document.querySelectorAll('.story-section');
-            allStories.forEach(story => {
-                story.style.borderTop = '';
-                story.style.borderBottom = '';
-                story.style.marginTop = '';
-                story.style.marginBottom = '';
-            });
-            
-            draggedStoryElement = null;
-        }
-        
+        // Slices that depend on hoisted function declarations from this body
+        // are wired here. Their handlers go on window so inline on*= attributes
+        // in the markup resolve.
+        Object.assign(window, createStoryDragHandlers({ updateStoryNumbers, generatePreview }));
+        Object.assign(window, createCountryFlagHandlers({ onStoryChange: () => debouncedGeneratePreview() }));
+        // Focus trap is also called directly from body code (not just inline
+        // attributes), so we destructure the names into init() scope. Strict
+        // mode in ES modules means bare references don't fall through to
+        // window, unlike legacy non-module sloppy mode.
+        const { setupModalFocusTrap, removeModalFocusTrap } = createModalFocusTrap({
+            closeFns: { editStoryModal: closeEditModal, editMonthlyKTLOModal: closeEditMonthlyKTLOModal },
+        });
+        window.setupModalFocusTrap = setupModalFocusTrap;
+        window.removeModalFocusTrap = removeModalFocusTrap;
+
+        // Status checkbox handlers. The body calls handleDoneChange and the
+        // others directly during form load (loadStoryData re-fires each handler
+        // to show/hide its section), so we destructure every handler name into
+        // init() scope. Object.assign also exposes them on window for inline
+        // onchange="handle*Change('${storyId}')" attribute resolution.
+        const __statusBundle = createStatusHandlers({ addInfoEntry, convertSingleInfoToMultiple });
+        const {
+            STATUS_CONFIG, StatusUtils, handleStatusChange,
+            handleDoneChange, handleCancelledChange, handleAtRiskChange,
+            handleNewStoryChange, handleInfoChange,
+            handleTransferredInChange, handleTransferredOutChange, handleProposedChange,
+        } = __statusBundle;
+        Object.assign(window, __statusBundle);
+
         function hideKTLOSection() {
             // Find the KTLO section header and content
             const ktloHeader = [...document.querySelectorAll('h2')].find(h2 => h2.textContent.includes('KTLO (Keep The Lights On)'));
@@ -2273,213 +2198,9 @@ export function init(_root) {
         //
         
         // Configuration object defining all status types
-        const STATUS_CONFIG = {
-            done: {
-                label: 'Done',
-                sectionTitle: 'Story Complete',
-                dateLabel: 'Done Date',
-                notesLabel: 'Done Notes',
-                datePlaceholder: '07/10 or 07/10/25 or 07-10-2025',
-                notesPlaceholder: 'Completion notes'
-            },
-            cancelled: {
-                label: 'Cancelled', 
-                sectionTitle: 'Story Cancellation',
-                dateLabel: 'Cancel Date',
-                notesLabel: 'Cancel Notes',
-                datePlaceholder: '15/10 or 15/10/25 or 15-10-2025',
-                notesPlaceholder: 'Cancellation reason'
-            },
-            atrisk: {
-                label: 'At Risk',
-                sectionTitle: 'Story At Risk',
-                dateLabel: 'Risk Date', 
-                notesLabel: 'Risk Notes',
-                datePlaceholder: '20/10 or 20/10/25 or 20-10-2025',
-                notesPlaceholder: 'Risk details'
-            },
-            newstory: {
-                label: 'New',
-                sectionTitle: 'New Story Details',
-                dateLabel: 'Story Date',
-                notesLabel: 'Story Notes', 
-                datePlaceholder: '01/11 or 01/11/25 or 01-11-2025',
-                notesPlaceholder: 'New story details'
-            },
-            transferredout: {
-                label: 'Out',
-                sectionTitle: 'Story Transferred Out Details',
-                dateLabel: 'Transfer Out Date',
-                notesLabel: 'Transfer Out Notes',
-                datePlaceholder: '15/12 or 15/12/25 or 15-12-2025', 
-                notesPlaceholder: 'Transfer out details'
-            },
-            transferredin: {
-                label: 'In',
-                sectionTitle: 'Story Transferred In Details',
-                dateLabel: 'Transfer In Date',
-                notesLabel: 'Transfer In Notes',
-                datePlaceholder: '01/12 or 01/12/25 or 01-12-2025',
-                notesPlaceholder: 'Transfer in details'
-            },
-            proposed: {
-                label: 'Proposed',
-                sectionTitle: 'Story Proposed Details', 
-                dateLabel: 'Proposed Date',
-                notesLabel: 'Proposed Notes',
-                datePlaceholder: '10/12 or 10/12/25 or 10-12-2025',
-                notesPlaceholder: 'Proposal details'
-            }
-        };
-
-        // Generic status change handler - replaces all individual handlers
-        function handleStatusChange(storyId, statusType) {
-            const checkboxId = `story-${statusType}-${storyId}`;
-            const sectionId = `${statusType}-section-${storyId}`;
-            const dateFieldId = `${statusType === 'atrisk' ? 'atrisk' : statusType === 'cancelled' ? 'cancel' : statusType}-date-${storyId}`;
-            
-            const checkbox = document.getElementById(checkboxId);
-            const section = document.getElementById(sectionId);
-            
-            
-            if (!checkbox || !section) return;
-            
-            if (checkbox.checked) {
-                // Show the section
-                section.style.display = 'block';
-                
-                // Special handling for info status
-                if (statusType === 'info') {
-                    // For info, create the first entry automatically if none exist
-                    setTimeout(() => {
-                        const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
-                        if (infoEntriesContainer) {
-                            const existingEntries = infoEntriesContainer.querySelectorAll('.info-entry');
-                            if (existingEntries.length === 0) {
-                                addInfoEntry(storyId);
-                            }
-                        }
-                    }, 100);
-                } else {
-                // Auto-fill today's date if date field is empty
-                const dateField = document.getElementById(dateFieldId);
-                if (dateField && !dateField.value) {
-                    dateField.value = getTodaysDateEuropean();
-                }
-                
-                // Focus on the date field for convenience
-                setTimeout(() => {
-                    if (dateField) {
-                        dateField.focus({ preventScroll: true });
-                    }
-                }, 100);
-                }
-            } else {
-                // Hide the section
-                section.style.display = 'none';
-            }
-        }
-
-        // Utility functions for status management
-        const StatusUtils = {
-            // Get all status checkboxes for a story
-            getStatusCheckboxes(storyId) {
-                const checkboxes = {};
-                Object.keys(STATUS_CONFIG).forEach(statusType => {
-                    checkboxes[statusType] = document.getElementById(`story-${statusType}-${storyId}`);
-                });
-                return checkboxes;
-            },
-            
-            // Get status data for a story
-            getStatusData(storyId) {
-                const data = {};
-                Object.keys(STATUS_CONFIG).forEach(statusType => {
-                    const checkbox = document.getElementById(`story-${statusType}-${storyId}`);
-                    const dateField = document.getElementById(`${statusType === 'atrisk' ? 'atrisk' : statusType === 'cancelled' ? 'cancel' : statusType}-date-${storyId}`);
-                    const notesField = document.getElementById(`${statusType === 'atrisk' ? 'atrisk' : statusType === 'cancelled' ? 'cancel' : statusType}-notes-${storyId}`);
-                    
-                    data[statusType] = {
-                        checked: checkbox ? checkbox.checked : false,
-                        date: dateField ? dateField.value : '',
-                        notes: notesField ? notesField.value : ''
-                    };
-                });
-                return data;
-            },
-            
-            // Set status data for a story
-            setStatusData(storyId, statusType, checked, date = '', notes = '') {
-                const checkbox = document.getElementById(`story-${statusType}-${storyId}`);
-                const dateField = document.getElementById(`${statusType === 'atrisk' ? 'atrisk' : statusType === 'cancelled' ? 'cancel' : statusType}-date-${storyId}`);
-                const notesField = document.getElementById(`${statusType === 'atrisk' ? 'atrisk' : statusType === 'cancelled' ? 'cancel' : statusType}-notes-${storyId}`);
-                
-                if (checkbox) {
-                    checkbox.checked = checked;
-                    handleStatusChange(storyId, statusType);
-                }
-                if (dateField) dateField.value = date;
-                if (notesField) notesField.value = notes;
-            },
-            
-            // Bulk set multiple status types at once
-            setMultipleStatusData(storyId, statusConfigs) {
-                Object.entries(statusConfigs).forEach(([statusType, config]) => {
-                    if (config.checked) {
-                        this.setStatusData(storyId, statusType, true, config.date || '', config.notes || '');
-                    }
-                });
-            }
-        };
-
-        // ===== END OPTIMIZED CHECKBOX HANDLING SYSTEM =====
-
-        function handleDoneChange(storyId) {
-            handleStatusChange(storyId, 'done');
-        }
-        
-        function handleCancelledChange(storyId) {
-            handleStatusChange(storyId, 'cancelled');
-        }
-        
-        function handleAtRiskChange(storyId) {
-            handleStatusChange(storyId, 'atrisk');
-        }
-        
-        function handleNewStoryChange(storyId) {
-            handleStatusChange(storyId, 'newstory');
-        }
-
-        function handleInfoChange(storyId) {
-            const checkbox = document.getElementById(`story-info-${storyId}`);
-            const section = document.getElementById(`info-section-${storyId}`);
-            
-            if (!checkbox || !section) return;
-            
-            if (checkbox.checked) {
-                // Show the section
-                section.style.display = 'block';
-                
-                // For info, create the first entry automatically if none exist
-                setTimeout(() => {
-                    const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
-                    if (infoEntriesContainer) {
-                        const existingEntries = infoEntriesContainer.querySelectorAll('.info-entry');
-                        if (existingEntries.length === 0) {
-                            addInfoEntry(storyId);
-                        }
-                    }
-                }, 100);
-            } else {
-                // Hide the section
-                section.style.display = 'none';
-            }
-            
-            // Convert single info to multiple instances if needed
-            setTimeout(() => {
-                convertSingleInfoToMultiple(storyId);
-            }, 100);
-        }
+        // Status checkboxes (Done/Cancelled/At Risk/New/Info/Transferred In/Out/
+        // Proposed) are now in ./status.js. The factory is wired at the top of
+        // init() and exposes the handlers on window for inline onchange attrs.
 
         // Add new info entry
         function addInfoEntry(storyId) {
@@ -2648,17 +2369,8 @@ export function init(_root) {
             }
         }
 
-        function handleTransferredOutChange(storyId) {
-            handleStatusChange(storyId, 'transferredout');
-        }
-
-        function handleTransferredInChange(storyId) {
-            handleStatusChange(storyId, 'transferredin');
-        }
-
-        function handleProposedChange(storyId) {
-            handleStatusChange(storyId, 'proposed');
-        }
+        // (handleTransferredOutChange/handleTransferredInChange/handleProposedChange
+        // moved to ./status.js)
         function addChange(storyId) {
             const container = document.getElementById(`changes-container-${storyId}`);
             
@@ -5757,92 +5469,11 @@ export function init(_root) {
         });
         // Modal functions
         let currentEditingStory = null;
-        let modalFocusTrap = null;
 
-        function setupModalFocusTrap(modalId) {
-            const modal = document.getElementById(modalId);
-            if (!modal) return;
-
-            // Get all focusable elements within the modal
-            const getFocusableElements = () => {
-                const focusableSelectors = [
-                    'input:not([disabled]):not([type="hidden"]):not([tabindex="-1"])',
-                    'select:not([disabled]):not([tabindex="-1"])',
-                    'textarea:not([disabled]):not([tabindex="-1"])',
-                    'button:not([disabled]):not([tabindex="-1"])',
-                    'a[href]:not([tabindex="-1"])',
-                    '[tabindex]:not([tabindex="-1"])'
-                ];
-
-                return Array.from(modal.querySelectorAll(focusableSelectors.join(', ')))
-                    .filter(el => {
-                        // Additional visibility check
-                        const style = window.getComputedStyle(el);
-                        const rect = el.getBoundingClientRect();
-                        return (
-                            style.display !== 'none' &&
-                            style.visibility !== 'hidden' &&
-                            style.opacity !== '0' &&
-                            rect.width > 0 &&
-                            rect.height > 0 &&
-                            !(el.closest('[style*="display: none"]') || el.closest('[style*="display:none"]'))
-                        );
-                    });
-            };
-
-            const trapFocus = (e) => {
-                if (e.key === 'Escape') {
-                    e.preventDefault();
-                    // Close the appropriate modal
-                    if (modalId === 'editStoryModal') {
-                        closeEditModal();
-                    } else if (modalId === 'editMonthlyKTLOModal') {
-                        closeEditMonthlyKTLOModal();
-                    }
-                    return;
-                }
-
-                if (e.key !== 'Tab') return;
-
-                const focusableElements = getFocusableElements();
-                if (focusableElements.length === 0) return;
-
-                const firstElement = focusableElements[0];
-                const lastElement = focusableElements[focusableElements.length - 1];
-
-                if (e.shiftKey) {
-                    // Shift+Tab: going backwards
-                    if (document.activeElement === firstElement) {
-                        e.preventDefault();
-                        lastElement.focus();
-                    }
-                } else {
-                    // Tab: going forwards
-                    if (document.activeElement === lastElement) {
-                        e.preventDefault();
-                        firstElement.focus();
-                    }
-                }
-            };
-
-            // Set up the focus trap
-            modal.addEventListener('keydown', trapFocus);
-            
-            // Don't auto-focus any element - let user click to focus
-
-            return {
-                remove: () => {
-                    modal.removeEventListener('keydown', trapFocus);
-                }
-            };
-        }
-
-        function removeModalFocusTrap() {
-            if (modalFocusTrap) {
-                modalFocusTrap.remove();
-                modalFocusTrap = null;
-            }
-        }
+        // Modal focus trap is now in ./focus-trap.js. The factory is wired
+        // at the top of init() and exposes setupModalFocusTrap and
+        // removeModalFocusTrap on window. Active-trap state is tracked
+        // internally by the module, so callers no longer assign the result.
 
         function openEditStoryModal(storyData) {
             currentEditingStory = storyData;
@@ -6191,7 +5822,7 @@ export function init(_root) {
             }
             
             // Set up focus trap
-            modalFocusTrap = setupModalFocusTrap('editStoryModal');
+            setupModalFocusTrap('editStoryModal');
             
             // Add Enter key listener for Save Changes
             const editStoryModal = document.getElementById('editStoryModal');
@@ -6358,60 +5989,9 @@ export function init(_root) {
             }
         }
 
-        /**
-         * Clear Global flag in edit modal if any individual country is selected
-         */
-        function clearEditGlobalIfCountrySelected() {
-            const countryFlags = ['editFlagCroatia', 'editFlagCzechia', 'editFlagGermany', 'editFlagHungary', 'editFlagIceland', 'editFlagItaly',
-                                  'editFlagPortugal', 'editFlagSlovakia', 'editFlagSlovenia', 'editFlagSpain', 'editFlagUK', 'editFlagFrance'];
-            const anyCountrySelected = countryFlags.some(id => document.getElementById(id)?.checked);
-            if (anyCountrySelected) {
-                document.getElementById('editFlagGlobal').checked = false;
-            }
-        }
-
-        /**
-         * Clear all country flags in edit modal if Global is selected
-         */
-        function clearEditCountriesIfGlobalSelected() {
-            const globalEl = document.getElementById('editFlagGlobal');
-            if (globalEl?.checked) {
-                const countryFlags = ['editFlagCroatia', 'editFlagCzechia', 'editFlagGermany', 'editFlagHungary', 'editFlagIceland', 'editFlagItaly',
-                                      'editFlagPortugal', 'editFlagSlovakia', 'editFlagSlovenia', 'editFlagSpain', 'editFlagUK', 'editFlagFrance'];
-                countryFlags.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.checked = false;
-                });
-            }
-        }
-
-        /**
-         * Clear Global flag in story form if any individual country is selected
-         */
-        function clearStoryGlobalIfCountrySelected(storyId) {
-            const countryFlags = ['croatia', 'czechia', 'germany', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk', 'france'];
-            const anyCountrySelected = countryFlags.some(country => document.getElementById(`story-flag-${country}-${storyId}`)?.checked);
-            if (anyCountrySelected) {
-                const globalEl = document.getElementById(`story-flag-global-${storyId}`);
-                if (globalEl) globalEl.checked = false;
-            }
-            debouncedGeneratePreview();
-        }
-
-        /**
-         * Clear all country flags in story form if Global is selected
-         */
-        function clearStoryCountriesIfGlobalSelected(storyId) {
-            const globalEl = document.getElementById(`story-flag-global-${storyId}`);
-            if (globalEl?.checked) {
-                const countryFlags = ['croatia', 'czechia', 'germany', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk', 'france'];
-                countryFlags.forEach(country => {
-                    const el = document.getElementById(`story-flag-${country}-${storyId}`);
-                    if (el) el.checked = false;
-                });
-            }
-            debouncedGeneratePreview();
-        }
+        // Country-flag mutual-exclusion handlers are now in ./country-flags.js.
+        // The factory is wired at the top of init() and exposes the four
+        // functions on window for inline onchange="..." attributes.
 
         function toggleEditTimelineChanges() {
             const timelineChecked = document.getElementById('editTimelineChanges').checked;
@@ -6641,7 +6221,7 @@ export function init(_root) {
             document.getElementById('editMonthlyKTLOModal').style.display = 'flex';
             
             // Set up focus trap
-            modalFocusTrap = setupModalFocusTrap('editMonthlyKTLOModal');
+            setupModalFocusTrap('editMonthlyKTLOModal');
             
             // Add Enter key listener for Save Changes
             const editMonthlyKTLOModal = document.getElementById('editMonthlyKTLOModal');
@@ -8126,10 +7706,6 @@ if (typeof toggleCollapse === 'function') window.toggleCollapse = toggleCollapse
 if (typeof toggleBTLCollapse === 'function') window.toggleBTLCollapse = toggleBTLCollapse;
 if (typeof toggleStoryCollapse === 'function') window.toggleStoryCollapse = toggleStoryCollapse;
 if (typeof updateStoryHeaderTitle === 'function') window.updateStoryHeaderTitle = updateStoryHeaderTitle;
-if (typeof handleStoryDragStart === 'function') window.handleStoryDragStart = handleStoryDragStart;
-if (typeof handleStoryDragOver === 'function') window.handleStoryDragOver = handleStoryDragOver;
-if (typeof handleStoryDrop === 'function') window.handleStoryDrop = handleStoryDrop;
-if (typeof handleStoryDragEnd === 'function') window.handleStoryDragEnd = handleStoryDragEnd;
 if (typeof hideKTLOSection === 'function') window.hideKTLOSection = hideKTLOSection;
 if (typeof showKTLOSection === 'function') window.showKTLOSection = showKTLOSection;
 if (typeof repositionKTLOSection === 'function') window.repositionKTLOSection = repositionKTLOSection;
@@ -8161,20 +7737,11 @@ if (typeof getCurrentRoadmapYear === 'function') window.getCurrentRoadmapYear = 
 if (typeof initializeDatePicker === 'function') window.initializeDatePicker = initializeDatePicker;
 if (typeof refreshAllDatePickers === 'function') window.refreshAllDatePickers = refreshAllDatePickers;
 if (typeof updateAllDatePickerRanges === 'function') window.updateAllDatePickerRanges = updateAllDatePickerRanges;
-if (typeof handleStatusChange === 'function') window.handleStatusChange = handleStatusChange;
-if (typeof handleDoneChange === 'function') window.handleDoneChange = handleDoneChange;
-if (typeof handleCancelledChange === 'function') window.handleCancelledChange = handleCancelledChange;
-if (typeof handleAtRiskChange === 'function') window.handleAtRiskChange = handleAtRiskChange;
-if (typeof handleNewStoryChange === 'function') window.handleNewStoryChange = handleNewStoryChange;
-if (typeof handleInfoChange === 'function') window.handleInfoChange = handleInfoChange;
 if (typeof addInfoEntry === 'function') window.addInfoEntry = addInfoEntry;
 if (typeof removeInfoEntry === 'function') window.removeInfoEntry = removeInfoEntry;
 if (typeof convertSingleInfoToMultiple === 'function') window.convertSingleInfoToMultiple = convertSingleInfoToMultiple;
 if (typeof addEditInfoEntry === 'function') window.addEditInfoEntry = addEditInfoEntry;
 if (typeof removeEditInfoEntry === 'function') window.removeEditInfoEntry = removeEditInfoEntry;
-if (typeof handleTransferredOutChange === 'function') window.handleTransferredOutChange = handleTransferredOutChange;
-if (typeof handleTransferredInChange === 'function') window.handleTransferredInChange = handleTransferredInChange;
-if (typeof handleProposedChange === 'function') window.handleProposedChange = handleProposedChange;
 if (typeof addChange === 'function') window.addChange = addChange;
 if (typeof removeChange === 'function') window.removeChange = removeChange;
 if (typeof updateChangeButton === 'function') window.updateChangeButton = updateChangeButton;
@@ -8228,15 +7795,9 @@ if (typeof exportHTML === 'function') window.exportHTML = exportHTML;
 if (typeof showFullscreen === 'function') window.showFullscreen = showFullscreen;
 if (typeof hideFullscreen === 'function') window.hideFullscreen = hideFullscreen;
 if (typeof toggleFullscreen === 'function') window.toggleFullscreen = toggleFullscreen;
-if (typeof setupModalFocusTrap === 'function') window.setupModalFocusTrap = setupModalFocusTrap;
-if (typeof removeModalFocusTrap === 'function') window.removeModalFocusTrap = removeModalFocusTrap;
 if (typeof openEditStoryModal === 'function') window.openEditStoryModal = openEditStoryModal;
 if (typeof closeEditModal === 'function') window.closeEditModal = closeEditModal;
 if (typeof toggleEditStatusFields === 'function') window.toggleEditStatusFields = toggleEditStatusFields;
-if (typeof clearEditGlobalIfCountrySelected === 'function') window.clearEditGlobalIfCountrySelected = clearEditGlobalIfCountrySelected;
-if (typeof clearEditCountriesIfGlobalSelected === 'function') window.clearEditCountriesIfGlobalSelected = clearEditCountriesIfGlobalSelected;
-if (typeof clearStoryGlobalIfCountrySelected === 'function') window.clearStoryGlobalIfCountrySelected = clearStoryGlobalIfCountrySelected;
-if (typeof clearStoryCountriesIfGlobalSelected === 'function') window.clearStoryCountriesIfGlobalSelected = clearStoryCountriesIfGlobalSelected;
 if (typeof toggleEditTimelineChanges === 'function') window.toggleEditTimelineChanges = toggleEditTimelineChanges;
 if (typeof initializeEditKTLOMonths === 'function') window.initializeEditKTLOMonths = initializeEditKTLOMonths;
 if (typeof switchEditKTLOMonth === 'function') window.switchEditKTLOMonth = switchEditKTLOMonth;
