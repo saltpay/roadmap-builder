@@ -2677,7 +2677,7 @@ export function init(_root) {
                     if (!snap.handle) {
                         selectedDirectory = null;
                         dirStatus.style.color = '';
-                        dirStatus.textContent = 'No folder selected — pick one in the top bar';
+                        dirStatus.textContent = 'No folder selected - pick one in the top bar';
                         updateSearchButtonStates();
                         return;
                     }
@@ -2685,6 +2685,18 @@ export function init(_root) {
                         selectedDirectory = null;
                         dirStatus.style.color = '#b45309';
                         dirStatus.textContent = `🔒 ${snap.name} is locked. Click Unlock in the top bar to grant access.`;
+                        updateSearchButtonStates();
+                        return;
+                    }
+                    // Cross-team search inherently scans many files. Single-file
+                    // mode (the "Open a single file..." choice in the top nav)
+                    // gives us a file handle, not a directory handle, so the
+                    // scan would fail with "entries is not a function". Surface
+                    // a clear message instead and tell the user to pick a folder.
+                    if (snap.type === 'file') {
+                        selectedDirectory = null;
+                        dirStatus.style.color = '#b45309';
+                        dirStatus.textContent = `📄 ${snap.name} is a single file. Cross-team Search needs a folder - pick one via the top bar.`;
                         updateSearchButtonStates();
                         return;
                     }

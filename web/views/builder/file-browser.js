@@ -18,6 +18,10 @@
  * @param {() => void} deps.generatePreview
  * @param {(syntheticEvent: any) => void} deps.handleFileLoad
  *        Called from the drag-drop path with a synthesized change event.
+ * @param {(handle: FileSystemFileHandle | null) => void} [deps.setFileHandle]
+ *        Optional. Called with the FileSystemFileHandle when a file is
+ *        opened from the directory list, so the v2 Save button can write
+ *        back to it without re-prompting.
  */
 export function createFileBrowser({
     loadTeamData,
@@ -25,6 +29,7 @@ export function createFileBrowser({
     refreshAllDatePickers,
     generatePreview,
     handleFileLoad,
+    setFileHandle,
 }) {
     let selectedDirectoryHandle = null;
 
@@ -124,9 +129,8 @@ export function createFileBrowser({
     async function openRoadmapFile(fileHandle, fileType) {
         try {
             // Accept either a FileSystemFileHandle or a raw File (polyfill case).
-            const file = (fileHandle && typeof fileHandle.getFile === 'function')
-                ? await fileHandle.getFile()
-                : fileHandle;
+            const isHandle = fileHandle && typeof fileHandle.getFile === 'function';
+            const file = isHandle ? await fileHandle.getFile() : fileHandle;
 
             if (fileType !== 'json') return;
 
@@ -137,6 +141,15 @@ export function createFileBrowser({
 
             loadTeamData(teamData);
             updateFilenameDisplay(file.name);
+
+            // Hand the writable handle to the save module so the Save button
+            // can write back to this exact file without re-prompting. The
+            // polyfill (no native showDirectoryPicker) hands us a fake handle
+            // that has getFile but no createWritable - we only forward real
+            // ones so Save's first click prompts via showSaveFilePicker
+            // instead of failing.
+            const isWritable = isHandle && typeof fileHandle.createWritable === 'function';
+            if (setFileHandle) setFileHandle(isWritable ? fileHandle : null);
 
             // The form load is largely synchronous but date pickers and preview
             // depend on DOM that just got swapped, so wait a tick before refreshing.
@@ -228,12 +241,21 @@ export function createFileBrowser({
             if (!snap.handle) {
                 selectedDirectoryHandle = null;
                 lastHandle = null;
-                fileList.innerHTML = '<div class="no-directory-message">Pick a folder from the top bar to browse your roadmap files</div>';
+                fileList.innerHTML = '<div class="no-directory-message">Pick a folder or file from the top bar to get started</div>';
                 return;
             }
             if (snap.permission !== 'granted') {
                 selectedDirectoryHandle = null;
                 fileList.innerHTML = `<div class="no-directory-message">🔒 Folder <strong>${snap.name}</strong> is locked. Click <strong>Unlock</strong> in the top bar to grant access.</div>`;
+                return;
+            }
+            // Single-file mode: nothing to list. The file is already loaded
+            // into the editor by the nav-level pick handler. Show a small
+            // notice so the user understands why the panel is empty.
+            if (snap.type === 'file') {
+                selectedDirectoryHandle = null;
+                lastHandle = null;
+                fileList.innerHTML = `<div class="no-directory-message">📄 Editing single file: <strong>${snap.name}</strong></div>`;
                 return;
             }
             selectedDirectoryHandle = snap.handle;

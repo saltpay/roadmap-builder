@@ -149,6 +149,37 @@
             padding-top: var(--app-nav-height);
             min-height: 100vh;
         }
+
+        .app-nav__folder-menu {
+            position: absolute !important;
+            top: calc(100% + 6px) !important;
+            right: 0 !important;
+            background: #ffffff !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+            display: none;
+            flex-direction: column !important;
+            min-width: 220px !important;
+            padding: 4px !important;
+            z-index: 200 !important;
+        }
+        .app-nav__folder-menu.is-open {
+            display: flex;
+        }
+        .app-nav__folder-menu-item {
+            background: transparent !important;
+            border: 0 !important;
+            padding: 8px 12px !important;
+            font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+            text-align: left !important;
+            color: #1f2937 !important;
+            cursor: pointer !important;
+            border-radius: 4px !important;
+        }
+        .app-nav__folder-menu-item:hover {
+            background: #f3f4f6 !important;
+        }
     </style>
 </head>
 <body>

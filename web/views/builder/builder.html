@@ -32,8 +32,8 @@
                     <h1 style="margin: 0; padding: 0; text-align: left;"><span id="roadmapIcon">🗺️</span> Roadmap Builder</h1>
                     <div class="top-action-buttons">
                     <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
-                    <button onclick="loadRoadmap()" class="secondary">📂 Load Roadmap</button>
-                    <button onclick="saveRoadmap()" class="secondary">💾 Save Roadmap</button>
+<button onclick="saveRoadmap()" class="secondary js-save-button" disabled title="Pick a folder first via Select folder">💾 Save</button>
+                    <span id="saveStatus" class="save-status" data-status="idle"></span>
                     <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
                     <div class="dropdown" style="display: inline-block; position: relative;">
                         <button id="shareDropdownBtn" class="secondary" onclick="toggleShareDropdown(event)">🌐 Share ▼</button>
@@ -203,8 +203,7 @@
             <!-- Action Buttons -->
             <div class="action-buttons">
                 <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
-                <button onclick="loadRoadmap()" class="secondary">📂 Load Roadmap</button>
-                <button onclick="saveRoadmap()" class="secondary">💾 Save Roadmap</button>
+                <button onclick="saveRoadmap()" class="secondary js-save-button" disabled title="Pick a folder first via Select folder">💾 Save</button>
                 <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
                 <div class="dropdown" style="display: inline-block; position: relative;">
                     <button id="shareDropdownBtnBottom" class="secondary" onclick="toggleShareDropdownBottom(event)">🌐 Share ▼</button>
@@ -215,20 +214,14 @@
                     </div>
                 </div>
             </div>
-            <!-- Hidden file input for loading roadmaps (JSON only) -->
-            <input type="file" id="roadmapLoadInput" accept=".json" style="display: none;" onchange="handleRoadmapLoad(event)">
-            <!-- Legacy inputs kept for compatibility -->
-            <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="handleFileLoad(event)">
-            <!-- Fallback directory picker for browsers without File System Access API -->
-            <input type="file" id="directoryFileInput" style="display: none;" multiple webkitdirectory>
 
         </div>
             <!-- Preview Panel -->
-            <div class="preview-panel" onclick="showFullscreen()">
+            <div class="preview-panel">
                 <button class="fullscreen-button" onclick="event.stopPropagation(); toggleFullscreen()" title="Enter Fullscreen">
                     <span class="fullscreen-icon">⛶</span>
                 </button>
-                <iframe id="preview-area" src="about:blank"></iframe>
+                <div id="roadmap-mount" class="roadmap-root"></div>
             </div>
         </div>
     </div>

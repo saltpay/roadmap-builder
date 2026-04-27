@@ -658,3 +658,53 @@
             pointer-events: none;
             cursor: default;
         }
+
+        /* ---- Dark mode overrides ----
+           The original styles above hardcode `background: white` and `color:
+           #333` on cards, titles, and inputs. In dark mode the page
+           background flips dark via the SPA-wide tokens, but these locals
+           don't, leaving white cards with light grey text - unreadable
+           (see screenshot from issue report). The block below overrides
+           the local hardcodes to use the design tokens already defined in
+           styles.css (`--surface-0`, `--text-default`, etc.) so cards and
+           inputs blend with the rest of the dark UI. */
+        @media (prefers-color-scheme: dark) {
+            .directory-selection,
+            .search-section {
+                background: var(--surface-0);
+                color: var(--text-default);
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+            }
+            .search-section-title {
+                color: var(--text-default);
+            }
+            .country-flag-option,
+            .country-flag-option > * {
+                color: var(--text-default);
+            }
+            .country-flags-legend {
+                color: var(--text-default);
+            }
+            .country-flags-global-row {
+                border-bottom-color: var(--border-subtle);
+            }
+            /* Anything else explicitly setting color: #333 in this file. */
+            .search-section input[type="text"],
+            .search-section input[type="number"],
+            .search-section select,
+            .search-section textarea {
+                background: var(--surface-1);
+                color: var(--text-default);
+                border-color: var(--border-subtle);
+            }
+            .tri-state-checkbox {
+                border-color: var(--border-subtle);
+                color: var(--text-default);
+            }
+            .bar-chart-container[data-tooltip="breakdown"]:hover {
+                background: var(--surface-1) !important;
+            }
+            .bar-chart-container:hover .expand-chevron {
+                color: var(--text-default);
+            }
+        }
