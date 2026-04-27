@@ -6,15 +6,51 @@
 //   - Country-flag mutual-exclusion handlers moved to ./country-flags.js
 //   - Modal focus trap moved to ./focus-trap.js
 //   - Story status checkboxes moved to ./status.js
+//   - Info entry helpers moved to ./info-entries.js
+//   - Story sorting toggles moved to ./sorting.js
+//   - Timeline change handlers (story-form + edit-modal + applyPending) moved to ./timeline-changes.js
+//   - Toast notifications moved to ./notifications.js
+//   - Fullscreen helpers moved to ./fullscreen.js
+//   - Stats modal moved to ./stats.js
+//   - KTLO percentage validation moved to ./ktlo-validation.js
+//   - Generic collapse helpers + builder-panel collapse moved to ./collapse.js
+//   - KTLO section show/hide/reposition moved to ./ktlo-sections.js
+//   - File browser side panel + drag-drop file load moved to ./file-browser.js
+//   - Date picker UI + tracking moved to ./date-pickers.js
+//   - Story up/down move helpers moved to ./story-moves.js
 // The remainder is still legacy script-body code that depends on window
 // globals set by the utilities (DateUtility, RoadmapGenerator, etc.).
 
 import * as share from './share.js';
-import * as exportLib from './export.js';
+import { exportJPG, exportPDF, createExportHTML } from './export.js';
+import { toggleCollapse, collapseAllSections, createBuilderCollapse } from './collapse.js';
+import {
+    hideKTLOSection,
+    showKTLOSection,
+    repositionKTLOSection,
+    createKTLOSectionHandlers,
+} from './ktlo-sections.js';
+import { createFileBrowser } from './file-browser.js';
+import { createDatePickers } from './date-pickers.js';
+import { createStoryMoves } from './story-moves.js';
 import { createStoryDragHandlers } from './drag-drop.js';
 import { createCountryFlagHandlers } from './country-flags.js';
 import { createModalFocusTrap } from './focus-trap.js';
 import { createStatusHandlers } from './status.js';
+import { createInfoEntryHandlers } from './info-entries.js';
+import { createSortingHandlers } from './sorting.js';
+import {
+    createTimelineChangeHandlers,
+    createEditTimelineChangeHandlers,
+    sortTimelineChangesByDate,
+} from './timeline-changes.js';
+import { showToast } from './notifications.js';
+import * as fullscreen from './fullscreen.js';
+import { createStatsHandlers } from './stats.js';
+import {
+    initializeKTLOValidation,
+    validateKTLOPercentage,
+} from './ktlo-validation.js';
 
 /**
  * Mount this view. Called by the SPA router on every navigation here.
@@ -26,7 +62,35 @@ export function init(_root) {
     // Inline onclick="toggleShareDropdown(event)" etc. resolves names against
     // window. Slices that have been pulled out of the legacy body need their
     // exports re-attached here on every mount.
-    Object.assign(window, share, exportLib);
+    Object.assign(window, share, fullscreen, {
+        exportJPG, exportPDF,
+        toggleCollapse, collapseAllSections,
+    });
+
+    // hideFullscreen is also called from the Escape keydown handler in body
+    // code, so we destructure it as a local.
+    const { hideFullscreen } = fullscreen;
+
+    // Builder collapse owns its open/closed state internally. The body reads
+    // it via the isBuilderCollapsed() getter (different from the legacy
+    // `if (!isBuilderCollapsed)` boolean read; minimal change to the
+    // call site).
+    const { toggleBuilderCollapse, isBuilderCollapsed } = createBuilderCollapse();
+    window.toggleBuilderCollapse = toggleBuilderCollapse;
+
+    // Date pickers - hidden native pickers behind the visible text inputs.
+    // The factory owns the initialization-tracking Set; body code uses
+    // untrackDatePicker / clearAllTracking to invalidate entries when it
+    // re-renders inputs that share an id.
+    const __datePickers = createDatePickers({
+        getRoadmapYear: () => parseInt(document.getElementById('roadmapYear').value, 10) || new Date().getFullYear(),
+    });
+    const {
+        initializeDatePicker, initializeDatePickersForEpic, initializeDatePickersForSection,
+        refreshAllDatePickers, updateAllDatePickerRanges, validateEndDate,
+        reinitializeDatePicker, untrackDatePicker, clearAllTracking,
+    } = __datePickers;
+    Object.assign(window, __datePickers);
 
     // Phase 1 regressed the legacy body's reliance on `<script>`-tag globals.
     // The utility classes/functions and the getX() wrappers used to live in
@@ -53,7 +117,7 @@ export function init(_root) {
 
         let epicCounter = 0;
         let storyCounters = {};
-        let changeCounter = 0;
+        // changeCounter moved into ./timeline-changes.js (resetTimelineChangeCounter resets it).
         let isGeneratingPreview = false; // Flag to prevent duplicate preview generation
         
         // Hexadecimal counter-based unique identifier generation
@@ -431,104 +495,12 @@ export function init(_root) {
             }
         }
         
-        function initializeDatePickersForEpic(epicId) {
-            // Find all date fields within this specific EPIC
-            const epicElement = document.getElementById(`epic-${epicId}`);
-            if (!epicElement) {
-                return;
-            }
-            
-            // Story start/end date fields (allow month names)
-            const storyDateFields = epicElement.querySelectorAll('input[id*="-start-"], input[id*="-end-"]');
-            storyDateFields.forEach(field => {
-                if (!field.dataset.datePickerInitialized) {
-                    initializeDatePicker(field, true);
-                }
-            });
-            
-            // Status date fields (specific dates only)
-            const statusDateFields = epicElement.querySelectorAll('input[id*="-date-"]');
-            statusDateFields.forEach(field => {
-                if (!field.dataset.datePickerInitialized) {
-                    initializeDatePicker(field, false);
-                }
-            });
-            
-            // Timeline change date fields (specific dates only)
-            const timelineFields = epicElement.querySelectorAll('input[id*="-prev-"], input[id*="-new-"]');
-            timelineFields.forEach(field => {
-                if (!field.dataset.datePickerInitialized) {
-                    initializeDatePicker(field, false);
-                }
-            });
-        }
         
-        function initializeDatePickersForSection(sectionType) {
-            let sectionElement;
-            if (sectionType === 'ktlo') {
-                sectionElement = document.getElementById('ktlo-content');
-            } else if (sectionType === 'btl') {
-                sectionElement = document.getElementById('btl-content');
-            }
-            
-            if (!sectionElement) {
-                return;
-            }
-            
-            // BTL start/end date fields (allow month names)
-            if (sectionType === 'btl') {
-                const btlDateFields = sectionElement.querySelectorAll('input[id*="-start-"], input[id*="-end-"]');
-                btlDateFields.forEach(field => {
-                    if (!field.dataset.datePickerInitialized) {
-                        initializeDatePicker(field, true);
-                    }
-                });
-            }
-        }
         
-        function toggleKTLOCollapse() {
-            const contentDiv = document.getElementById('ktlo-content');
-            const collapseBtn = document.getElementById('ktlo-collapse-btn');
-            
-            if (contentDiv.style.display === 'none') {
-                // Expand
-                contentDiv.style.display = 'block';
-                collapseBtn.textContent = '▼';
-                collapseBtn.title = 'Collapse KTLO';
-                collapseBtn.classList.remove('collapse-btn-collapsed');
-                
-                // Initialize date pickers for KTLO section after expansion
-                setTimeout(() => {
-                    initializeDatePickersForSection('ktlo');
-                }, 50);
-            } else {
-                // Collapse
-                contentDiv.style.display = 'none';
-                collapseBtn.textContent = '▶';
-                collapseBtn.title = 'Expand KTLO';
-                collapseBtn.classList.add('collapse-btn-collapsed');
-            }
-        }
+        // (moved to ./ktlo-sections.js)
         
         // Generic collapse toggle function
-        function toggleCollapse(contentId, buttonId, sectionName) {
-            const contentDiv = document.getElementById(contentId);
-            const collapseBtn = document.getElementById(buttonId);
-            
-            if (contentDiv.style.display === 'none') {
-                // Expand
-                contentDiv.style.display = 'block';
-                collapseBtn.textContent = '▼';
-                collapseBtn.title = `Collapse ${sectionName}`;
-                collapseBtn.classList.remove('collapse-btn-collapsed');
-            } else {
-                // Collapse
-                contentDiv.style.display = 'none';
-                collapseBtn.textContent = '▶';
-                collapseBtn.title = `Expand ${sectionName}`;
-                collapseBtn.classList.add('collapse-btn-collapsed');
-            }
-        }
+        // toggleCollapse (generic helper) moved to ./collapse.js.
         
         function toggleBTLCollapse() {
             const contentDiv = document.getElementById('btl-content');
@@ -629,6 +601,12 @@ export function init(_root) {
         // in the markup resolve.
         Object.assign(window, createStoryDragHandlers({ updateStoryNumbers, generatePreview }));
         Object.assign(window, createCountryFlagHandlers({ onStoryChange: () => debouncedGeneratePreview() }));
+        // Story moves: moveStoryUpByEpic/moveStoryDownByEpic are also called
+        // directly from body code (moveCurrentStoryUp/Down) so we destructure
+        // them as locals.
+        const __storyMoves = createStoryMoves({ updateStoryNumbers, generatePreview });
+        const { moveStoryUpByEpic, moveStoryDownByEpic } = __storyMoves;
+        Object.assign(window, __storyMoves);
         // Focus trap is also called directly from body code (not just inline
         // attributes), so we destructure the names into init() scope. Strict
         // mode in ES modules means bare references don't fall through to
@@ -638,6 +616,106 @@ export function init(_root) {
         });
         window.setupModalFocusTrap = setupModalFocusTrap;
         window.removeModalFocusTrap = removeModalFocusTrap;
+
+        // Story-form info entry helpers. addInfoEntry/removeInfoEntry are
+        // referenced from inline onclick attributes in the rendered entry
+        // markup, and addInfoEntry/convertSingleInfoToMultiple are deps of
+        // the status module below.
+        const __infoEntries = createInfoEntryHandlers({
+            getToday: () => window.DateUtility.getTodaysDateEuropean(),
+            onChange: () => generatePreview(),
+        });
+        const { addInfoEntry, removeInfoEntry, convertSingleInfoToMultiple } = __infoEntries;
+        Object.assign(window, __infoEntries);
+
+        // Sorting handlers. storeOriginalStoryOrder is called from loadTeamData
+        // to snapshot a freshly-loaded order, so we hoist it as a local. The
+        // others are exposed on window for inline onchange="..." attribute
+        // resolution on the sorting checkboxes in the form.
+        const __sorting = createSortingHandlers({ collectStoryData, generatePreview });
+        const { storeOriginalStoryOrder } = __sorting;
+        Object.assign(window, __sorting);
+
+        // Story-form timeline change handlers. toggleChanges/addChange/
+        // updateChangeButton are called directly from body code (loadStoryData
+        // and the loaded-roadmap pipeline), so we hoist all three as locals.
+        // resetTimelineChangeCounter is invoked by newRoadmap to mirror the
+        // legacy behavior of clearing the counter on a fresh roadmap.
+        const __timeline = createTimelineChangeHandlers({
+            addListenersToElement,
+            initializeDatePicker,
+            getToday: () => window.DateUtility.getTodaysDateEuropean(),
+        });
+        const {
+            toggleChanges, addChange, updateChangeButton,
+            applyPendingTimelineChanges,
+            resetCounter: resetTimelineChangeCounter,
+        } = __timeline;
+        Object.assign(window, __timeline);
+
+        // Edit Story modal timeline change handlers. The Edit modal stays
+        // mounted across story openings, so date-picker tracking can go stale;
+        // reinitializeDatePicker (from ./date-pickers.js) clears the dataset
+        // flag and the Set entry before re-installing.
+        const __editTimeline = createEditTimelineChangeHandlers({
+            reinitializeDatePicker,
+            getToday: () => window.DateUtility.getTodaysDateEuropean(),
+        });
+        const {
+            toggleEditTimelineChanges, addEditChange, updateEditChangeButton,
+            resetCounter: resetEditChangeCounter,
+        } = __editTimeline;
+        Object.assign(window, __editTimeline, { sortTimelineChangesByDate });
+
+        // Stats modal. openStatsModal is called from the "Stats" button click
+        // and closeStatsModal from the Escape keydown handler, so we hoist
+        // both as locals.
+        const __stats = createStatsHandlers({ collectFormData });
+        const { openStatsModal, closeStatsModal } = __stats;
+        Object.assign(window, __stats);
+
+        // HTML export. Needs the live form data so it's factoried here, where
+        // collectFormData is hoisted into scope. Exposed on window for the
+        // inline onclick="exportHTML()" in the share dropdown.
+        window.exportHTML = createExportHTML({ collectFormData });
+
+        // KTLO section handlers. toggleKTLOCollapse needs initializeDatePickersForSection
+        // (still in builder.js); toggleKTLOPosition needs generatePreview. Both
+        // are body function declarations so they're hoisted at this point.
+        // Plain hide/show/reposition exports come straight from the module.
+        const __ktloSections = createKTLOSectionHandlers({
+            initializeDatePickersForSection,
+            generatePreview,
+        });
+        const { toggleKTLOPosition, handleKTLOToggleShortcut } = __ktloSections;
+        Object.assign(window, __ktloSections, {
+            hideKTLOSection, showKTLOSection, repositionKTLOSection,
+        });
+
+        // File browser: side panel listing of .json roadmaps + drag-drop
+        // file load. Subscribes to AppDir for the selected folder; bails
+        // when builder isn't mounted (router-level cleanup is a future task).
+        // toggleFileBrowser/loadDirectoryFiles/openRoadmapFile are
+        // referenced from inline onclick attributes and from body code.
+        const __fileBrowser = createFileBrowser({
+            loadTeamData, updateFilenameDisplay,
+            refreshAllDatePickers, generatePreview, handleFileLoad,
+        });
+        const {
+            toggleFileBrowser, loadDirectoryFiles, openRoadmapFile,
+            initializeDragAndDrop,
+        } = __fileBrowser;
+        Object.assign(window, __fileBrowser);
+        // Mirror the legacy boot pattern: wire drag-drop on DOMContentLoaded
+        // and subscribe to AppDir now (subscribe immediately fires once with
+        // current state, so the file list paints if a folder is already set).
+        document.addEventListener('DOMContentLoaded', initializeDragAndDrop);
+        __fileBrowser.subscribeToAppDir();
+
+        // KTLO percentage validation. The legacy body bound this on
+        // DOMContentLoaded; we shimmed addEventListener to capture that
+        // listener, so adding it here gets the same lifecycle.
+        document.addEventListener('DOMContentLoaded', initializeKTLOValidation);
 
         // Status checkbox handlers. The body calls handleDoneChange and the
         // others directly during form load (loadStoryData re-fires each handler
@@ -653,61 +731,12 @@ export function init(_root) {
         } = __statusBundle;
         Object.assign(window, __statusBundle);
 
-        function hideKTLOSection() {
-            // Find the KTLO section header and content
-            const ktloHeader = [...document.querySelectorAll('h2')].find(h2 => h2.textContent.includes('KTLO (Keep The Lights On)'));
-            const ktloDiv = ktloHeader ? ktloHeader.nextElementSibling : null;
-            
-            if (ktloHeader) ktloHeader.style.display = 'none';
-            if (ktloDiv) ktloDiv.style.display = 'none';
-        }
+        // (moved to ./ktlo-sections.js)
         
-        function showKTLOSection() {
-            // Find the KTLO section header and content
-            const ktloHeader = [...document.querySelectorAll('h2')].find(h2 => h2.textContent.includes('KTLO (Keep The Lights On)'));
-            const ktloDiv = ktloHeader ? ktloHeader.nextElementSibling : null;
-            
-            if (ktloHeader) ktloHeader.style.display = '';
-            if (ktloDiv) ktloDiv.style.display = '';
-        }
+        // (moved to ./ktlo-sections.js)
 
         
-        function repositionKTLOSection() {
-            const ktloToggle = document.getElementById('ktlo-position-toggle');
-            if (!ktloToggle) return;
-            
-            // Find the complete KTLO section (h2 + div)
-            const ktloHeader = [...document.querySelectorAll('h2')].find(h2 => h2.textContent.includes('KTLO (Keep The Lights On)'));
-            const ktloDiv = ktloHeader ? ktloHeader.nextElementSibling : null;
-            
-            // Find the complete EPICs section (h2 + div + button)
-            const epicsHeader = [...document.querySelectorAll('h2')].find(h2 => h2.textContent.trim() === 'EPICs');
-            const epicsContainer = epicsHeader ? epicsHeader.nextElementSibling : null;
-            const epicsButton = epicsContainer ? epicsContainer.nextElementSibling : null;
-            
-            // Find BTL section for reference when positioning at bottom
-            const btlHeader = [...document.querySelectorAll('h2')].find(h2 => h2.textContent.includes('Below The Line'));
-            
-            if (!ktloHeader || !ktloDiv || !epicsHeader || !epicsContainer || !epicsButton) {
-                return;
-            }
-            
-            if (ktloToggle.checked) {
-                // Move KTLO before EPICs (top position)
-                epicsHeader.parentNode.insertBefore(ktloHeader, epicsHeader);
-                epicsHeader.parentNode.insertBefore(ktloDiv, epicsHeader);
-            } else {
-                // Move KTLO after EPICs, before BTL (bottom position)
-                if (btlHeader) {
-                    btlHeader.parentNode.insertBefore(ktloHeader, btlHeader);
-                    btlHeader.parentNode.insertBefore(ktloDiv, btlHeader);
-                } else {
-                    // If no BTL section, insert after EPICs button
-                    epicsButton.parentNode.insertBefore(ktloHeader, epicsButton.nextSibling);
-                    epicsButton.parentNode.insertBefore(ktloDiv, epicsButton.nextSibling);
-                }
-            }
-        }
+        // (moved to ./ktlo-sections.js)
         
         // Debounced generatePreview to avoid too many rapid updates
         let previewTimeout;
@@ -717,117 +746,13 @@ export function init(_root) {
         }
 
         // Keyboard shortcut for toggling KTLO position
-        function handleKTLOToggleShortcut(event) {
-            // Check if user is currently typing in an editable element
-            const activeElement = document.activeElement;
-            const isEditable = activeElement && (
-                activeElement.tagName === 'INPUT' ||
-                activeElement.tagName === 'TEXTAREA' ||
-                activeElement.contentEditable === 'true'
-            );
-            
-            // Don't handle shortcuts when user is typing in an editable field
-            if (isEditable) {
-                return;
-            }
-            
-            // Check for Shift+K
-            if (event.shiftKey && event.key === 'K') {
-                // Check if KTLO is hidden (can only happen by editing JSON directly)
-                const ktloToggle = document.getElementById('ktlo-position-toggle');
-                if (ktloToggle && ktloToggle.dataset.originalPosition === 'hidden') {
-                    // KTLO is hidden, do nothing
-                    return;
-                }
-                
-                event.preventDefault();
-                toggleKTLOPosition();
-            }
-        }
+        // (moved to ./ktlo-sections.js)
 
-        function toggleKTLOPosition() {
-            const ktloToggle = document.getElementById('ktlo-position-toggle');
-            if (ktloToggle) {
-                // If currently hidden, clear the hidden state and set to top
-                if (ktloToggle.dataset.originalPosition === 'hidden') {
-                    delete ktloToggle.dataset.originalPosition;
-                    ktloToggle.checked = true; // Set to top
-                    showKTLOSection(); // Make KTLO visible in builder
-                } else {
-                    // Normal toggle between top and bottom
-                    ktloToggle.checked = !ktloToggle.checked;
-                }
-                
-                // Reposition the KTLO section in the builder form
-                repositionKTLOSection();
-                
-                // Regenerate the preview to show the change
-                generatePreview();
-                
-                // Show a brief notification
-                showKTLOPositionNotification(ktloToggle.checked);
-            }
-        }
+        // (moved to ./ktlo-sections.js)
 
-        function handleSortingToggle() {
-            const sortingToggle = document.getElementById('story-sorting-toggle');
-            if (sortingToggle) {
-                // Save the preference
-                getConfigUtility().setSortStories(sortingToggle.checked);
-                // Ensure mutual exclusivity
-                if (sortingToggle.checked) {
-                    const endToggle = document.getElementById('story-sorting-end-toggle');
-                    if (endToggle) {
-                        endToggle.checked = false;
-                        getConfigUtility().setSortByEnd(false);
-                    }
-                    getConfigUtility().setSortByStart(true);
-                } else {
-                    getConfigUtility().setSortByStart(false);
-                }
-                
-                // Reorder stories in the UI based on sorting preference
-                if (sortingToggle.checked) {
-                    reorderStoriesInUI();
-                } else {
-                    // Restore original order when sorting is disabled
-                    restoreOriginalStoryOrder();
-                }
-                
-                // Regenerate the preview to show the change
-                generatePreview();
-                
-                // Show a brief notification
-                showSortingNotification(sortingToggle.checked);
-            }
-        }
-
-        function handleEndSortingToggle() {
-            const endToggle = document.getElementById('story-sorting-end-toggle');
-            if (endToggle) {
-                // Persist preference and enforce mutual exclusivity
-                getConfigUtility().setSortByEnd(endToggle.checked);
-                if (endToggle.checked) {
-                    const startToggle = document.getElementById('story-sorting-toggle');
-                    if (startToggle) {
-                        startToggle.checked = false;
-                        getConfigUtility().setSortStories(false);
-                        getConfigUtility().setSortByStart(false);
-                    }
-                }
-                
-                // Apply or restore ordering
-                if (endToggle.checked) {
-                    reorderStoriesInUI(true);
-                } else {
-                    restoreOriginalStoryOrder();
-                }
-                
-                // Update preview
-                generatePreview();
-                showSortingNotification(endToggle.checked);
-            }
-        }
+        // Story sorting toggles (start/end) are now in ./sorting.js. The
+        // factory is wired at the top of init() and exposes the handlers
+        // on window for inline onchange attrs.
 
         // Temporary variable for force text below (one-time action)
         let tempForceTextBelow = false;
@@ -842,163 +767,9 @@ export function init(_root) {
             }
         }
 
-        // Store original story order for each epic
-        const originalStoryOrders = new Map();
-        
-        function storeOriginalStoryOrder(epicId) {
-            const epicEl = document.getElementById(`epic-${epicId}`);
-            if (!epicEl) return;
-            
-            const storyElements = epicEl.querySelectorAll('.story-section');
-            const originalOrder = Array.from(storyElements).map(el => el.id);
-            originalStoryOrders.set(epicId, originalOrder);
-        }
-        
-        function reorderStoriesInUI(sortByEnd = false) {
-            // Get all epic sections
-            const epicElements = document.querySelectorAll('.epic-section');
-            epicElements.forEach(epicEl => {
-                const epicId = epicEl.id.split('-')[1];
-                const storyElements = epicEl.querySelectorAll('.story-section');
-                
-                if (storyElements.length <= 1) return; // No need to sort single stories
-                
-                // Store original order if not already stored
-                if (!originalStoryOrders.has(epicId)) {
-                    storeOriginalStoryOrder(epicId);
-                }
-                
-                // Collect story data and sort it
-                const stories = [];
-                storyElements.forEach(storyEl => {
-                    const storyId = storyEl.id.replace('story-', '');
-                    try {
-                        const story = collectStoryData(storyId);
-                        story._element = storyEl; // Keep reference to DOM element
-                        stories.push(story);
-                    } catch (error) {
-                        // Skip invalid stories
-                    }
-                });
-                
-                // Sort stories (start-first or end-first based on flag)
-                stories.sort((a, b) => {
-                    const aStart = a.startDate || a.startMonth || 'JAN';
-                    const bStart = b.startDate || b.startMonth || 'JAN';
-                    const aEnd = a.endDate || a.endMonth || 'MAR';
-                    const bEnd = b.endDate || b.endMonth || 'MAR';
-
-                    const year = parseInt(document.getElementById('roadmapYear').value) || 2025;
-                    if (sortByEnd) {
-                        const endComparison = getDateUtility().compareDateOrMonth(aEnd, bEnd, year);
-                        if (endComparison !== 0) return endComparison;
-                        return getDateUtility().compareDateOrMonth(aStart, bStart, year);
-                    } else {
-                        const startComparison = getDateUtility().compareDateOrMonth(aStart, bStart, year);
-                        if (startComparison !== 0) return startComparison;
-                        return getDateUtility().compareDateOrMonth(aEnd, bEnd, year);
-                    }
-                });
-                
-                // Reorder DOM elements - find the correct container
-                const storiesContainer = document.getElementById(`stories-container-${epicId}`);
-                if (storiesContainer) {
-                    stories.forEach(story => {
-                        if (story._element) {
-                            storiesContainer.appendChild(story._element);
-                        }
-                    });
-                }
-            });
-        }
-        
-        function restoreOriginalStoryOrder() {
-            // Get all epic sections
-            const epicElements = document.querySelectorAll('.epic-section');
-            epicElements.forEach(epicEl => {
-                const epicId = epicEl.id.split('-')[1];
-                const originalOrder = originalStoryOrders.get(epicId);
-                
-                if (!originalOrder) return; // No original order stored
-                
-                const storiesContainer = document.getElementById(`stories-container-${epicId}`);
-                if (storiesContainer) {
-                    // Restore original order
-                    originalOrder.forEach(storyId => {
-                        const storyElement = document.getElementById(storyId);
-                        if (storyElement) {
-                            storiesContainer.appendChild(storyElement);
-                        }
-                    });
-                }
-            });
-        }
-
-        function showSortingNotification(isEnabled) {
-            const notification = document.createElement('div');
-            notification.innerHTML = `Story sorting ${isEnabled ? 'ENABLED' : 'DISABLED'}`;
-            notification.style.cssText = `
-                position: fixed;
-                top: 60px;
-                right: 20px;
-                background: ${isEnabled ? '#28a745' : '#6c757d'};
-                color: white;
-                padding: 10px 15px;
-                border-radius: 5px;
-                font-weight: bold;
-                z-index: 10000;
-                animation: fadeInOut 2s ease-in-out;
-            `;
-            
-            document.body.appendChild(notification);
-            
-            // Remove notification after animation
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 2000);
-        }
-        function showKTLOPositionNotification(isTop) {
-            const notification = document.createElement('div');
-            notification.innerHTML = `KTLO moved to ${isTop ? 'TOP' : 'BOTTOM'} (Shift+K to toggle)`;
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: #28a745;
-                color: white;
-                padding: 10px 15px;
-                border-radius: 5px;
-                font-weight: bold;
-                z-index: 10000;
-                animation: fadeInOut 2s ease-in-out;
-            `;
-            
-            // Add animation CSS if it doesn't exist
-            if (!document.getElementById('ktlo-notification-style')) {
-                const style = document.createElement('style');
-                style.id = 'ktlo-notification-style';
-                style.textContent = `
-                    @keyframes fadeInOut {
-                        0% { opacity: 0; transform: translateY(-10px); }
-                        20% { opacity: 1; transform: translateY(0); }
-                        80% { opacity: 1; transform: translateY(0); }
-                        100% { opacity: 0; transform: translateY(-10px); }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-            
-            document.body.appendChild(notification);
-            
-            // Remove notification after animation
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 2000);
-        }
+        // (originalStoryOrders, storeOriginalStoryOrder, reorderStoriesInUI,
+        // restoreOriginalStoryOrder, showSortingNotification moved to ./sorting.js)
+        // (moved to ./ktlo-sections.js)
         
         function addAutoUpdateListeners() {
             // Team information fields
@@ -1077,65 +848,6 @@ export function init(_root) {
         /**
          * Validate that end date is not before start date
          */
-        function validateEndDate(event) {
-            const endField = event.target;
-            const endValue = endField.value.trim();
-            
-            if (!endValue) {
-                // Empty is okay - clear any error styling
-                endField.style.borderColor = '';
-                endField.style.backgroundColor = '';
-                return;
-            }
-            
-            // Find corresponding start date field
-            const endFieldId = endField.id;
-            let startFieldId = '';
-            
-            if (endFieldId.includes('story-end-')) {
-                startFieldId = endFieldId.replace('story-end-', 'story-start-');
-            } else if (endFieldId.includes('btl-end-')) {
-                startFieldId = endFieldId.replace('btl-end-', 'btl-start-');
-            } else if (endFieldId.includes('End')) {
-                startFieldId = endFieldId.replace('End', 'Start');
-            }
-            
-            if (!startFieldId) return;
-            
-            const startField = document.getElementById(startFieldId);
-            if (!startField) return;
-            
-            const startValue = startField.value.trim();
-            if (!startValue) {
-                // No start date to compare - clear any error styling
-                endField.style.borderColor = '';
-                endField.style.backgroundColor = '';
-                return;
-            }
-            
-            try {
-                const roadmapYear = parseInt(document.getElementById('roadmapYear').value) || new Date().getFullYear();
-                
-                // Parse both dates to ISO format for comparison
-                const startISO = DateUtility.parseTextValue(startValue, false, roadmapYear);
-                const endISO = DateUtility.parseTextValue(endValue, true, roadmapYear);
-                
-                if (startISO && endISO && endISO < startISO) {
-                    // End date is before start date - show error styling (stays until user fixes it)
-                    endField.style.borderColor = '#dc3545';
-                    endField.style.backgroundColor = '#ffe6e6';
-                    alert(`Warning: End date (${endValue}) is before start date (${startValue}).`);
-                } else {
-                    // Valid - clear any error styling
-                    endField.style.borderColor = '';
-                    endField.style.backgroundColor = '';
-                }
-            } catch (error) {
-                // If parsing fails, don't validate (might be month name)
-                endField.style.borderColor = '';
-                endField.style.backgroundColor = '';
-            }
-        }
         
         function addListenersToExistingElements() {
             // EPIC name fields
@@ -1224,55 +936,7 @@ export function init(_root) {
             }
         }
         
-        function collapseAllSections() {
-            // Collapse all EPICs
-            const epicElements = document.querySelectorAll('.epic-section');
-            epicElements.forEach(epicEl => {
-                const epicId = epicEl.id.split('-')[1];
-                const contentDiv = document.getElementById(`epic-content-${epicId}`);
-                const collapseBtn = document.getElementById(`collapse-btn-${epicId}`);
-                
-                if (contentDiv && collapseBtn) {
-                    contentDiv.style.display = 'none';
-                    collapseBtn.textContent = '▶';
-                    collapseBtn.title = 'Expand EPIC';
-                    collapseBtn.classList.add('collapse-btn-collapsed');
-                }
-            });
-            
-            // Collapse KTLO
-            const ktloContentDiv = document.getElementById('ktlo-content');
-            const ktloCollapseBtn = document.getElementById('ktlo-collapse-btn');
-            
-            if (ktloContentDiv && ktloCollapseBtn) {
-                ktloContentDiv.style.display = 'none';
-                ktloCollapseBtn.textContent = '▶';
-                ktloCollapseBtn.title = 'Expand KTLO';
-                ktloCollapseBtn.classList.add('collapse-btn-collapsed');
-            }
-            
-            // Collapse BTL
-            const btlContentDiv = document.getElementById('btl-content');
-            const btlCollapseBtn = document.getElementById('btl-collapse-btn');
-            
-            if (btlContentDiv && btlCollapseBtn) {
-                btlContentDiv.style.display = 'none';
-                btlCollapseBtn.textContent = '▶';
-                btlCollapseBtn.title = 'Expand BTL';
-                btlCollapseBtn.classList.add('collapse-btn-collapsed');
-            }
-            
-            // Collapse Monthly KTLO
-            const ktloMonthlyContentDiv = document.getElementById('ktlo-monthly-content');
-            const ktloMonthlyCollapseBtn = document.getElementById('ktlo-monthly-collapse-btn');
-            
-            if (ktloMonthlyContentDiv && ktloMonthlyCollapseBtn) {
-                ktloMonthlyContentDiv.style.display = 'none';
-                ktloMonthlyCollapseBtn.textContent = '▶';
-                ktloMonthlyCollapseBtn.title = 'Expand Monthly KTLO';
-                ktloMonthlyCollapseBtn.classList.add('collapse-btn-collapsed');
-            }
-        }
+        // collapseAllSections moved to ./collapse.js.
         
         function addStory(epicId) {
             storyCounters[epicId]++;
@@ -1826,45 +1490,11 @@ export function init(_root) {
             }
         }
         
-        function moveBTLStoryUp(storyId) {
-            const story = document.getElementById(`story-${storyId}`);
-            const prevStory = story.previousElementSibling;
-            if (prevStory && prevStory.classList.contains('story-section')) {
-                story.parentNode.insertBefore(story, prevStory);
-            }
-        }
+        // (moved to ./story-moves.js)
         
-        function moveBTLStoryDown(storyId) {
-            const story = document.getElementById(`story-${storyId}`);
-            const nextStory = story.nextElementSibling;
-            if (nextStory && nextStory.classList.contains('story-section')) {
-                story.parentNode.insertBefore(nextStory, story);
-            }
-        }
-        function toggleChanges(storyId) {
-            const checkbox = document.getElementById(`story-changes-${storyId}`);
-            const section = document.getElementById(`changes-section-${storyId}`);
-            
-            if (checkbox.checked) {
-                section.style.display = 'block';
-                
-                // Automatically add one timeline change if none exist
-                const container = document.getElementById(`changes-container-${storyId}`);
-                const existingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
-                if (existingChanges.length === 0) {
-                    addChange(storyId);
-                }
-            } else {
-                section.style.display = 'none';
-                // Clear existing changes when hiding
-                const container = document.getElementById(`changes-container-${storyId}`);
-                if (container) {
-                    container.innerHTML = '';
-                }
-                // Update button state after clearing changes
-                updateChangeButton(storyId);
-            }
-        }
+        // (moved to ./story-moves.js)
+        // Story-form timeline-change handlers (toggleChanges) are now in
+        // ./timeline-changes.js. The factory is wired at the top of init().
         
         function getTodaysDateEuropean() {
             return DateUtility.getTodaysDateEuropean();
@@ -1875,317 +1505,12 @@ export function init(_root) {
             return parseInt(document.getElementById('roadmapYear').value) || new Date().getFullYear();
         }
 
-        // Global tracking for date picker initialization to prevent duplicates
-        const initializedDatePickers = new Set();
         
         // Simple date picker helper using native HTML5 date input
-        function initializeDatePicker(inputElement, allowMonthOnly = true) {
-            if (!inputElement) {
-                return;
-            }
-            
-            // Use multiple methods to prevent duplicates
-            if (inputElement.dataset.datePickerInitialized === 'true') {
-                return;
-            }
-            
-            if (initializedDatePickers.has(inputElement.id)) {
-                inputElement.dataset.datePickerInitialized = 'true'; // Ensure flag is set
-                return;
-            }
-            
-            // Double-check by looking for existing hidden date input
-            const existingHidden = inputElement.parentNode?.querySelector('input[type="date"]');
-            if (existingHidden) {
-                inputElement.dataset.datePickerInitialized = 'true';
-                initializedDatePickers.add(inputElement.id);
-                return;
-            }
-            
-            // Mark as initialized immediately using both methods
-            inputElement.dataset.datePickerInitialized = 'true';
-            initializedDatePickers.add(inputElement.id);
-            
-            // Determine if this is an end date field (should default to last day of month)
-            const isEndDateField = inputElement.id.includes('-end-') || 
-                                  inputElement.id.includes('End') || 
-                                  inputElement.id.includes('-prev-') ||  // Previous End Date
-                                  inputElement.id.includes('-new-');     // New End Date
-            
-            // Create a simple, hidden native date input as helper
-            const hiddenDateInput = document.createElement('input');
-            hiddenDateInput.type = 'date';
-            hiddenDateInput.tabIndex = -1; // Exclude from tab order
-            
-            // Set date range to allow roadmap year dates
-            const roadmapYear = getCurrentRoadmapYear();
-            hiddenDateInput.min = `${roadmapYear - 1}-01-01`; // Allow previous year
-            hiddenDateInput.max = `${roadmapYear + 1}-12-31`; // Allow next year
-            
-            hiddenDateInput.style.cssText = `
-                position: absolute;
-                opacity: 0;
-                pointer-events: none;
-                width: 1px;
-                height: 1px;
-                z-index: -1;
-            `;
-            
-            // Insert hidden date input after the text input
-            inputElement.parentNode.insertBefore(hiddenDateInput, inputElement.nextSibling);
-            
-                         // Add calendar icon to the text input with hover effect
-             inputElement.style.backgroundImage = 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'16\' height=\'16\' fill=\'%23666\' viewBox=\'0 0 16 16\'%3E%3Cpath d=\'M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5 0zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z\'/%3E%3C/svg%3E")';
-             inputElement.style.backgroundRepeat = 'no-repeat';
-             inputElement.style.backgroundPosition = 'right 8px center';
-             inputElement.style.backgroundSize = '16px 16px';
-             inputElement.style.paddingRight = '30px';
-             inputElement.style.cursor = 'text';
-             inputElement.title = 'Type date/month directly or click calendar icon to open date picker';
-            
-                         // Helper function to convert text input value to date
-             const parseTextValue = (value) => {
-                 // Always get current roadmap year value to handle year changes
-                 const roadmapYear = getCurrentRoadmapYear();
-                 return DateUtility.parseTextValue(value, isEndDateField, roadmapYear);
-             };
-            
-            // Helper function to convert date input value back to text format
-            const formatDateToText = (dateValue) => {
-                return DateUtility.formatDateToText(dateValue);
-            };
-            
-                         // Sync text input value to hidden date input
-             const syncToDateInput = () => {
-                 // Ensure we have a valid input element
-                 if (!inputElement || !inputElement.value) {
-                     return; // Silent return - this is normal during initialization
-                 }
-                 
-                 const textValue = inputElement.value.trim();
-                 
-
-                 
-                 const dateValue = parseTextValue(textValue);
-                 if (hiddenDateInput) {
-                     // Update date range dynamically in case roadmap year changed
-                     const currentRoadmapYear = getCurrentRoadmapYear();
-                     hiddenDateInput.min = `${currentRoadmapYear - 1}-01-01`;
-                     hiddenDateInput.max = `${currentRoadmapYear + 1}-12-31`;
-                     
-                     hiddenDateInput.value = dateValue;
-                 }
-             };
-             
-             // Initialize with existing value if present
-             setTimeout(() => {
-                 syncToDateInput();
-             }, 10);
-             
-             // Open date picker only when clicking on the calendar icon (right side of input)
-             inputElement.addEventListener('click', function(e) {
-                 const inputRect = this.getBoundingClientRect();
-                 const clickX = e.clientX - inputRect.left;
-                 const inputWidth = inputRect.width;
-                 
-                 // Only open date picker if clicked on the right 30px (where the calendar icon is)
-                 if (clickX > inputWidth - 30) {
-                     e.preventDefault();
-                     
-                     // Ensure date range is current before opening picker
-                     const currentRoadmapYear = getCurrentRoadmapYear();
-                     hiddenDateInput.min = `${currentRoadmapYear - 1}-01-01`;
-                     hiddenDateInput.max = `${currentRoadmapYear + 1}-12-31`;
-                     
-                     // Smart default date logic for empty fields
-                     if (!inputElement.value.trim()) {
-                         let defaultDate = null;
-                         
-                         // Priority 1: If this is an end date field, try to default to start date
-                         if (isEndDateField) {
-                             // Extract story ID and find corresponding start date field
-                             const fieldId = inputElement.id;
-                             let startFieldId = '';
-                             
-                             if (fieldId.includes('story-end-')) {
-                                 startFieldId = fieldId.replace('story-end-', 'story-start-');
-                             } else if (fieldId.includes('End')) {
-                                 startFieldId = fieldId.replace('End', 'Start');
-                             }
-                             
-                             if (startFieldId) {
-                                 const startField = document.getElementById(startFieldId);
-                                 if (startField && startField.value.trim()) {
-                                     // Parse the start date and set as default for end date picker
-                                     defaultDate = parseTextValue(startField.value.trim());
-                                 }
-                             }
-                         }
-                         
-                         // Priority 2: If no start date found (or it's a start date field), 
-                         // check if roadmap year is in the future
-                         if (!defaultDate) {
-                             const currentYear = new Date().getFullYear();
-                             if (currentRoadmapYear > currentYear) {
-                                 // Set to January 1st of the roadmap year
-                                 defaultDate = `${currentRoadmapYear}-01-01`;
-                             }
-                         }
-                         
-                         // Apply the default date if we found one
-                         if (defaultDate) {
-                             hiddenDateInput.value = defaultDate;
-                         }
-                     }
-                     
-                     syncToDateInput();
-                     
-                     // Position the hidden input near the calendar icon (right side of the input)
-                     const rect = this.getBoundingClientRect();
-                     let scrollLeft = 0;
-                     let scrollTop = 0;
-                     
-                     // Check if we're in a modal dialog (different positioning context)
-                     const modal = this.closest('.modal');
-                     if (!modal) {
-                         // Normal page positioning - account for scroll
-                         scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-                         scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-                     }
-                     // For modals, use direct positioning since they're typically fixed/absolute
-                     
-                     // Position with right edge aligned to right edge of input field
-                     const datePickerWidth = 200; // Reasonable width for date picker
-                     const rightEdgePos = rect.left + rect.width + scrollLeft; // Right edge of input
-                     const leftPos = rightEdgePos - datePickerWidth; // Position so right edge aligns
-                     const topPos = rect.top + scrollTop;
-                     
-                     hiddenDateInput.style.position = 'absolute';
-                     hiddenDateInput.style.left = leftPos + 'px';
-                     hiddenDateInput.style.top = topPos + 'px';
-                     hiddenDateInput.style.width = datePickerWidth + 'px'; // Full width for proper alignment
-                     hiddenDateInput.style.height = rect.height + 'px';
-                     hiddenDateInput.style.zIndex = '10000';
-                     hiddenDateInput.style.opacity = '0';
-                     hiddenDateInput.style.pointerEvents = 'none';
-                     
-                     // Scroll into view if needed
-                     this.scrollIntoView({ behavior: 'instant', block: 'center' });
-                     
-                     setTimeout(() => {
-                         try {
-                             if (hiddenDateInput.showPicker) {
-                                 hiddenDateInput.showPicker();
-                             } else {
-                                 // Fallback for browsers without showPicker support
-                                 hiddenDateInput.style.opacity = '1';
-                                 hiddenDateInput.style.pointerEvents = 'auto';
-                                 hiddenDateInput.focus();
-                                 hiddenDateInput.click();
-                                 setTimeout(() => {
-                                     hiddenDateInput.style.opacity = '0';
-                                     hiddenDateInput.style.pointerEvents = 'none';
-                                 }, 100);
-                             }
-                         } catch (error) {
-                             // If showPicker fails, try alternative approach
-                             hiddenDateInput.style.opacity = '1';
-                             hiddenDateInput.style.pointerEvents = 'auto';
-                             hiddenDateInput.focus();
-                             hiddenDateInput.click();
-                             setTimeout(() => {
-                                 hiddenDateInput.style.opacity = '0';
-                                 hiddenDateInput.style.pointerEvents = 'none';
-                             }, 100);
-                         }
-                     }, 10);
-                 }
-                 // Otherwise, allow normal text input behavior
-             });
-             
-             // Change cursor to pointer when hovering over calendar icon area
-             inputElement.addEventListener('mousemove', function(e) {
-                 const inputRect = this.getBoundingClientRect();
-                 const mouseX = e.clientX - inputRect.left;
-                 const inputWidth = inputRect.width;
-                 
-                 if (mouseX > inputWidth - 30) {
-                     this.style.cursor = 'pointer';
-                 } else {
-                     this.style.cursor = 'text';
-                 }
-             });
-             
-             // Reset cursor when mouse leaves
-             inputElement.addEventListener('mouseleave', function() {
-                 this.style.cursor = 'text';
-             });
-            
-                         // Update text input when date is selected
-             hiddenDateInput.addEventListener('change', function() {
-                 if (this.value) {
-                     inputElement.value = formatDateToText(this.value);
-                     inputElement.dispatchEvent(new Event('change', { bubbles: true }));
-                 }
-             });
-             
-             // Keep date picker in sync when user types manually, and format with year
-             inputElement.addEventListener('blur', function() {
-                 const textValue = this.value.trim();
-                 if (textValue) {
-                     // Parse the date
-                     const dateValue = parseTextValue(textValue);
-                     if (dateValue) {
-                         // Format it back with the year included
-                         const formattedDate = formatDateToText(dateValue);
-                         if (formattedDate && formattedDate !== textValue) {
-                             this.value = formattedDate;
-                         }
-                     }
-                 }
-                 syncToDateInput();
-             });
-             
-             // Already marked as initialized at the beginning of function
-        }
 
         // Global function to refresh all date pickers with their current values
-        function refreshAllDatePickers() {
-            // Find all date inputs that should have date pickers
-            const dateInputs = document.querySelectorAll('input[type="text"][id*="start"], input[type="text"][id*="end"], input[type="text"][id*="date"]');
-            
-            dateInputs.forEach(input => {
-                // Only reinitialize if not already initialized or missing calendar icon
-                const hasCalendarIcon = input.style.backgroundImage && input.style.backgroundImage.includes('data:image/svg+xml');
-                
-                if (!hasCalendarIcon) {
-                    // Remove existing initialization flags to force reinit
-                    input.dataset.datePickerInitialized = 'false';
-                    initializedDatePickers.delete(input.id);
-                    
-                    // Determine if this is a month-only field
-                    const allowMonthOnly = input.id.includes('start') || input.id.includes('end');
-                    
-                    // Reinitialize the date picker
-                    initializeDatePicker(input, allowMonthOnly);
-                }
-            });
-        }
         
         // Update date picker ranges when roadmap year changes
-        function updateAllDatePickerRanges() {
-            const currentRoadmapYear = getCurrentRoadmapYear();
-            const minDate = `${currentRoadmapYear - 1}-01-01`;
-            const maxDate = `${currentRoadmapYear + 1}-12-31`;
-            
-            // Update all hidden date inputs
-            document.querySelectorAll('input[type="date"]').forEach(dateInput => {
-                if (dateInput.style.opacity === '0') { // This identifies our hidden date inputs
-                    dateInput.min = minDate;
-                    dateInput.max = maxDate;
-                }
-            });
-        }
 
         // ===== OPTIMIZED CHECKBOX HANDLING SYSTEM =====
         // 
@@ -2202,137 +1527,20 @@ export function init(_root) {
         // Proposed) are now in ./status.js. The factory is wired at the top of
         // init() and exposes the handlers on window for inline onchange attrs.
 
-        // Add new info entry
-        function addInfoEntry(storyId) {
-            const entriesContainer = document.getElementById(`info-entries-${storyId}`);
-            const entryId = `info-entry-${storyId}-${Date.now()}`;
-            
-            // Count existing entries to get the next number
-            const existingEntries = entriesContainer.querySelectorAll('.info-entry');
-            const entryNumber = existingEntries.length + 1;
-            
-            const entryHtml = `
-                <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <strong>Info Entry #${entryNumber}</strong>
-                        <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
-                    </div>
-                    <div class="inline-group">
-                        <div class="form-group">
-                            <label for="info-date-${entryId}">Info Date:</label>
-                            <input type="text" id="info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025">
-                        </div>
-                        <div class="form-group">
-                            <label for="info-notes-${entryId}">Information Details:</label>
-                            <textarea id="info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;"></textarea>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            entriesContainer.insertAdjacentHTML('beforeend', entryHtml);
-            
-            // Auto-fill today's date
-            const dateField = document.getElementById(`info-date-${entryId}`);
-            if (dateField) {
-                dateField.value = getTodaysDateEuropean();
-                dateField.focus({ preventScroll: true });
-            }
-            
-            // Add auto-update listener
-            const dateInput = document.getElementById(`info-date-${entryId}`);
-            const notesInput = document.getElementById(`info-notes-${entryId}`);
-            
-            if (dateInput) {
-                dateInput.addEventListener('input', () => generatePreview());
-            }
-            if (notesInput) {
-                notesInput.addEventListener('input', () => generatePreview());
-            }
-        }
-
-        // Remove info entry
-        function removeInfoEntry(entryId) {
-            const entry = document.getElementById(entryId);
-            if (entry) {
-                entry.remove();
-                
-                // Renumber remaining entries
-                const storyId = entryId.split('-')[2]; // Extract storyId from entryId
-                const entriesContainer = document.getElementById(`info-entries-${storyId}`);
-                if (entriesContainer) {
-                    const remainingEntries = entriesContainer.querySelectorAll('.info-entry');
-                    remainingEntries.forEach((entry, index) => {
-                        const header = entry.querySelector('strong');
-                        if (header) {
-                            header.textContent = `Info Entry #${index + 1}`;
-                        }
-                    });
-                }
-                
-                generatePreview();
-            }
-        }
-
-        // Convert single info entry to multiple instances format
-        function convertSingleInfoToMultiple(storyId) {
-            const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
-            if (!infoEntriesContainer) return;
-            
-            // Check if there are any existing entries
-            const existingEntries = infoEntriesContainer.querySelectorAll('.info-entry');
-            if (existingEntries.length > 0) return; // Already converted or has entries
-            
-            // Check if there's old single info data
-            const oldInfoDateEl = document.getElementById(`info-date-${storyId}`);
-            const oldInfoNotesEl = document.getElementById(`info-notes-${storyId}`);
-            
-            if (oldInfoDateEl && oldInfoNotesEl && (oldInfoDateEl.value || oldInfoNotesEl.value)) {
-                // Convert the old single entry to the new format
-                const entryId = `info-entry-${storyId}-${Date.now()}`;
-                const entryHtml = `
-                    <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <strong>Info Entry #${entryNumber}</strong>
-                            <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
-                        </div>
-                        <div class="inline-group">
-                            <div class="form-group">
-                                <label for="info-date-${entryId}">Info Date:</label>
-                                <input type="text" id="info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${oldInfoDateEl.value}">
-                            </div>
-                            <div class="form-group">
-                                <label for="info-notes-${entryId}">Information Details:</label>
-                                <textarea id="info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${oldInfoNotesEl.value}</textarea>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                infoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
-                
-                // Add auto-update listeners
-                const dateInput = document.getElementById(`info-date-${entryId}`);
-                const notesInput = document.getElementById(`info-notes-${entryId}`);
-                if (dateInput) dateInput.addEventListener('input', () => generatePreview());
-                if (notesInput) notesInput.addEventListener('input', () => generatePreview());
-                
-                // Clear the old fields
-                oldInfoDateEl.value = '';
-                oldInfoNotesEl.value = '';
-            }
-        }
-
-        // Modal-specific info entry functions
+        // Story-form info entry helpers (addInfoEntry/removeInfoEntry/
+        // convertSingleInfoToMultiple) are in ./info-entries.js. The Edit
+        // Story modal variants stay here because loadStoryData mutates
+        // editInfoEntryCounter directly to render saved entries; sharing
+        // that primitive across the module boundary isn't worth the API
+        // surface for two functions.
         let editInfoEntryCounter = 0;
 
         function addEditInfoEntry() {
             const entriesContainer = document.getElementById('editInfoEntries');
             const entryId = `edit-info-entry-${editInfoEntryCounter++}`;
-            
-            // Count existing entries to get the next number
             const existingEntries = entriesContainer.querySelectorAll('.info-entry');
             const entryNumber = existingEntries.length + 1;
-            
+
             const entryHtml = `
                 <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -2351,185 +1559,28 @@ export function init(_root) {
                     </div>
                 </div>
             `;
-            
             entriesContainer.insertAdjacentHTML('beforeend', entryHtml);
-            
-            // Auto-fill today's date
+
             const dateField = document.getElementById(`edit-info-date-${entryId}`);
             if (dateField) {
-                dateField.value = getTodaysDateEuropean();
+                dateField.value = window.DateUtility.getTodaysDateEuropean();
                 dateField.focus({ preventScroll: true });
             }
         }
 
         function removeEditInfoEntry(entryId) {
             const entry = document.getElementById(entryId);
-            if (entry) {
-                entry.remove();
-            }
+            if (entry) entry.remove();
         }
 
         // (handleTransferredOutChange/handleTransferredInChange/handleProposedChange
         // moved to ./status.js)
-        function addChange(storyId) {
-            const container = document.getElementById(`changes-container-${storyId}`);
-            
-            // Check if we've reached the maximum of 5 changes (allowing for 4th delay)
-            const existingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
-            if (existingChanges.length >= 5) {
-                return; // Don't add more changes if limit is reached
-            }
-            
-            // Get current story end date for auto-population
-            const currentEndDateElement = document.getElementById(`story-end-${storyId}`);
-            const currentEndDate = currentEndDateElement ? currentEndDateElement.value : '';
-            
-            // Count existing changes to get the next number
-            const entryNumber = existingChanges.length + 1;
-            
-            changeCounter++;
-            const changeId = `${storyId}-change-${Date.now()}-${changeCounter}`;
-            
-            const changeHtml = `
-                <div class="form-group" id="change-${changeId}" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <strong>Timeline #${entryNumber}</strong>
-                        <button class="danger" onclick="removeChange('${changeId}', '${storyId}')" tabindex="-1">Remove</button>
-                    </div>
-                    
-                    <div class="inline-group">
-                        <div class="form-group">
-                            <label>Change Date:</label>
-                            <input type="text" id="change-date-${changeId}" placeholder="15/12 or 15/12/24 or 15-12-2024" value="${getTodaysDateEuropean()}">
-                        </div>
-                        <div class="form-group">
-                            <label>Description:</label>
-                            <input type="text" id="change-desc-${changeId}" placeholder="Reason for change">
-                        </div>
-                    </div>
-                    
-                    <div class="inline-group">
-                        <div class="form-group">
-                            <label>Previous End Date:</label>
-                            <input type="text" id="change-prev-${changeId}" placeholder="31/03 or 31-03" style="margin-bottom: 1px;" value="${currentEndDate}">
-                        </div>
-                        <div class="form-group">
-                            <label>New End Date:</label>
-                            <input type="text" id="change-new-${changeId}" placeholder="15/04 or 15-04" style="margin-bottom: 1px;" value="${currentEndDate}">
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            container.insertAdjacentHTML('beforeend', changeHtml);
-            
-            // Add auto-update listeners to the new timeline change elements
-            const changeFields = [
-                `change-date-${changeId}`,
-                `change-desc-${changeId}`,
-                `change-prev-${changeId}`,
-                `change-new-${changeId}`
-            ];
-            
-            // Initialize immediately since timeline changes are only added within expanded EPICs
-            changeFields.forEach(fieldId => {
-                const element = document.getElementById(fieldId);
-                if (element) {
-                    addListenersToElement(element);
-                    
-                    // Initialize date pickers for timeline change date fields
-                    if (fieldId.includes('-date-') || fieldId.includes('-prev-') || fieldId.includes('-new-')) {
-                        // Timeline change dates are specific dates only
-                        initializeDatePicker(element, false);
-                    }
-                }
-            });
-            
-            // Update the Add Change button state
-            updateChangeButton(storyId);
-        }
-        
-        function removeChange(changeId, storyId) {
-            document.getElementById(`change-${changeId}`).remove();
-            
-            // Renumber remaining timeline entries
-            const container = document.getElementById(`changes-container-${storyId}`);
-            if (container) {
-                const remainingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
-                remainingChanges.forEach((change, index) => {
-                    const header = change.querySelector('strong');
-                    if (header) {
-                        header.textContent = `Timeline #${index + 1}`;
-                    }
-                });
-            }
-            
-            // Update the Add Change button state
-            updateChangeButton(storyId);
-        }
-        
-        function updateChangeButton(storyId) {
-            const container = document.getElementById(`changes-container-${storyId}`);
-            const addButton = document.getElementById(`add-change-btn-${storyId}`);
-            
-            if (!container || !addButton) return;
-            
-            const existingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
-            
-            if (existingChanges.length >= 4) {
-                addButton.disabled = true;
-                addButton.textContent = '+ Add Change (Max 4 reached)';
-                addButton.style.opacity = '0.5';
-                addButton.style.cursor = 'not-allowed';
-            } else {
-                addButton.disabled = false;
-                addButton.textContent = '+ Add Change';
-                addButton.style.opacity = '1';
-                addButton.style.cursor = 'pointer';
-            }
-        }
+        // (addChange/removeChange/updateChangeButton moved to ./timeline-changes.js)
         
         // Story reordering with up/down arrows
-        function moveStoryUp(storyId) {
-            const storyElement = document.getElementById(`story-${storyId}`);
-            const previousStory = storyElement.previousElementSibling;
-            
-            if (previousStory && previousStory.classList.contains('story-section')) {
-                storyElement.parentNode.insertBefore(storyElement, previousStory);
-                updateStoryNumbers(storyElement.closest('.epic-section'));
-                
-                // Keep focus on the moved story's up button
-                setTimeout(() => {
-                    const upButton = storyElement.querySelector('button[onclick*="moveStoryUp"]');
-                    if (upButton) upButton.focus({ preventScroll: true });
-                }, 10);
-                
-                setTimeout(generatePreview, 100);
-            }
-        }
+        // (moved to ./story-moves.js)
         
-        function moveStoryDown(storyId) {
-            const storyElement = document.getElementById(`story-${storyId}`);
-            const nextStory = storyElement.nextElementSibling;
-            
-            if (nextStory && nextStory.classList.contains('story-section')) {
-                const afterNext = nextStory.nextElementSibling;
-                if (afterNext) {
-                    storyElement.parentNode.insertBefore(storyElement, afterNext);
-                } else {
-                    storyElement.parentNode.appendChild(storyElement);
-                }
-                updateStoryNumbers(storyElement.closest('.epic-section'));
-                
-                // Keep focus on the moved story's down button
-                setTimeout(() => {
-                    const downButton = storyElement.querySelector('button[onclick*="moveStoryDown"]');
-                    if (downButton) downButton.focus({ preventScroll: true });
-                }, 10);
-                
-                setTimeout(generatePreview, 100);
-            }
-        }
+        // (moved to ./story-moves.js)
         
         function updateStoryNumbers(epicElement) {
             const stories = epicElement.querySelectorAll('.story-section');
@@ -2555,81 +1606,9 @@ export function init(_root) {
         }
         
         // Move story functions that work with epic name and story index from roadmap preview
-        function moveStoryUpByEpic(epicName, storyIndex) {
-            // Find the EPIC section by name
-            const epicElements = document.querySelectorAll('.epic-section');
-            let targetEpicElement = null;
-            
-            epicElements.forEach(epicEl => {
-                const epicId = epicEl.id.split('-')[1];
-                const epicNameEl = document.getElementById(`epic-name-${epicId}`);
-                if (epicNameEl && epicNameEl.value.trim() === epicName) {
-                    targetEpicElement = epicEl;
-                }
-            });
-            
-            if (!targetEpicElement) {
-                console.error('Could not find EPIC:', epicName);
-                return;
-            }
-            const storiesContainer = targetEpicElement.querySelector('[id^="stories-container-"]');
-            if (!storiesContainer) return;
-            const stories = Array.from(storiesContainer.children).filter(el => el.classList && el.classList.contains('story-section'));
-            if (storyIndex <= 0 || storyIndex >= stories.length) return;
-            // Swap current with previous in array
-            const tmp = stories[storyIndex - 1];
-            stories[storyIndex - 1] = stories[storyIndex];
-            stories[storyIndex] = tmp;
-            // Re-append in new order (moves nodes, no cloning)
-            stories.forEach(node => storiesContainer.appendChild(node));
-            updateStoryNumbers(targetEpicElement);
-            setTimeout(generatePreview, 100);
-        }
+        // (moved to ./story-moves.js)
         
-        function moveStoryDownByEpic(epicName, storyIndex) {
-            // Find the EPIC section by name
-            const epicElements = document.querySelectorAll('.epic-section');
-            let targetEpicElement = null;
-            epicElements.forEach(epicEl => {
-                const epicId = epicEl.id.split('-')[1];
-                const epicNameEl = document.getElementById(`epic-name-${epicId}`);
-                if (epicNameEl && epicNameEl.value.trim() === epicName) {
-                    targetEpicElement = epicEl;
-                }
-            });
-            if (!targetEpicElement) return;
-
-            // Find the story element by index (static snapshot is fine)
-            const storyElements = targetEpicElement.querySelectorAll('.story-section');
-            if (storyIndex < 0 || storyIndex >= storyElements.length - 1) return;
-
-            const storyToMove = storyElements[storyIndex];
-            if (!storyToMove) return;
-
-            // Work within the same container and move after the next story-section sibling
-            const container = storyToMove.parentNode;
-            if (!container) return;
-
-            // Find the next sibling that is a story-section (skip non-story nodes)
-            let nextSibling = storyToMove.nextElementSibling;
-            while (nextSibling && !nextSibling.classList.contains('story-section')) {
-                nextSibling = nextSibling.nextElementSibling;
-            }
-            if (!nextSibling) return; // nothing to move past
-
-            const afterNext = nextSibling.nextElementSibling;
-            if (afterNext) {
-                container.insertBefore(storyToMove, afterNext);
-            } else {
-                container.appendChild(storyToMove);
-            }
-
-            // Update story numbers
-            updateStoryNumbers(targetEpicElement);
-            
-            // Regenerate preview after a short delay
-            setTimeout(generatePreview, 100);
-        }
+        // (moved to ./story-moves.js)
         
         function generatePreview() {
             if (isGeneratingPreview) return;
@@ -3626,7 +2605,7 @@ export function init(_root) {
             storyCounters = {};
             
             // Clear date picker initialization tracking to allow new date pickers
-            initializedDatePickers.clear();
+            clearAllTracking();
             
             // Clear date picker initialization flags from any remaining elements
             document.querySelectorAll('[data-date-picker-initialized="true"]').forEach(element => {
@@ -3691,8 +2670,8 @@ export function init(_root) {
                 }, 100);
             }
             
-            // Reset change counter
-            changeCounter = 0;
+            // Reset change counter (owned by ./timeline-changes.js)
+            resetTimelineChangeCounter();
             
             // Clear any pending timeline changes
             if (window.pendingTimelineChangesByIds) {
@@ -3935,515 +2914,9 @@ export function init(_root) {
         }
         
         // Stats modal controls
-        function openStatsModal() {
-            try {
-            const teamData = collectFormData();
-                const stats = computeRoadmapStats(teamData);
-                const body = document.getElementById('statsModalBody');
-                body.innerHTML = renderStatsHtml(stats);
-                const modal = document.getElementById('statsModal');
-                modal.style.display = 'flex';
-                // Make stats available for interactive breakdown
-                window.__roadmapStats = stats;
-                
-                // Add tooltip functionality after DOM is updated
-                setTimeout(setupTooltips, 100);
-            } catch (e) {
-                
-            }
-        }
-        
-        function setupTooltips() {
-            const tooltipElements = document.querySelectorAll('[data-tooltip]');
-            tooltipElements.forEach(element => {
-                // Remove old listener if it exists to prevent duplicates
-                element.removeEventListener('click', toggleDelayBreakdown);
-                element.addEventListener('click', toggleDelayBreakdown);
-            });
-        }
-        
-        function toggleDelayBreakdown(e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const container = e.currentTarget || e.target.closest('[data-tooltip]');
-            if (!container) return;
-
-            const breakdownType = container.getAttribute('data-breakdown-type');
-            if (!breakdownType) return;
-            
-            const breakdownId = `${breakdownType}-breakdown`;
-
-            // Toggle only this specific breakdown
-            const existing = document.getElementById(breakdownId);
-            
-            // Find the chevron icon - the container itself should be the bar-chart-container
-            const barChartContainer = container.classList.contains('bar-chart-container') ? container : container.closest('.bar-chart-container');
-            const chevron = barChartContainer ? barChartContainer.querySelector('.expand-chevron') : null;
-            
-            if (existing) {
-                existing.remove();
-                // Rotate chevron back to collapsed state (pointing right)
-                if (chevron) {
-                    chevron.style.transform = 'rotate(0deg)';
-                }
-                return; // Just close it, don't reopen
-            }
-
-            // Rotate chevron to expanded state (pointing down)
-            if (chevron) {
-                chevron.style.transform = 'rotate(90deg)';
-            }
-
-            const stats = window.__roadmapStats || { delayBreakdown: {}, delayStories: {}, totalStories: 0, cancelled: 0 };
-            const activeStories = (stats.totalStories || 0) - (stats.cancelled || 0);
-
-            // Create breakdown container
-            const breakdown = document.createElement('div');
-            breakdown.id = breakdownId;
-            breakdown.__for = container;
-            breakdown.style.cssText = `
-                margin-top: 10px;
-                padding: 12px;
-                background: #f8f9fa;
-                border: 1px solid #e5e7eb;
-                border-radius: 6px;
-                font-size: 12px;
-                color: #374151;
-            `;
-            
-            if (breakdownType === 'delayed') {
-                breakdown.innerHTML = renderDelayBreakdown(stats, stats.totalStories);
-            } else if (breakdownType === 'ontime') {
-                breakdown.innerHTML = renderOntimeBreakdown(stats, stats.totalStories);
-            } else if (breakdownType === 'accelerated') {
-                breakdown.innerHTML = renderAcceleratedBreakdown(stats, stats.totalStories);
-            } else if (breakdownType === 'cancelled') {
-                breakdown.innerHTML = renderCancelledBreakdown(stats);
-            }
-
-            // Insert directly after the clicked container
-            container.parentNode.insertBefore(breakdown, container.nextSibling);
-
-            // Enable expand/collapse on rows
-            setupDelayBreakdownInteractions();
-        }
-
-        function renderOntimeBreakdown(stats, totalStories) {
-            const done = stats.onTimeDone || 0;
-            const notDone = stats.onTimeNotDone || 0;
-            const doneStories = (stats.onTimeStories && stats.onTimeStories.done) || [];
-            const notDoneStories = (stats.onTimeStories && stats.onTimeStories.notDone) || [];
-            
-            if (done === 0 && notDone === 0) {
-                return '<div style="color:#6b7280;">No on-time projects</div>';
-            }
-            
-            const donePct = totalStories ? ((done / totalStories) * 100).toFixed(1) : 0;
-            const notDonePct = totalStories ? ((notDone / totalStories) * 100).toFixed(1) : 0;
-            
-            return (
-                '<div class="delay-row" id="ontime-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
-                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
-                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151;">Done (' + done + ' / ' + donePct + '%)</span>' +
-                    '</div>' +
-                    '<div class="delay-row-details" id="ontime-done-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #28a745;">' +
-                        renderDelayDetails(doneStories) +
-                    '</div>' +
-                '</div>' +
-                '<div class="delay-row" id="ontime-notdone-row" style="margin-bottom: 8px; margin-left: 10px;">' +
-                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
-                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151;">Not Done (' + notDone + ' / ' + notDonePct + '%)</span>' +
-                    '</div>' +
-                    '<div class="delay-row-details" id="ontime-notdone-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #ffc107;">' +
-                        renderDelayDetails(notDoneStories) +
-                    '</div>' +
-                '</div>'
-            );
-        }
-        
-        function renderAcceleratedBreakdown(stats, totalStories) {
-            const acceleratedStories = stats.acceleratedStories || { done: [], notDone: [] };
-            
-            // Handle backward compatibility: if acceleratedStories is an array (old format), convert it
-            if (Array.isArray(acceleratedStories)) {
-                const doneStories = acceleratedStories.filter(s => s.isDone);
-                const notDoneStories = acceleratedStories.filter(s => !s.isDone);
-                acceleratedStories = { done: doneStories, notDone: notDoneStories };
-            }
-            
-            const done = acceleratedStories.done ? acceleratedStories.done.length : 0;
-            const notDone = acceleratedStories.notDone ? acceleratedStories.notDone.length : 0;
-            const doneStories = acceleratedStories.done || [];
-            const notDoneStories = acceleratedStories.notDone || [];
-            
-            if (done === 0 && notDone === 0) {
-                return '<div style="color:#6b7280;">No accelerated projects</div>';
-            }
-            
-            const donePct = totalStories ? ((done / totalStories) * 100).toFixed(1) : 0;
-            const notDonePct = totalStories ? ((notDone / totalStories) * 100).toFixed(1) : 0;
-            
-            return (
-                '<div class="delay-row" id="accelerated-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
-                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
-                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151;">Done (' + done + ' / ' + donePct + '%)</span>' +
-                    '</div>' +
-                    '<div class="delay-row-details" id="accelerated-done-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #28a745;">' +
-                        renderDelayDetails(doneStories) +
-                    '</div>' +
-                '</div>' +
-                '<div class="delay-row" id="accelerated-notdone-row" style="margin-bottom: 8px; margin-left: 10px;">' +
-                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
-                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151;">Not Done (' + notDone + ' / ' + notDonePct + '%)</span>' +
-                    '</div>' +
-                    '<div class="delay-row-details" id="accelerated-notdone-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #ffc107;">' +
-                        renderDelayDetails(notDoneStories) +
-                    '</div>' +
-                '</div>'
-            );
-        }
-
-        function renderCancelledBreakdown(stats) {
-            const cancelled = Array.isArray(stats.cancelledStories) ? stats.cancelledStories : [];
-            if (cancelled.length === 0) {
-                return '<div style="color:#6b7280;">No cancelled projects</div>';
-            }
-            const items = cancelled.map(s => {
-                const title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const epic = (s.epicName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const team = (s.teamName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return '<div style="font-size:12px; color:#374151; padding:2px 0;">' +
-                    (team ? '<span style="color:#6b7280;">[' + team + ']</span> ' : '') +
-                    (epic ? '<span style="color:#6b7280;">[' + epic + ']</span> ' : '') +
-                    title +
-                '</div>';
-            }).join('');
-            return '<div style="display:block; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #dc3545;">' + items + '</div>';
-        }
-        
-        function renderDelayBreakdown(stats, totalStories) {
-            const counts = stats.delayBreakdown || {};
-            const sorted = Object.keys(counts).map(n => parseInt(n, 10)).sort((a, b) => a - b);
-            if (sorted.length === 0) {
-                return '<div style="color:#6b7280;">No delays recorded</div>';
-            }
-            
-            const rows = sorted.map(delayCount => {
-                const value = counts[delayCount] || 0;
-                const pct = totalStories ? ((value / totalStories) * 100).toFixed(1) : 0;
-                const delayGroup = (stats.delayStories && stats.delayStories[delayCount]) || { done: [], notDone: [] };
-                const doneCount = delayGroup.done ? delayGroup.done.length : 0;
-                const notDoneCount = delayGroup.notDone ? delayGroup.notDone.length : 0;
-                const rowId = `delay-row-${delayCount}`;
-                const detailsId = `delay-details-${delayCount}`;
-                
-                return (
-                    '<div class="delay-row" id="' + rowId + '" style="margin-bottom: 8px; margin-left: 10px;">' +
-                        '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
-                            '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                            '<span style="font-size:13px; color:#374151;">' + delayCount + ' delay' + (delayCount > 1 ? 's' : '') + ' (' + value + ' / ' + pct + '%)</span>' +
-                        '</div>' +
-                        '<div class="delay-row-details" id="' + detailsId + '" style="display:none; margin-left: 20px;">' +
-                            renderDelaySubBreakdown(delayGroup, delayCount, value) +
-                        '</div>' +
-                    '</div>'
-                );
-            }).join('');
-            return rows;
-        }
-        
-        function renderDelaySubBreakdown(delayGroup, delayCount, totalCount) {
-            // Handle backward compatibility: if delayGroup is an array (old format), convert it
-            if (Array.isArray(delayGroup)) {
-                const doneStories = delayGroup.filter(s => s.isDone);
-                const notDoneStories = delayGroup.filter(s => !s.isDone);
-                delayGroup = { done: doneStories, notDone: notDoneStories };
-            }
-            
-            const doneStories = delayGroup.done || [];
-            const notDoneStories = delayGroup.notDone || [];
-            const doneCount = doneStories.length;
-            const notDoneCount = notDoneStories.length;
-            
-            const donePct = totalCount ? ((doneCount / totalCount) * 100).toFixed(1) : 0;
-            const notDonePct = totalCount ? ((notDoneCount / totalCount) * 100).toFixed(1) : 0;
-            
-            return (
-                '<div class="delay-row" id="delay-' + delayCount + '-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
-                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
-                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151;">Done (' + doneCount + ' / ' + donePct + '%)</span>' +
-                    '</div>' +
-                    '<div class="delay-row-details" id="delay-' + delayCount + '-done-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #28a745;">' +
-                        renderDelayDetails(doneStories) +
-                    '</div>' +
-                '</div>' +
-                '<div class="delay-row" id="delay-' + delayCount + '-notdone-row" style="margin-bottom: 8px; margin-left: 10px;">' +
-                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
-                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151;">Not Done (' + notDoneCount + ' / ' + notDonePct + '%)</span>' +
-                    '</div>' +
-                    '<div class="delay-row-details" id="delay-' + delayCount + '-notdone-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #ffc107;">' +
-                        renderDelayDetails(notDoneStories) +
-                    '</div>' +
-                '</div>'
-            );
-        }
-
-        function compareByTeamEpicTitle(a, b) {
-            const ta = (a.teamName || '').toLowerCase();
-            const tb = (b.teamName || '').toLowerCase();
-            if (ta !== tb) return ta < tb ? -1 : 1;
-            const ea = (a.epicName || '').toLowerCase();
-            const eb = (b.epicName || '').toLowerCase();
-            if (ea !== eb) return ea < eb ? -1 : 1;
-            const sa = (a.title || '').toLowerCase();
-            const sb = (b.title || '').toLowerCase();
-            if (sa !== sb) return sa < sb ? -1 : 1;
-            return 0;
-        }
-
-        function renderDelayDetails(stories) {
-            if (!stories || !stories.length) return '<div style="color:#6b7280;">No items</div>';
-            const sorted = [...stories].sort(compareByTeamEpicTitle);
-            return sorted.map(s => {
-                const title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const epic = (s.epicName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const team = (s.teamName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return '<div style="font-size:12px; color:#374151; padding:2px 0;">' +
-                    (team ? '<span style="color:#6b7280;">[' + team + ']</span> ' : '') +
-                    (epic ? '<span style="color:#6b7280;">[' + epic + ']</span> ' : '') +
-                    title +
-                '</div>';
-            }).join('');
-        }
-
-        function setupDelayBreakdownInteractions() {
-            const rows = document.querySelectorAll('[id$="-breakdown"] .delay-row');
-            rows.forEach(row => {
-                const details = row.querySelector('.delay-row-details');
-                const header = row.querySelector('.delay-row-header');
-                const arrow = header ? header.querySelector('span:first-child') : null;
-                
-                // Remove any existing click handler to prevent duplicates
-                if (header && header._toggleHandler) {
-                    header.removeEventListener('click', header._toggleHandler);
-                }
-                
-                const toggle = () => {
-                    if (!details) return;
-                    const isOpen = details.style.display !== 'none';
-                    details.style.display = isOpen ? 'none' : 'block';
-                    if (arrow) {
-                        arrow.textContent = isOpen ? '▶' : '▼';
-                    }
-                };
-                
-                // Store the handler reference for later removal
-                if (header) {
-                    header._toggleHandler = toggle;
-                    header.addEventListener('click', toggle);
-                }
-            });
-        }
-        function closeStatsModal() {
-            const modal = document.getElementById('statsModal');
-            if (modal) modal.style.display = 'none';
-        }
-
-        // Compute roadmap stats
-        function computeRoadmapStats(teamData) {
-            const result = {
-                totalEpics: 0,
-                totalStories: 0,
-                onTime: 0,
-                onTimeDone: 0,
-                onTimeNotDone: 0,
-                delayedOnce: 0,
-                delayedTwiceOrMore: 0,
-                accelerated: 0,
-                cancelled: 0,
-                totalDelayed: 0,
-                delayBreakdown: {}, // Track exact delay counts
-                delayStories: {},
-                acceleratedStories: { done: [], notDone: [] },
-                onTimeStories: { done: [], notDone: [] },
-                cancelledStories: []
-            };
-            if (!teamData || !Array.isArray(teamData.epics)) return result;
-            result.totalEpics = teamData.epics.length;
-            for (const epic of teamData.epics) {
-                if (!Array.isArray(epic.stories)) continue;
-                for (const story of epic.stories) {
-                    result.totalStories++;
-                    if (story.isCancelled) {
-                        result.cancelled++;
-                        const teamName = (teamData && teamData.teamName) ? teamData.teamName : '';
-                        result.cancelledStories.push({ title: story.title, epicName: epic.name, teamName });
-                        continue;
-                    }
-                    const changes = story.roadmapChanges?.changes || [];
-                    
-                    // Count only ACTUAL delays (new date > prev date)
-                    let actualDelayCount = 0;
-                    let hasAcceleration = false;
-                    
-                    if (Array.isArray(changes) && changes.length > 0) {
-                        for (const change of changes) {
-                            if (change.prevEndDate && change.newEndDate) {
-                                // Parse dates properly - they might be in DD/MM/YY or ISO format
-                                const roadmapYear = teamData.roadmapYear || new Date().getFullYear();
-                                const prevISO = DateUtility.parseTextValue(change.prevEndDate, true, roadmapYear);
-                                const newISO = DateUtility.parseTextValue(change.newEndDate, true, roadmapYear);
-                                
-                                if (prevISO && newISO) {
-                                    if (newISO > prevISO) {
-                                        actualDelayCount++; // Actual delay
-                                    } else if (newISO < prevISO) {
-                                        hasAcceleration = true; // Pulled forward
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (actualDelayCount === 0 && !hasAcceleration) {
-                        // No timeline changes at all
-                        result.onTime++;
-                        const isDone = story.isDone || false;
-                        if (isDone) {
-                            result.onTimeDone++;
-                            result.onTimeStories.done.push({ title: story.title, epicName: epic.name });
-                        } else {
-                            result.onTimeNotDone++;
-                            result.onTimeStories.notDone.push({ title: story.title, epicName: epic.name });
-                        }
-                    } else if (hasAcceleration && actualDelayCount === 0) {
-                        // Only accelerations, no delays
-                        result.accelerated++;
-                        const acceleratedStory = { title: story.title, epicName: epic.name };
-                        if (story.isDone) {
-                            result.acceleratedStories.done.push(acceleratedStory);
-                        } else {
-                            result.acceleratedStories.notDone.push(acceleratedStory);
-                        }
-                    } else if (actualDelayCount > 0) {
-                        // Has at least one actual delay
-                        result.totalDelayed++;
-                        if (actualDelayCount === 1) {
-                            result.delayedOnce++;
-                        } else {
-                            result.delayedTwiceOrMore++;
-                        }
-                        
-                    // Track exact delay count for breakdown
-                    result.delayBreakdown[actualDelayCount] = (result.delayBreakdown[actualDelayCount] || 0) + 1;
-                    if (!result.delayStories[actualDelayCount]) {
-                        result.delayStories[actualDelayCount] = { done: [], notDone: [] };
-                    }
-                    const delayedStory = { title: story.title, epicName: epic.name };
-                    if (story.isDone) {
-                        result.delayStories[actualDelayCount].done.push(delayedStory);
-                    } else {
-                        result.delayStories[actualDelayCount].notDone.push(delayedStory);
-                    }
-                    }
-                }
-            }
-            return result;
-        }
-
-        function isDelayChange(change) {
-            // Consider a delay if newEndDate > prevEndDate or explicit type/description suggests delay
-            try {
-                if (!change) return false;
-                if (change.type && /delay|slip/i.test(change.type)) return true;
-                if (change.description && /delay|slip|pushed/i.test(change.description)) return true;
-                if (change.newEndDate && change.prevEndDate) {
-                    const n = Date.parse(change.newEndDate);
-                    const p = Date.parse(change.prevEndDate);
-                    if (!isNaN(n) && !isNaN(p) && n > p) return true;
-                }
-            } catch (_) {}
-            return false;
-        }
-
-        function renderStatsHtml(s) {
-            const pct = (num, den) => (den ? ((num / den) * 100).toFixed(1) : 0);
-            const activeStories = s.totalStories - s.cancelled;
-            
-            return (
-                '<div style="padding: 20px;">' +
-                    '<h3 style="margin: 0 0 20px 0; color: #333; text-align: center;">📊 Project Status Overview</h3>' +
-                    '<div style="margin-bottom: 20px; text-align: center; font-size: 14px; color: #666;">' +
-                        `${s.totalStories} Total Stories across ${s.totalEpics} EPICs` +
-                    '</div>' +
-                    '<div style="max-width: 600px; margin: 0 auto;">' +
-                        barChart('On-time Projects', s.onTime, s.totalStories, '#28a745', s, 'ontime') +
-                        barChart('Delayed Projects', s.totalDelayed, s.totalStories, '#dc3545', s, 'delayed') +
-                        barChart('Accelerated Projects', s.accelerated, s.totalStories, '#17a2b8', s, 'accelerated') +
-                        barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', s, 'cancelled') +
-                    '</div>' +
-                '</div>'
-            );
-        }
-        
-        function barChart(label, value, total, color, stats, breakdownType) {
-            const percentage = total ? ((value / total) * 100).toFixed(1) : 0;
-            
-            let tooltipContent = '';
-            let expandIcon = '';
-            let cursorStyle = 'default';
-            if (stats && breakdownType) {
-                tooltipContent = `data-tooltip="breakdown" data-breakdown-type="${breakdownType}"`;
-                cursorStyle = 'pointer';
-                // Add expand/collapse chevron icon on the LEFT
-                expandIcon = `<span class="expand-chevron" style="margin-right: 8px; font-size: 12px; color: #6b7280; transition: transform 0.2s ease; pointer-events: none;">▶</span>`;
-            }
-            
-            return (
-                '<div style="margin-bottom: 12px; padding: 8px 12px; border-radius: 6px; background: #f9fafb; cursor: ' + cursorStyle + '; transition: all 0.2s ease;" class="bar-chart-container" ' + tooltipContent + '>' +
-                    '<div style="display: flex; justify-content: space-between; align-items: center; pointer-events: none;">' +
-                        `<span style="font-size: 14px; font-weight: 500; color: #374151; display: flex; align-items: center;">${expandIcon}${label}</span>` +
-                        `<span style="font-size: 14px; font-weight: 600; color: ${color};">${value} (${percentage}%)</span>` +
-                    '</div>' +
-                '</div>'
-            );
-        }
-        
-        function getDelayBreakdown(stats) {
-            let result = 'Delay Breakdown:\\n';
-            
-            // Sort delay counts for better display
-            const sortedDelays = Object.keys(stats.delayBreakdown || {})
-                .map(Number)
-                .sort((a, b) => a - b);
-            
-            if (sortedDelays.length === 0) {
-                result += 'No delays recorded';
-            } else {
-                sortedDelays.forEach(delayCount => {
-                    const count = stats.delayBreakdown[delayCount];
-                    result += `${delayCount} delay${delayCount > 1 ? 's' : ''}: ${count}\\n`;
-                });
-            }
-            
-            return result;
-        }
-
-        function card(label, value) {
-            return (
-                '<div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px; background:#fafafa;">' +
-                    `<div style="font-size:12px; color:#6b7280; margin-bottom:6px;">${label}</div>` +
-                    `<div style="font-size:20px; font-weight:600; color:#111827;">${value}</div>` +
-                '</div>'
-            );
-        }
+        // Stats modal (open/close, computeRoadmapStats, all render*Breakdown
+        // helpers, barChart/card primitives) moved to ./stats.js. Wired at
+        // the top of init().
 
 
         
@@ -4495,150 +2968,8 @@ export function init(_root) {
         
         
         
-        function applyPendingTimelineChanges(callback) {
-            const hasIdBasedChanges = window.pendingTimelineChangesByIds && Object.keys(window.pendingTimelineChangesByIds).length > 0;
-            const hasStringBasedChanges = window.pendingTimelineChanges && Object.keys(window.pendingTimelineChanges).length > 0;
-            
-            if (!hasIdBasedChanges && !hasStringBasedChanges) {
-                if (callback) callback();
-                return;
-            }
-            
-            try {
-                // Find all stories and match them with timeline changes
-                const storyElements = document.querySelectorAll('.story-section');
-                
-                let matchCount = 0;
-                let pendingOperations = 0;
-                
-                storyElements.forEach((storyEl, index) => {
-                    const storyId = storyEl.id.replace('story-', '');
-                    const titleEl = document.getElementById(`story-title-${storyId}`);
-                    
-                    if (!titleEl) {
-                        return;
-                    }
-                    
-                    // Get story and epic IDs for ID-based matching
-                    const storyIdEl = document.getElementById(`story-id-${storyId}`);
-                    const actualStoryId = storyIdEl ? storyIdEl.value : '';
-                    
-                    const epicEl = storyEl.closest('.epic-section');
-                    const epicIdEl = epicEl ? epicEl.querySelector('input[id^="epic-id-"]') : null;
-                    const actualEpicId = epicIdEl ? epicIdEl.value : '';
-                    
-                    // Get story title and epic name for string-based matching (fallback)
-                    const storyTitle = titleEl.value;
-                    const epicTitleEl = epicEl ? epicEl.querySelector('input[id^="epic-name-"]') : null;
-                    const epicName = epicTitleEl ? epicTitleEl.value : '';
-                    const storyReference = `${epicName} - ${storyTitle}`;
-                    
-                    let changes = null;
-                    let matchType = '';
-                    
-                    // Try ID-based matching first (preferred)
-                    if (hasIdBasedChanges && actualEpicId && actualStoryId) {
-                        const idKey = `${actualEpicId}:${actualStoryId}`;
-                        if (window.pendingTimelineChangesByIds[idKey]) {
-                            changes = window.pendingTimelineChangesByIds[idKey];
-                            matchType = 'ID-based';
-                        }
-                    }
-                    
-                    // Fall back to string-based matching if no ID match found
-                    if (!changes && hasStringBasedChanges && window.pendingTimelineChanges[storyReference]) {
-                        changes = window.pendingTimelineChanges[storyReference];
-                        matchType = 'string-based';
-                    }
-                    
-                    // Apply timeline changes if found
-                    if (changes) {
-                        matchCount++;
-                        pendingOperations++;
-                        
-                        // Enable timeline changes checkbox
-                        const changesCheckbox = document.getElementById(`story-changes-${storyId}`);
-                        if (changesCheckbox) {
-                            changesCheckbox.checked = true;
-                            toggleChanges(storyId); // Show the changes section
-                            
-                            // Clear any existing timeline changes before importing new ones
-                            const container = document.getElementById(`changes-container-${storyId}`);
-                            if (container) {
-                                container.innerHTML = '';
-                            }
-                            
-                            // Wait for DOM elements to be created, then add the changes
-                            setTimeout(() => {
-                                changes.forEach((change, changeIndex) => {
-                                    addChange(storyId);
-                                    
-                                    // Find the most recently added change element
-                                    const changeContainers = document.querySelectorAll(`#changes-container-${storyId} > div[id^="change-${storyId}-change-"]`);
-                                    const latestContainer = changeContainers[changeContainers.length - 1];
-                                    
-                                    if (latestContainer) {
-                                        const fullChangeId = latestContainer.id.replace('change-', '');
-                                        
-                                        const dateEl = document.getElementById(`change-date-${fullChangeId}`);
-                                        const prevEl = document.getElementById(`change-prev-${fullChangeId}`);
-                                        const newEl = document.getElementById(`change-new-${fullChangeId}`);
-                                        const descEl = document.getElementById(`change-desc-${fullChangeId}`);
-                                        
-                                        if (dateEl) {
-                                            dateEl.value = change.date;
-                                        }
-                                        if (prevEl) {
-                                            prevEl.value = change.prevEndDate;
-                                        }
-                                        if (newEl) {
-                                            newEl.value = change.newEndDate;
-                                        }
-                                        if (descEl) {
-                                            descEl.value = change.description;
-                                        }
-                                    }
-                                });
-                                
-                                // Update button state after loading all changes
-                                updateChangeButton(storyId);
-                                
-                                // Mark this operation as complete
-                                pendingOperations--;
-                                if (pendingOperations === 0) {
-                                    // All timeline changes have been applied, call the callback
-                                    
-                                    // Clean up
-                                    delete window.pendingTimelineChanges;
-                                    delete window.pendingTimelineChangesByIds;
-                                    delete window.loadedEpicIds;
-                                    delete window.loadedStoryIds;
-                                    
-                                    if (callback) callback();
-                                }
-                            }, 100);
-                        } else {
-                            pendingOperations--;
-                            if (pendingOperations === 0 && callback) callback();
-                        }
-                    }
-                });
-                
-                // If no pending operations, call callback immediately
-                if (pendingOperations === 0) {
-                    // Clean up
-                    delete window.pendingTimelineChanges;
-                    delete window.pendingTimelineChangesByIds;
-                    delete window.loadedEpicIds;
-                    delete window.loadedStoryIds;
-                    
-                    if (callback) callback();
-                }
-                
-            } catch (error) {
-                if (callback) callback(); // Call callback even on error to prevent hanging
-            }
-        }
+        // applyPendingTimelineChanges moved to ./timeline-changes.js
+        // (returned from createTimelineChangeHandlers; bound as a local at top of init).
                 function loadTeamData(teamData) {
             // Clear existing EPICs first
             document.getElementById('epics-container').innerHTML = '';
@@ -5317,101 +3648,13 @@ export function init(_root) {
             }
         }
         
-        async function exportHTML() {
-            const teamData = collectFormData();
-            const generator = new RoadmapGenerator(teamData.roadmapYear);
-            const html = generator.generateRoadmap(teamData, false, false); // standalone export with editing disabled
-            const blob = new Blob([html], { type: 'text/html' });
-            
-            // Generate default filename
-            const defaultFileName = `${teamData.teamName || 'MyTeam'}.Teya-Roadmap.${teamData.roadmapYear || 2025}.html`;
-            
-            // Try to use the File System Access API for native save dialog
-            if ('showSaveFilePicker' in window) {
-                try {
-                    const fileHandle = await window.showSaveFilePicker({
-                        suggestedName: defaultFileName,
-                        types: [{
-                            description: 'HTML Roadmap files',
-                            accept: {
-                                'text/html': ['.html']
-                            }
-                        }]
-                    });
-                    
-                    const writable = await fileHandle.createWritable();
-                    await writable.write(blob);
-                    await writable.close();
-                    
-                    return;
-                } catch (error) {
-                    if (error.name === 'AbortError') {
-                        // User cancelled the save dialog
-                        return;
-                    }
-                    // File System Access API failed, fall back to download
-                }
-            }
-            
-            // Fallback to download method for browsers that don't support File System Access API
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = defaultFileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
+        // exportHTML moved to ./export.js (createExportHTML).
 
         
-        function showFullscreen() {
-            // Generate fullscreen version only when needed
-            if (window.currentTeamData) {
-                const generator = new RoadmapGenerator(window.currentTeamData.roadmapYear);
-                const fullscreenHtml = generator.generateRoadmap(window.currentTeamData, false, false); // fullscreen preview with editing disabled
-                const fullscreenIframe = document.getElementById('fullscreen-preview');
-                fullscreenIframe.srcdoc = fullscreenHtml;
-            }
-            
-            const overlay = document.getElementById('fullscreen-overlay');
-            overlay.style.display = 'flex';
-            document.body.style.overflow = 'hidden'; // Prevent background scrolling
-        }
-        
-        function hideFullscreen() {
-            const overlay = document.getElementById('fullscreen-overlay');
-            overlay.style.display = 'none';
-            document.body.style.overflow = 'auto'; // Restore scrolling
-        }
-        
-        function toggleFullscreen() {
-            const previewPanel = document.querySelector('.preview-panel');
-            
-            if (!document.fullscreenElement) {
-                // Enter fullscreen
-                if (previewPanel.requestFullscreen) {
-                    previewPanel.requestFullscreen();
-                } else if (previewPanel.mozRequestFullScreen) {
-                    previewPanel.mozRequestFullScreen();
-                } else if (previewPanel.webkitRequestFullscreen) {
-                    previewPanel.webkitRequestFullscreen();
-                } else if (previewPanel.msRequestFullscreen) {
-                    previewPanel.msRequestFullscreen();
-                }
-            } else {
-                // Exit fullscreen
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.mozCancelFullScreen) {
-                    document.mozCancelFullScreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                }
-            }
-        }
+        // Fullscreen helpers (showFullscreen / hideFullscreen / toggleFullscreen)
+        // moved to ./fullscreen.js. Imported and re-exposed on window at the top
+        // of init(); hideFullscreen is also bound as a local for the Escape
+        // keydown handler below.
         
         // Keyboard shortcuts
         document.addEventListener('keydown', function(event) {
@@ -5732,15 +3975,14 @@ export function init(_root) {
             if (foundStory.hasTimelineChanges && foundStory.timelineChanges && foundStory.timelineChanges.length > 0) {
                 // Clear existing changes first
                 document.getElementById('editChangesContainer').innerHTML = '';
-                editChangeCounter = 0;
-                
+                // Reset the edit-change counter (now owned by ./timeline-changes.js)
+                resetEditChangeCounter();
                 // Sort timeline changes by date before displaying in modal
                 const sortedTimelineChanges = sortTimelineChangesByDate([...foundStory.timelineChanges]);
                 
                 // Add each timeline change in chronological order
                 sortedTimelineChanges.forEach(change => {
-                    addEditChange();
-                    const changeId = `edit-change-${editChangeCounter}`;
+                    const changeId = addEditChange();
                     document.getElementById(`${changeId}-date`).value = change.date || '';
                     document.getElementById(`${changeId}-desc`).value = change.description || '';
                     document.getElementById(`${changeId}-prev`).value = change.prevEndDate || '';
@@ -5752,7 +3994,7 @@ export function init(_root) {
             } else {
                 // Clear any existing changes
                 document.getElementById('editChangesContainer').innerHTML = '';
-                editChangeCounter = 0;
+                resetEditChangeCounter();
                 
                 // Update button state after clearing changes
                 updateEditChangeButton();
@@ -5773,7 +4015,7 @@ export function init(_root) {
                 if (element) {
                     element.dataset.datePickerInitialized = 'false';
                     if (element.id) {
-                        initializedDatePickers.delete(element.id);
+                        untrackDatePicker(element.id);
                     }
                 }
             });
@@ -5796,7 +4038,7 @@ export function init(_root) {
                 document.querySelectorAll('#editChangesContainer input[id*="-date"], #editChangesContainer input[id*="-prev"], #editChangesContainer input[id*="-new"]').forEach(input => {
                     input.dataset.datePickerInitialized = 'false';
                     if (input.id) {
-                        initializedDatePickers.delete(input.id);
+                        untrackDatePicker(input.id);
                     }
                     initializeDatePicker(input, false);
                 });
@@ -5993,41 +4235,9 @@ export function init(_root) {
         // The factory is wired at the top of init() and exposes the four
         // functions on window for inline onchange="..." attributes.
 
-        function toggleEditTimelineChanges() {
-            const timelineChecked = document.getElementById('editTimelineChanges').checked;
+        // Edit-modal timeline-change handlers are now in ./timeline-changes.js
+        // (createEditTimelineChangeHandlers). Wired at the top of init().
 
-            const section = document.getElementById('editTimelineChangesSection');
-            
-            if (timelineChecked) {
-                section.style.display = 'block';
-                
-                // Automatically add one timeline change if none exist
-                const existingChanges = document.querySelectorAll('#editChangesContainer > div[id^="edit-change-"]');
-                if (existingChanges.length === 0) {
-                    addEditChange();
-                }
-                
-                // Reinitialize date pickers for any existing timeline changes
-                setTimeout(() => {
-                    document.querySelectorAll('#editChangesContainer input[id*="-date"], #editChangesContainer input[id*="-prev"], #editChangesContainer input[id*="-new"]').forEach(input => {
-                        input.dataset.datePickerInitialized = 'false';
-                        if (input.id) {
-                            initializedDatePickers.delete(input.id);
-                        }
-                        initializeDatePicker(input, false);
-                    });
-                }, 10);
-            } else {
-                section.style.display = 'none';
-                // Clear existing changes when hiding
-                document.getElementById('editChangesContainer').innerHTML = '';
-                editChangeCounter = 0;
-                // Update button state after clearing changes
-                updateEditChangeButton();
-            }
-        }
-
-        let editChangeCounter = 0;
 
 
 
@@ -6078,126 +4288,8 @@ export function init(_root) {
             if (descriptionInput) descriptionInput.value = data.description;
         }
 
-        function addEditChange() {
-            const container = document.getElementById('editChangesContainer');
-            
-            // Check if we've reached the maximum of 5 changes (allowing for 4th delay)
-            const existingChanges = container.querySelectorAll('div[id^="edit-change-"]');
-            if (existingChanges.length >= 5) {
-                return; // Don't add more changes if limit is reached
-            }
-            
-            // Get current story end date for auto-population from edit modal
-            const currentEndDateElement = document.getElementById('editEnd');
-            const currentEndDate = currentEndDateElement ? currentEndDateElement.value : '';
-            
-            editChangeCounter++;
-            const changeId = `edit-change-${editChangeCounter}`;
-            
-            // Count existing changes to get the next number
-            const entryNumber = existingChanges.length + 1;
-
-            
-            const changeHtml = `
-                <div class="form-group" id="${changeId}" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px; background-color: #f8f9fa;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <strong>Timeline #${entryNumber}</strong>
-                        <button type="button" class="danger" onclick="removeEditChange('${changeId}')" style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;" tabindex="-1">Remove</button>
-                    </div>
-                    
-                    <div class="inline-group">
-                        <div class="form-group">
-                            <label>Change Date:</label>
-                            <input type="text" id="${changeId}-date" placeholder="15/12/24" value="${getTodaysDateEuropean()}">
-                        </div>
-                        <div class="form-group">
-                            <label>Description:</label>
-                            <input type="text" id="${changeId}-desc" placeholder="Reason for change">
-                        </div>
-                    </div>
-                    
-                    <div class="inline-group">
-                        <div class="form-group">
-                            <label>Previous End Date:</label>
-                            <input type="text" id="${changeId}-prev" placeholder="31/03" style="margin-bottom: 1px;" value="${currentEndDate}">
-                        </div>
-                        <div class="form-group">
-                            <label>New End Date:</label>
-                            <input type="text" id="${changeId}-new" placeholder="15/04" style="margin-bottom: 1px;" value="${currentEndDate}">
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            container.insertAdjacentHTML('beforeend', changeHtml);
-            
-            // Initialize date pickers for the new timeline change fields in modal
-            setTimeout(() => {
-                const dateField = document.getElementById(`${changeId}-date`);
-                const prevField = document.getElementById(`${changeId}-prev`);
-                const newField = document.getElementById(`${changeId}-new`);
-                
-                // Clear any existing initialization flags first
-                [dateField, prevField, newField].forEach(field => {
-                    if (field) {
-                        field.dataset.datePickerInitialized = 'false';
-                        if (field.id) {
-                            initializedDatePickers.delete(field.id);
-                        }
-                    }
-                });
-                
-                if (dateField) initializeDatePicker(dateField, false);
-                if (prevField) initializeDatePicker(prevField, false);
-                if (newField) initializeDatePicker(newField, false);
-            }, 10);
-            
-            // Update the Add Change button state
-            updateEditChangeButton();
-        }
-
-                function removeEditChange(changeId) {
-            document.getElementById(changeId).remove();
-            
-            // Update the Add Change button state
-            updateEditChangeButton();
-        }
-        
-
-
-        // Utility function to sort timeline changes by date
-        function sortTimelineChangesByDate(timelineChanges) {
-            return timelineChanges.sort((a, b) => {
-                if (!a.date && !b.date) return 0;
-                if (!a.date) return 1; // Empty dates go to end
-                if (!b.date) return -1;
-                
-                const dateA = DateUtility.parseEuropeanDateForTimeline(a.date);
-                const dateB = DateUtility.parseEuropeanDateForTimeline(b.date);
-                return dateA - dateB;
-            });
-        }
-
-        function updateEditChangeButton() {
-            const container = document.getElementById('editChangesContainer');
-            const addButton = document.getElementById('add-edit-change-btn');
-            
-            if (!container || !addButton) return;
-            
-            const existingChanges = container.querySelectorAll('div[id^="edit-change-"]');
-            
-            if (existingChanges.length >= 5) {
-                addButton.disabled = true;
-                addButton.textContent = '+ Add Timeline Entry (Max 5 reached)';
-                addButton.style.opacity = '0.5';
-                addButton.style.cursor = 'not-allowed';
-            } else {
-                addButton.disabled = false;
-                addButton.textContent = '+ Add Timeline Entry';
-                addButton.style.opacity = '1';
-                addButton.style.cursor = 'pointer';
-            }
-        }
+        // (addEditChange/removeEditChange/sortTimelineChangesByDate/updateEditChangeButton
+        // moved to ./timeline-changes.js)
         // Monthly KTLO Edit Modal Functions
         let currentEditingMonth = null;
         
@@ -7173,220 +5265,17 @@ export function init(_root) {
             doc.head.appendChild(style);
         }
 
-        // KTLO Percentage Validation Functions
-        function validateKTLOPercentage(value) {
-            // Empty/blank values are allowed
-            if (value === '' || value === null || value === undefined) {
-                return true;
-            }
-            
-            // Convert to number and check if it's valid
-            const numValue = parseFloat(value);
-            
-            // Must be a valid number
-            if (isNaN(numValue)) {
-                return false;
-            }
-            
-            // Must be between 0 and 100
-            if (numValue < 0 || numValue > 100) {
-                return false;
-            }
-            
-            // Must be a multiple of 5
-            return numValue % 5 === 0;
-        }
-
-        function showKTLOValidationError(inputElement, message) {
-            // Add error class to input
-            inputElement.classList.add('ktlo-percentage-error');
-            
-            // Remove any existing error message
-            removeKTLOValidationError(inputElement);
-            
-            // Create and add error message
-            const errorSpan = document.createElement('span');
-            errorSpan.className = 'ktlo-percentage-error-message';
-            errorSpan.textContent = message;
-            
-            // Insert error message after the input element
-            inputElement.parentNode.appendChild(errorSpan);
-        }
-
-        function removeKTLOValidationError(inputElement) {
-            // Remove error class from input
-            inputElement.classList.remove('ktlo-percentage-error');
-            
-            // Remove error message
-            const errorMessage = inputElement.parentNode.querySelector('.ktlo-percentage-error-message');
-            if (errorMessage) {
-                errorMessage.remove();
-            }
-        }
-
-        function handleKTLOPercentageValidation(event) {
-            const inputElement = event.target;
-            const value = inputElement.value.trim();
-            
-            if (validateKTLOPercentage(value)) {
-                removeKTLOValidationError(inputElement);
-                return true;
-            } else {
-                showKTLOValidationError(inputElement, 'Value must be blank or a multiple of 5 between 0 and 100');
-                
-                // For blur events, prevent the user from leaving the field with invalid value
-                if (event.type === 'blur') {
-                    event.preventDefault();
-                    // Refocus the field after a short delay to allow the error message to show
-                    setTimeout(() => {
-                        inputElement.focus();
-                    }, 100);
-                }
-                return false;
-            }
-        }
-
-        // Initialize KTLO percentage validation when DOM is loaded
-        function initializeKTLOValidation() {
-            const ktloPercentageInputs = [
-                'ktlo-current-percentage',
-                'edit-ktlo-current-percentage', 
-                'editMonthlyKTLOPercentage'
-            ];
-            
-            ktloPercentageInputs.forEach(inputId => {
-                const inputElement = document.getElementById(inputId);
-                if (inputElement) {
-                    // Add blur event listener for validation when leaving field
-                    inputElement.addEventListener('blur', handleKTLOPercentageValidation);
-                    
-                    // Add input event listener for immediate feedback
-                    inputElement.addEventListener('input', handleKTLOPercentageValidation);
-                }
-            });
-        }
-
-        // Initialize validation when page loads
-        document.addEventListener('DOMContentLoaded', initializeKTLOValidation);
-        
-        // Also initialize immediately in case DOM is already loaded
-        if (document.readyState === 'loading') {
-            // Do nothing, DOMContentLoaded will fire
-        } else {
-            // DOM is already loaded
-            initializeKTLOValidation();
-        }
+        // KTLO percentage validation moved to ./ktlo-validation.js.
+        // initializeKTLOValidation is registered as a DOMContentLoaded
+        // handler at the top of init() since the legacy body would do
+        // the same.
 
         // Drag and Drop Functionality - entire builder panel
-        function initializeDragAndDrop() {
-            const builderPanel = document.querySelector('.builder-panel');
-            
-            if (!builderPanel) {
-                console.warn('Builder panel not found');
-                return;
-            }
 
-            // Builder panel drag events
-            builderPanel.addEventListener('dragenter', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
-                    builderPanel.classList.add('drag-over');
-                }
-            });
-
-            builderPanel.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
-                    e.dataTransfer.dropEffect = 'copy';
-                }
-            });
-
-            builderPanel.addEventListener('dragleave', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Only remove drag-over if leaving the builder panel entirely
-                if (!builderPanel.contains(e.relatedTarget)) {
-                    builderPanel.classList.remove('drag-over');
-                }
-            });
-
-            builderPanel.addEventListener('drop', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                builderPanel.classList.remove('drag-over');
-                handleFileDrop(e);
-            });
-        }
-
-        function handleFileDrop(e) {
-            const files = e.dataTransfer.files;
-            
-            if (files.length === 0) {
-                return;
-            }
-
-            // Only process the first file
-            const file = files[0];
-            const fileName = file.name.toLowerCase();
-            
-            // Check file type
-            if (fileName.endsWith('.json')) {
-                // Handle JSON file - create synthetic event for existing handler
-                const syntheticEvent = {
-                    target: {
-                        files: [file],
-                        value: '' // Reset value to allow same file to be loaded again
-                    }
-                };
-                
-                try {
-                    handleFileLoad(syntheticEvent);
-                } catch (error) {
-                    console.error('Error handling dropped JSON file:', error);
-                    alert('Error loading JSON file: ' + error.message);
-                }
-                
-            } else {
-                alert('Unsupported file type. Please drop a .json file.');
-            }
-        }
 
         // Initialize drag and drop when page loads
-        document.addEventListener('DOMContentLoaded', initializeDragAndDrop);
         
-        // Also initialize immediately in case DOM is already loaded
-        if (document.readyState === 'loading') {
-            // Do nothing, DOMContentLoaded will fire
-        } else {
-            // DOM is already loaded
-            initializeDragAndDrop();
-        }
-        
-        // Builder Collapse Functionality
-        let isBuilderCollapsed = false;
-        
-        function toggleBuilderCollapse() {
-            const builderPanel = document.querySelector('.builder-panel');
-            const collapseBtn = document.getElementById('builderCollapseBtn');
-            
-            if (isBuilderCollapsed) {
-                // Expand builder
-                builderPanel.classList.remove('collapsed');
-                collapseBtn.textContent = '▲ Hide Builder';
-                isBuilderCollapsed = false;
-            } else {
-                // Collapse builder
-                builderPanel.classList.add('collapsed');
-                collapseBtn.textContent = '▼ Show Builder';
-                isBuilderCollapsed = true;
-            }
-        }
+        // Builder collapse moved to ./collapse.js (createBuilderCollapse).
         
         // Update document title based on team name
         function updateDocumentTitle() {
@@ -7416,153 +5305,17 @@ export function init(_root) {
         // File Browser functionality. Directory selection is owned by the
         // shared AppDir store (see /app/directory-store.js) — we just read
         // from it and re-render the file list when it changes.
-        let selectedDirectoryHandle = null;
 
         // Toggle file browser collapse
-        function toggleFileBrowser() {
-            const panel = document.getElementById('fileBrowserPanel');
-            const toggle = document.getElementById('fileBrowserToggle');
-            const expandBtn = document.getElementById('expandFileBrowserBtn');
-            
-            if (panel.classList.contains('collapsed')) {
-                // Expand file browser
-                panel.classList.remove('collapsed');
-                toggle.textContent = '×';
-                expandBtn.classList.remove('visible');
-            } else {
-                // Collapse file browser
-                panel.classList.add('collapsed');
-                toggle.textContent = '×';
-                expandBtn.classList.add('visible');
-            }
-        }
         
         // Update file browser button visibility based on panel state
-        function updateFileBrowserButtonVisibility() {
-            const panel = document.getElementById('fileBrowserPanel');
-            const expandBtn = document.getElementById('expandFileBrowserBtn');
-            
-            if (panel && expandBtn) {
-                if (panel.classList.contains('collapsed')) {
-                    expandBtn.classList.add('visible');
-                } else {
-                    expandBtn.classList.remove('visible');
-                }
-            }
-        }
         
         // Delegates to the shared folder picker in the top nav. Kept for any
         // legacy callers that still invoke selectDirectory() directly.
-        async function selectDirectory() {
-            if (window.AppDir) await window.AppDir.select();
-        }
         
         // Load and display files from selected directory
-        async function loadDirectoryFiles() {
-            const fileList = document.getElementById('fileList');
-            fileList.innerHTML = '';
-            
-            // Clear any existing directory reminder
-            const reminderDiv = document.querySelector('.directory-reminder');
-            if (reminderDiv) {
-                reminderDiv.remove();
-            }
-            
-            if (!selectedDirectoryHandle) {
-                fileList.innerHTML = '<div class="no-directory-message">Pick a folder from the top bar to browse your roadmap files</div>';
-                return;
-            }
-
-            try {
-                const roadmapFiles = [];
-                for await (const [name, handle] of selectedDirectoryHandle.entries()) {
-                    if (handle.kind !== 'file') continue;
-                    if (!name.toLowerCase().endsWith('.json')) continue;
-                    try {
-                        const file = await handle.getFile();
-                        let teamName = 'Unknown Team';
-                        const content = await file.text().catch(() => null);
-                        if (content) {
-                            try {
-                                const roadmapData = JSON.parse(content);
-                                teamName = roadmapData.teamData?.teamName || 'Unknown Team';
-                            } catch (_) {
-                                teamName = 'Invalid JSON';
-                            }
-                        }
-                        roadmapFiles.push({ name, handle, teamName, size: file.size, lastModified: file.lastModified, fileType: 'json' });
-                    } catch (error) {
-                        console.warn(`Could not read roadmap file ${name}:`, error);
-                    }
-                }
-                
-                // Sort files by team name
-                roadmapFiles.sort((a, b) => a.name.localeCompare(b.name));
-
-                if (roadmapFiles.length === 0) {
-                    fileList.innerHTML = '<div class="no-directory-message">No roadmap (.json) files found in this folder</div>';
-                    return;
-                }
-                
-                // Display files
-                roadmapFiles.forEach(fileInfo => {
-                    const fileItem = document.createElement('div');
-                    fileItem.className = 'file-item';
-                    fileItem.onclick = () => openRoadmapFile(fileInfo.handle, fileInfo.fileType);
-                    
-                    const fileTypeText = 'JSON';
-                    const icon = '📋';
-                    
-                    fileItem.title = `${fileInfo.name}\nType: ${fileTypeText}\nTeam: ${fileInfo.teamName}\nSize: ${(fileInfo.size / 1024).toFixed(1)} KB\nModified: ${new Date(fileInfo.lastModified).toLocaleDateString('en-GB')}`;
-                    
-                    fileItem.innerHTML = `
-                        <div class="file-item-icon">${icon}</div>
-                        <div class="file-item-info">
-                            <div class="file-item-name">${fileInfo.name}</div>
-                        </div>
-                    `;
-                    
-                    fileList.appendChild(fileItem);
-                });
-                
-            } catch (error) {
-                console.error('Error loading directory files:', error);
-                fileList.innerHTML = '<div class="no-directory-message">Error loading files: ' + error.message + '</div>';
-            }
-        }
         
         // Open roadmap file - handle both JSON and Excel files
-        async function openRoadmapFile(fileHandle, fileType) {
-            try {
-                // Support FileSystemFileHandle (getFile) and File (fallback)
-                const file = (fileHandle && typeof fileHandle.getFile === 'function')
-                    ? await fileHandle.getFile()
-                    : fileHandle;
-                
-                if (fileType === 'json') {
-                    // Handle JSON files - load directly in current tab
-                    const content = await file.text();
-                    const roadmapData = JSON.parse(content);
-                    
-                    // Handle both new format (with metadata) and legacy format (direct teamData)
-                    const teamData = roadmapData.teamData || roadmapData;
-                    
-                    // Load directly in current tab (like the buttons do)
-                    loadTeamData(teamData);
-                    
-                    // Update filename display
-                    updateFilenameDisplay(file.name);
-                    
-                    setTimeout(() => {
-                        refreshAllDatePickers();
-                        generatePreview();
-                    }, 500);
-                }
-            } catch (error) {
-                console.error('Error opening roadmap file:', error);
-                    alert('Error opening roadmap file: ' + error.message);
-            }
-                }
         
         // Process Excel workbook directly without localStorage
         
@@ -7599,7 +5352,7 @@ export function init(_root) {
                         // Collapse the builder if requested
                         if (loadedData._collapseBuilder) {
                             setTimeout(() => {
-                                if (!isBuilderCollapsed) {
+                                if (!isBuilderCollapsed()) {
                                     toggleBuilderCollapse();
                                 }
                             }, 100);
@@ -7652,30 +5405,6 @@ export function init(_root) {
             // and re-render whenever the selected folder (or its permission)
             // changes. Works for the initial state too since AppDir emits
             // synchronously on subscribe.
-            if (window.AppDir) {
-                let lastHandle = null;
-                window.AppDir.subscribe(async (snap) => {
-                    const fileList = document.getElementById('fileList');
-                    if (!snap.handle) {
-                        selectedDirectoryHandle = null;
-                        lastHandle = null;
-                        fileList.innerHTML = '<div class="no-directory-message">Pick a folder from the top bar to browse your roadmap files</div>';
-                        return;
-                    }
-                    if (snap.permission !== 'granted') {
-                        selectedDirectoryHandle = null;
-                        fileList.innerHTML = `<div class="no-directory-message">🔒 Folder <strong>${snap.name}</strong> is locked. Click <strong>Unlock</strong> in the top bar to grant access.</div>`;
-                        return;
-                    }
-                    selectedDirectoryHandle = snap.handle;
-                    await loadDirectoryFiles();
-                    if (snap.handle !== lastHandle) {
-                        lastHandle = snap.handle;
-                        const panel = document.getElementById('fileBrowserPanel');
-                        if (panel && panel.classList.contains('collapsed')) toggleFileBrowser();
-                    }
-                });
-            }
         });
         
     
@@ -7699,57 +5428,25 @@ if (typeof saveCurrentKTLOData === 'function') window.saveCurrentKTLOData = save
 if (typeof addEpic === 'function') window.addEpic = addEpic;
 if (typeof removeEpic === 'function') window.removeEpic = removeEpic;
 if (typeof toggleEpicCollapse === 'function') window.toggleEpicCollapse = toggleEpicCollapse;
-if (typeof initializeDatePickersForEpic === 'function') window.initializeDatePickersForEpic = initializeDatePickersForEpic;
-if (typeof initializeDatePickersForSection === 'function') window.initializeDatePickersForSection = initializeDatePickersForSection;
-if (typeof toggleKTLOCollapse === 'function') window.toggleKTLOCollapse = toggleKTLOCollapse;
-if (typeof toggleCollapse === 'function') window.toggleCollapse = toggleCollapse;
 if (typeof toggleBTLCollapse === 'function') window.toggleBTLCollapse = toggleBTLCollapse;
 if (typeof toggleStoryCollapse === 'function') window.toggleStoryCollapse = toggleStoryCollapse;
 if (typeof updateStoryHeaderTitle === 'function') window.updateStoryHeaderTitle = updateStoryHeaderTitle;
-if (typeof hideKTLOSection === 'function') window.hideKTLOSection = hideKTLOSection;
-if (typeof showKTLOSection === 'function') window.showKTLOSection = showKTLOSection;
-if (typeof repositionKTLOSection === 'function') window.repositionKTLOSection = repositionKTLOSection;
 if (typeof debouncedGeneratePreview === 'function') window.debouncedGeneratePreview = debouncedGeneratePreview;
-if (typeof handleKTLOToggleShortcut === 'function') window.handleKTLOToggleShortcut = handleKTLOToggleShortcut;
-if (typeof toggleKTLOPosition === 'function') window.toggleKTLOPosition = toggleKTLOPosition;
-if (typeof handleSortingToggle === 'function') window.handleSortingToggle = handleSortingToggle;
-if (typeof handleEndSortingToggle === 'function') window.handleEndSortingToggle = handleEndSortingToggle;
 if (typeof handleForceTextBelowToggle === 'function') window.handleForceTextBelowToggle = handleForceTextBelowToggle;
-if (typeof storeOriginalStoryOrder === 'function') window.storeOriginalStoryOrder = storeOriginalStoryOrder;
-if (typeof reorderStoriesInUI === 'function') window.reorderStoriesInUI = reorderStoriesInUI;
-if (typeof restoreOriginalStoryOrder === 'function') window.restoreOriginalStoryOrder = restoreOriginalStoryOrder;
-if (typeof showSortingNotification === 'function') window.showSortingNotification = showSortingNotification;
-if (typeof showKTLOPositionNotification === 'function') window.showKTLOPositionNotification = showKTLOPositionNotification;
 if (typeof addAutoUpdateListeners === 'function') window.addAutoUpdateListeners = addAutoUpdateListeners;
-if (typeof validateEndDate === 'function') window.validateEndDate = validateEndDate;
 if (typeof addListenersToExistingElements === 'function') window.addListenersToExistingElements = addListenersToExistingElements;
 if (typeof addListenersToElement === 'function') window.addListenersToElement = addListenersToElement;
-if (typeof collapseAllSections === 'function') window.collapseAllSections = collapseAllSections;
 if (typeof addStory === 'function') window.addStory = addStory;
 if (typeof removeStory === 'function') window.removeStory = removeStory;
 if (typeof addBTLStory === 'function') window.addBTLStory = addBTLStory;
 if (typeof updateBTLAddButton === 'function') window.updateBTLAddButton = updateBTLAddButton;
-if (typeof moveBTLStoryUp === 'function') window.moveBTLStoryUp = moveBTLStoryUp;
-if (typeof moveBTLStoryDown === 'function') window.moveBTLStoryDown = moveBTLStoryDown;
-if (typeof toggleChanges === 'function') window.toggleChanges = toggleChanges;
 if (typeof getTodaysDateEuropean === 'function') window.getTodaysDateEuropean = getTodaysDateEuropean;
 if (typeof getCurrentRoadmapYear === 'function') window.getCurrentRoadmapYear = getCurrentRoadmapYear;
-if (typeof initializeDatePicker === 'function') window.initializeDatePicker = initializeDatePicker;
-if (typeof refreshAllDatePickers === 'function') window.refreshAllDatePickers = refreshAllDatePickers;
-if (typeof updateAllDatePickerRanges === 'function') window.updateAllDatePickerRanges = updateAllDatePickerRanges;
-if (typeof addInfoEntry === 'function') window.addInfoEntry = addInfoEntry;
-if (typeof removeInfoEntry === 'function') window.removeInfoEntry = removeInfoEntry;
-if (typeof convertSingleInfoToMultiple === 'function') window.convertSingleInfoToMultiple = convertSingleInfoToMultiple;
+// addInfoEntry/removeInfoEntry/convertSingleInfoToMultiple come from the
+// info-entries factory and are exposed via Object.assign at the top of init().
 if (typeof addEditInfoEntry === 'function') window.addEditInfoEntry = addEditInfoEntry;
 if (typeof removeEditInfoEntry === 'function') window.removeEditInfoEntry = removeEditInfoEntry;
-if (typeof addChange === 'function') window.addChange = addChange;
-if (typeof removeChange === 'function') window.removeChange = removeChange;
-if (typeof updateChangeButton === 'function') window.updateChangeButton = updateChangeButton;
-if (typeof moveStoryUp === 'function') window.moveStoryUp = moveStoryUp;
-if (typeof moveStoryDown === 'function') window.moveStoryDown = moveStoryDown;
 if (typeof updateStoryNumbers === 'function') window.updateStoryNumbers = updateStoryNumbers;
-if (typeof moveStoryUpByEpic === 'function') window.moveStoryUpByEpic = moveStoryUpByEpic;
-if (typeof moveStoryDownByEpic === 'function') window.moveStoryDownByEpic = moveStoryDownByEpic;
 if (typeof generatePreview === 'function') window.generatePreview = generatePreview;
 if (typeof initializeIframeInteraction === 'function') window.initializeIframeInteraction = initializeIframeInteraction;
 if (typeof addAlignmentGuide === 'function') window.addAlignmentGuide = addAlignmentGuide;
@@ -7766,46 +5463,19 @@ if (typeof loadRoadmap === 'function') window.loadRoadmap = loadRoadmap;
 if (typeof handleRoadmapLoad === 'function') window.handleRoadmapLoad = handleRoadmapLoad;
 if (typeof fixDatesOnLoad === 'function') window.fixDatesOnLoad = fixDatesOnLoad;
 if (typeof handleFileLoad === 'function') window.handleFileLoad = handleFileLoad;
-if (typeof openStatsModal === 'function') window.openStatsModal = openStatsModal;
-if (typeof setupTooltips === 'function') window.setupTooltips = setupTooltips;
-if (typeof toggleDelayBreakdown === 'function') window.toggleDelayBreakdown = toggleDelayBreakdown;
-if (typeof renderOntimeBreakdown === 'function') window.renderOntimeBreakdown = renderOntimeBreakdown;
-if (typeof renderAcceleratedBreakdown === 'function') window.renderAcceleratedBreakdown = renderAcceleratedBreakdown;
-if (typeof renderCancelledBreakdown === 'function') window.renderCancelledBreakdown = renderCancelledBreakdown;
-if (typeof renderDelayBreakdown === 'function') window.renderDelayBreakdown = renderDelayBreakdown;
-if (typeof renderDelaySubBreakdown === 'function') window.renderDelaySubBreakdown = renderDelaySubBreakdown;
-if (typeof compareByTeamEpicTitle === 'function') window.compareByTeamEpicTitle = compareByTeamEpicTitle;
-if (typeof renderDelayDetails === 'function') window.renderDelayDetails = renderDelayDetails;
-if (typeof setupDelayBreakdownInteractions === 'function') window.setupDelayBreakdownInteractions = setupDelayBreakdownInteractions;
-if (typeof closeStatsModal === 'function') window.closeStatsModal = closeStatsModal;
-if (typeof computeRoadmapStats === 'function') window.computeRoadmapStats = computeRoadmapStats;
-if (typeof isDelayChange === 'function') window.isDelayChange = isDelayChange;
-if (typeof renderStatsHtml === 'function') window.renderStatsHtml = renderStatsHtml;
-if (typeof barChart === 'function') window.barChart = barChart;
-if (typeof getDelayBreakdown === 'function') window.getDelayBreakdown = getDelayBreakdown;
-if (typeof card === 'function') window.card = card;
+// Stats functions are exposed via Object.assign at the top of init().
 if (typeof updateIdCountersAfterImport === 'function') window.updateIdCountersAfterImport = updateIdCountersAfterImport;
-if (typeof applyPendingTimelineChanges === 'function') window.applyPendingTimelineChanges = applyPendingTimelineChanges;
 if (typeof loadTeamData === 'function') window.loadTeamData = loadTeamData;
 if (typeof roundToNearestFive === 'function') window.roundToNearestFive = roundToNearestFive;
 if (typeof loadKTLOData === 'function') window.loadKTLOData = loadKTLOData;
 if (typeof loadBTLData === 'function') window.loadBTLData = loadBTLData;
 if (typeof loadStoryData === 'function') window.loadStoryData = loadStoryData;
-if (typeof exportHTML === 'function') window.exportHTML = exportHTML;
-if (typeof showFullscreen === 'function') window.showFullscreen = showFullscreen;
-if (typeof hideFullscreen === 'function') window.hideFullscreen = hideFullscreen;
-if (typeof toggleFullscreen === 'function') window.toggleFullscreen = toggleFullscreen;
 if (typeof openEditStoryModal === 'function') window.openEditStoryModal = openEditStoryModal;
 if (typeof closeEditModal === 'function') window.closeEditModal = closeEditModal;
 if (typeof toggleEditStatusFields === 'function') window.toggleEditStatusFields = toggleEditStatusFields;
-if (typeof toggleEditTimelineChanges === 'function') window.toggleEditTimelineChanges = toggleEditTimelineChanges;
 if (typeof initializeEditKTLOMonths === 'function') window.initializeEditKTLOMonths = initializeEditKTLOMonths;
 if (typeof switchEditKTLOMonth === 'function') window.switchEditKTLOMonth = switchEditKTLOMonth;
 if (typeof loadEditKTLOMonth === 'function') window.loadEditKTLOMonth = loadEditKTLOMonth;
-if (typeof addEditChange === 'function') window.addEditChange = addEditChange;
-if (typeof removeEditChange === 'function') window.removeEditChange = removeEditChange;
-if (typeof sortTimelineChangesByDate === 'function') window.sortTimelineChangesByDate = sortTimelineChangesByDate;
-if (typeof updateEditChangeButton === 'function') window.updateEditChangeButton = updateEditChangeButton;
 if (typeof openEditMonthlyKTLOModal === 'function') window.openEditMonthlyKTLOModal = openEditMonthlyKTLOModal;
 if (typeof closeEditMonthlyKTLOModal === 'function') window.closeEditMonthlyKTLOModal = closeEditMonthlyKTLOModal;
 if (typeof saveMonthlyKTLOChanges === 'function') window.saveMonthlyKTLOChanges = saveMonthlyKTLOChanges;
@@ -7815,20 +5485,7 @@ if (typeof moveCurrentStoryUp === 'function') window.moveCurrentStoryUp = moveCu
 if (typeof moveCurrentStoryDown === 'function') window.moveCurrentStoryDown = moveCurrentStoryDown;
 if (typeof deleteCurrentStory === 'function') window.deleteCurrentStory = deleteCurrentStory;
 if (typeof setupMonthlyBoxPriming === 'function') window.setupMonthlyBoxPriming = setupMonthlyBoxPriming;
-if (typeof validateKTLOPercentage === 'function') window.validateKTLOPercentage = validateKTLOPercentage;
-if (typeof showKTLOValidationError === 'function') window.showKTLOValidationError = showKTLOValidationError;
-if (typeof removeKTLOValidationError === 'function') window.removeKTLOValidationError = removeKTLOValidationError;
-if (typeof handleKTLOPercentageValidation === 'function') window.handleKTLOPercentageValidation = handleKTLOPercentageValidation;
-if (typeof initializeKTLOValidation === 'function') window.initializeKTLOValidation = initializeKTLOValidation;
-if (typeof initializeDragAndDrop === 'function') window.initializeDragAndDrop = initializeDragAndDrop;
-if (typeof handleFileDrop === 'function') window.handleFileDrop = handleFileDrop;
-if (typeof toggleBuilderCollapse === 'function') window.toggleBuilderCollapse = toggleBuilderCollapse;
 if (typeof updateDocumentTitle === 'function') window.updateDocumentTitle = updateDocumentTitle;
-if (typeof toggleFileBrowser === 'function') window.toggleFileBrowser = toggleFileBrowser;
-if (typeof updateFileBrowserButtonVisibility === 'function') window.updateFileBrowserButtonVisibility = updateFileBrowserButtonVisibility;
-if (typeof selectDirectory === 'function') window.selectDirectory = selectDirectory;
-if (typeof loadDirectoryFiles === 'function') window.loadDirectoryFiles = loadDirectoryFiles;
-if (typeof openRoadmapFile === 'function') window.openRoadmapFile = openRoadmapFile;
 if (typeof checkForLoadedData === 'function') window.checkForLoadedData = checkForLoadedData;
     } finally {
         document.addEventListener = __origAdd;

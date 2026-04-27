@@ -2663,24 +2663,28 @@ export function init(_root) {
 
             // Subscribe to the shared directory store. Picker/permission flow
             // is driven by the top nav — we just react to the current handle.
+            //
+            // The router never unsubscribes us when the user navigates away,
+            // so this callback can fire while imo-search's DOM is unmounted
+            // (e.g., user is on /builder and picks a folder via the nav).
+            // The presence of the directoryStatus element is our liveness
+            // signal: if it's gone, our view is unmounted and we bail.
             if (window.AppDir) {
                 window.AppDir.subscribe(async (snap) => {
                     const dirStatus = document.getElementById('directoryStatus');
+                    if (!dirStatus) return; // imo-search view is not mounted; ignore.
+
                     if (!snap.handle) {
                         selectedDirectory = null;
-                        if (dirStatus) {
-                            dirStatus.style.color = '';
-                            dirStatus.textContent = 'No folder selected — pick one in the top bar';
-                        }
+                        dirStatus.style.color = '';
+                        dirStatus.textContent = 'No folder selected — pick one in the top bar';
                         updateSearchButtonStates();
                         return;
                     }
                     if (snap.permission !== 'granted') {
                         selectedDirectory = null;
-                        if (dirStatus) {
-                            dirStatus.style.color = '#b45309';
-                            dirStatus.textContent = `🔒 ${snap.name} is locked. Click Unlock in the top bar to grant access.`;
-                        }
+                        dirStatus.style.color = '#b45309';
+                        dirStatus.textContent = `🔒 ${snap.name} is locked. Click Unlock in the top bar to grant access.`;
                         updateSearchButtonStates();
                         return;
                     }

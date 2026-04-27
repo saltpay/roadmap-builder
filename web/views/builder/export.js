@@ -1,9 +1,13 @@
-// PDF/JPG export from the Builder's preview iframe. Uses html-to-image and
-// jsPDF (both loaded from CDN as window globals in index.html). Falls back
-// to an automatic download when the File System Access API isn't available.
+// PDF/JPG/HTML export from the Builder.
+//   - exportJPG / exportPDF capture the live preview iframe via html-to-image
+//     + jsPDF (both loaded from CDN as window globals in index.html).
+//   - exportHTML runs the RoadmapGenerator against the current form data to
+//     produce a self-contained .html file.
+// All three fall back to an automatic browser download when the File System
+// Access API isn't available.
 //
-// exportHTML lives in builder.js for now - it depends on currentTeamData
-// and RoadmapGenerator and is harder to extract cleanly. Phase 3 follow-up.
+// exportHTML needs the live form data, so it's factoried via createExportHTML.
+// JPG/PDF are pure DOM/iframe captures and remain plain exports.
 
 const HIDE_EDIT_ICONS_CSS = `
     .edit-icon,
@@ -116,6 +120,48 @@ export async function exportJPG() {
     } finally {
         document.body.removeChild(container);
     }
+}
+
+/**
+ * Factory for the HTML exporter. Takes a `collectFormData` callback so the
+ * generator runs against the live form rather than stale state.
+ *
+ * @param {{ collectFormData: () => any }} deps
+ */
+export function createExportHTML({ collectFormData }) {
+    return async function exportHTML() {
+        const teamData = collectFormData();
+        const generator = new window.RoadmapGenerator(teamData.roadmapYear);
+        // generateRoadmap(teamData, embedded=false, enableEditing=false): standalone export with edit affordances stripped.
+        const html = generator.generateRoadmap(teamData, false, false);
+        const blob = new Blob([html], { type: 'text/html' });
+        const filename = `${teamData.teamName || 'MyTeam'}.Teya-Roadmap.${teamData.roadmapYear || 2025}.html`;
+
+        if ('showSaveFilePicker' in window) {
+            try {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: filename,
+                    types: [{ description: 'HTML Roadmap files', accept: { 'text/html': ['.html'] } }],
+                });
+                const writable = await handle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+                return;
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                // Other errors - fall through to direct download below.
+            }
+        }
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
 }
 
 export async function exportPDF() {
