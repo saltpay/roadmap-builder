@@ -17,29 +17,24 @@ const HIDE_EDIT_ICONS_CSS = `
 `;
 
 /**
- * Snapshot the preview iframe into an offscreen clone sized for capture.
+ * Snapshot the in-page roadmap mount into an offscreen clone sized for capture.
  * Caller is responsible for removing the returned container from the DOM.
  *
  * @returns {Promise<{ container: HTMLDivElement, dataUrl: string, width: number, height: number } | null>}
- *          null if the preview iframe isn't ready.
+ *          null if the mount isn't ready.
  */
 async function snapshotPreview() {
-    const iframe = document.getElementById('preview-area');
-    if (!iframe || !iframe.contentWindow || !iframe.contentDocument) {
-        alert('Preview not available.');
-        return null;
-    }
-    const htmlElem = iframe.contentDocument.documentElement;
-    if (!htmlElem) {
+    const mount = document.getElementById('roadmap-mount');
+    if (!mount || !mount.firstElementChild) {
         alert('Preview not available.');
         return null;
     }
 
-    const width = Math.max(htmlElem.scrollWidth, htmlElem.offsetWidth, htmlElem.clientWidth, 1200);
+    const width = Math.max(mount.scrollWidth, mount.offsetWidth, mount.clientWidth, 1200);
     // Pad height so the bottom isn't clipped by the capture canvas.
-    const height = Math.max(htmlElem.scrollHeight, htmlElem.offsetHeight, htmlElem.clientHeight, 800) + 32;
+    const height = Math.max(mount.scrollHeight, mount.offsetHeight, mount.clientHeight, 800) + 32;
 
-    const clone = htmlElem.cloneNode(true);
+    const clone = mount.cloneNode(true);
     clone.style.background = '#fff';
     clone.style.overflow = 'visible';
     clone.style.width = `${width}px`;

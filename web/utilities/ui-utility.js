@@ -3,10 +3,13 @@
  * Consolidates repeated HTML generation, formatting, and styling logic
  */
 export class UIUtility {
-    // Color constants for roadmap styling
+    // Swimlane band colors. CSS variables (defined in roadmap-styles.css)
+    // so dark mode can override without touching the renderer. These get
+    // injected as inline styles by the generator, so the var() lookup
+    // happens at render time against whichever scheme is active.
     static COLORS = {
-        LIME_BACKGROUND: '#f4ffdd',
-        BROWN_BACKGROUND: '#f5e6d3'
+        LIME_BACKGROUND: 'var(--rm-swimlane-even)',
+        BROWN_BACKGROUND: 'var(--rm-swimlane-odd)',
     };
 
     /**

@@ -26,6 +26,11 @@
     --rm-text-shadow: 1px 1px 2px var(--rm-continuation-glow);
     --rm-hover-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     --rm-container-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    /* Swimlane alternating bands. UIUtility's getAlternatingBackgroundColor
+       returns these var() names so dark mode can override without touching
+       the renderer. */
+    --rm-swimlane-even: #f4ffdd; /* lime */
+    --rm-swimlane-odd:  #f5e6d3; /* brown */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -41,9 +46,9 @@
         --rm-text:          #e2e8f0;
         --rm-text-strong:   #f8fafc;
         --rm-text-muted:    #cbd5e1;
-        --rm-text-subtle:   #94a3b8;
-        --rm-text-faint:    #64748b;
-        --rm-text-faintest: #475569;
+        --rm-text-subtle:   #b6c2d3;
+        --rm-text-faint:    #94a3b8;
+        --rm-text-faintest: #64748b;
         --rm-surface-disabled: #172033;
         --rm-surface-proposed: #172033;
         --rm-border-disabled:  #475569;
@@ -51,6 +56,10 @@
         --rm-continuation-glow: rgba(0, 0, 0, 0.6);
         --rm-hover-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
         --rm-container-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+        /* Dark variants of the swimlane bands - tinted just enough to read
+           the alternation against the container surface. */
+        --rm-swimlane-even: #1d2716;
+        --rm-swimlane-odd:  #2a1f15;
     }
 }
 

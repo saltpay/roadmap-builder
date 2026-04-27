@@ -201,15 +201,9 @@ body {
   padding: 0;
   overflow: hidden;
   position: relative;
-  cursor: pointer;
   min-height: 600px;
   flex-shrink: 0;
   height: 70vh;
-}
-
-.preview-panel:hover {
-  border-color: var(--primary);
-  box-shadow: var(--shadow-md);
 }
 
 /* Collapsed builder: shrink to header only so preview can take the remaining space */
@@ -260,7 +254,9 @@ body {
   border: none;
 }
 .preview-panel:fullscreen #preview-area,
-.preview-panel:-webkit-full-screen #preview-area {
+.preview-panel:-webkit-full-screen #preview-area,
+.preview-panel:fullscreen #roadmap-mount,
+.preview-panel:-webkit-full-screen #roadmap-mount {
   width: 100%;
   height: 100%;
 }
@@ -416,39 +412,6 @@ body {
   font-weight: 600;
   padding: var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--border-subtle);
-}
-
-/* ---------------- Dropdown menu ---------------- */
-
-.dropdown-content {
-  display: none;
-  position: absolute;
-  background: var(--surface-0);
-  min-width: 140px;
-  box-shadow: var(--shadow-lg);
-  z-index: 10000;
-  right: 0;
-  top: 100%;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  padding: var(--space-1) 0;
-  overflow: hidden;
-}
-.dropdown-content a {
-  display: block;
-  color: var(--text-default);
-  background: none;
-  padding: var(--space-2) var(--space-4);
-  text-decoration: none;
-  font-family: inherit;
-  font-size: 14px;
-  border: none;
-  transition: background-color var(--motion-fast), color var(--motion-fast);
-  cursor: pointer;
-}
-.dropdown-content a:hover {
-  background: var(--surface-2);
-  color: var(--text-strong);
 }
 
 /* ---------------- Fullscreen ---------------- */
@@ -889,6 +852,58 @@ button.danger:hover { background: var(--danger-hover); }
   border-radius: var(--radius-xl);
   display: block;
 }
+
+#roadmap-mount {
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+  border-radius: var(--radius-xl);
+  overflow: auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+#roadmap-mount .task-title.inline-editing {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+  cursor: text;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+#roadmap-mount .task-title {
+  cursor: text;
+}
+
+.save-status {
+  display: inline-block;
+  margin-left: var(--space-2);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Save button celebration: green flash + tiny scale bump on successful save. */
+@keyframes saveSuccessPulse {
+  0%   { transform: scale(1);    background: var(--surface-1); border-color: var(--border-subtle); color: inherit; }
+  20%  { transform: scale(1.08); background: #d6f5d6; border-color: #2eaa45; color: #1f7a32; }
+  60%  { transform: scale(1);    background: #e8faea; border-color: #6bcb77; color: #1f7a32; }
+  100% { transform: scale(1);    background: var(--surface-1); border-color: var(--border-subtle); color: inherit; }
+}
+.js-save-button.is-just-saved {
+  animation: saveSuccessPulse 0.85s ease-out;
+}
+.save-status[data-status="saving"] { color: var(--text-muted); }
+.save-status[data-status="error"] { color: var(--color-danger-600, #dc3545); }
+/* idle and saved both have no text - hide entirely so the empty span
+   doesn't reserve margin space between Save and Stats. */
+.save-status[data-status="idle"],
+.save-status[data-status="saved"] { display: none; }
 
 .action-buttons {
   margin-top: var(--space-5);

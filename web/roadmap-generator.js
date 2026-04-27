@@ -524,7 +524,7 @@ export class RoadmapGenerator {
     }
 
     // Generate story HTML
-    generateStory(story, epicName = '', storyIndex = 0, embedded = false, backgroundColor = '') {
+    generateStory(story, epicName = '', storyIndex = 0, embedded = false, backgroundColor = '', epicId = '') {
         // Check if story should be displayed based on roadmap year
         if (!this.shouldDisplayStory(story)) {
             return ''; // Don't display stories with dates outside roadmap year
@@ -846,12 +846,14 @@ export class RoadmapGenerator {
         }
         
         return `
-            <div class="story-item${cancelledClass}${transferredClass}${proposedClass}${continuesClass}${zoomClass}${positionClass}" 
-             style="--start: ${startGrid}; --end: ${endGrid};" 
-             data-epic-name="${this.formatText(epicName)}" 
-             data-story-title="${this.formatText(story.title)}" 
+            <div class="story-item${cancelledClass}${transferredClass}${proposedClass}${continuesClass}${zoomClass}${positionClass}"
+             style="--start: ${startGrid}; --end: ${endGrid};"
+             data-epic-name="${this.formatText(epicName)}"
+             data-epic-id="${this.formatText(epicId)}"
+             data-story-title="${this.formatText(story.title)}"
              data-story-index="${storyIndex}"
-             data-story-id="${storyId}">
+             data-story-id="${storyId}"
+             data-json-story-id="${this.formatText(story.storyId || '')}">
             ${iconHTML}
             ${countryFlagsHTML}
                             ${doneIconHTML}
@@ -1325,7 +1327,7 @@ export class RoadmapGenerator {
             // Generate unique identifier for story-textbox pairing (sanitize for CSS selectors)
             const storyId = getUIUtility().generateStoryId(epic.name, storyIndex);
             
-            const storyHTML = this.generateStory(story, epic.name, storyIndex, embedded, backgroundColor);
+            const storyHTML = this.generateStory(story, epic.name, storyIndex, embedded, backgroundColor, epic.epicId || '');
             let timelineHTML = '';
             
                         const hasChanges = story.roadmapChanges && story.roadmapChanges.changes && story.roadmapChanges.changes.length > 0;
@@ -1583,53 +1585,46 @@ export class RoadmapGenerator {
         </div>`;
     }
 
-    // Generate complete roadmap HTML
-    generateRoadmap(teamData, embedded = false, enableEditing = true, fixedWidth = false) {
+    // Generate just the roadmap body markup (header + container).
+    // No CSS link, no <html>/<body> wrapper, no inline edit script.
+    // Use this for v2 in-page rendering into a `.roadmap-root` mount.
+    generateRoadmapBody(teamData, embedded = true) {
         // Store search range for date range searches (used by continuation logic)
         this.searchRange = teamData.searchRange || null;
-        
-        // Check KTLO position setting (default to 'bottom' for better UX)
+
         const ktloPosition = teamData.ktloSwimlane?.position || 'bottom';
-        
-        // Generate KTLO swimlane 
+
         let ktloHTML = '';
         if (teamData.ktloSwimlane && ktloPosition === 'top') {
-            ktloHTML = this.generateKTLOSwimlane(teamData.ktloSwimlane, 0, embedded, ktloPosition); // Pass 0 for top position
+            ktloHTML = this.generateKTLOSwimlane(teamData.ktloSwimlane, 0, embedded, ktloPosition);
         }
-        // Skip KTLO generation entirely if position is 'hidden'
-        
+
         const epicsHTML = teamData.epics.map((epic, index) => {
-            const separatorHTML = index === 0 ? '' : '<div class="swimlane-separator"></div>'; // Skip separator before first epic
+            const separatorHTML = index === 0 ? '' : '<div class="swimlane-separator"></div>';
             return separatorHTML + this.generateEpic(epic, index, embedded, ktloPosition);
         }).join('');
-        
-        // Generate BTL and KTLO at bottom
+
         let bottomHTML = '';
-        
-        // Add KTLO at bottom if positioned there (skip if hidden)
         if (teamData.ktloSwimlane && ktloPosition === 'bottom') {
             bottomHTML += '<div class="swimlane-separator"></div>';
             bottomHTML += this.generateKTLOSwimlane(teamData.ktloSwimlane, teamData.epics.length, embedded, ktloPosition);
         }
-        
-        // Add BTL swimlane only if it has content
         const btlHTML = this.generateBTLSwimlane(teamData.btlSwimlane, teamData.epics.length, embedded, ktloPosition);
         if (btlHTML) {
             bottomHTML += '<div class="swimlane-separator-dashed"></div>';
             bottomHTML += btlHTML;
         }
 
-        // Use Teya Logo image file directly
         const logoSrc = 'teya-logo.png';
-        const roadmapContent = `
+        return `
             <div class="header">
                 <img src="${logoSrc}" alt="Teya Logo" class="teya-logo">
                 <div class="team-name">${teamData.teamName}</div>
-                ${(teamData.em || teamData.pm) ? `<div class=\"team-members\">${teamData.em ? `${teamData.em} (EM)` : ''}${teamData.em && teamData.pm ? ' / ' : ''}${teamData.pm ? `${teamData.pm} (PM)` : ''}</div>` : ''}
-                ${teamData.description ? 
+                ${(teamData.em || teamData.pm) ? `<div class="team-members">${teamData.em ? `${teamData.em} (EM)` : ''}${teamData.em && teamData.pm ? ' / ' : ''}${teamData.pm ? `${teamData.pm} (PM)` : ''}</div>` : ''}
+                ${teamData.description ?
                     `<div class="team-description">${this.generateTeamDescription(teamData.description)}</div>` : ''}
             </div>
-            
+
             <div class="roadmap-container">
                 ${this.generateTimelineHeader()}
                 <div class="swimlanes-container">
@@ -1638,11 +1633,16 @@ export class RoadmapGenerator {
                     ${bottomHTML}
                 </div>
             </div>
-            
+
             `;
+    }
+
+    // Generate complete roadmap HTML (full document for export, or wrapped fragment for legacy embedded use).
+    generateRoadmap(teamData, embedded = false, enableEditing = true, fixedWidth = false) {
+        const roadmapContent = this.generateRoadmapBody(teamData, embedded);
 
         if (embedded) {
-            return `<div class="roadmap-wrapper">${this.generateCSS(fixedWidth)}${roadmapContent}</div>`;
+            return `<div class="roadmap-wrapper roadmap-root">${this.generateCSS(fixedWidth)}${roadmapContent}</div>`;
         }
 
         return `
@@ -1654,7 +1654,7 @@ export class RoadmapGenerator {
             <title>${teamData.teamName}.Teya.Roadmap.${teamData.roadmapYear || 2025}</title>
             ${this.generateCSS(fixedWidth)}
         </head>
-        <body>
+        <body class="roadmap-root">
             ${roadmapContent}
             
             <script>

@@ -51,6 +51,10 @@ import {
     initializeKTLOValidation,
     validateKTLOPercentage,
 } from './ktlo-validation.js';
+import * as roadmapState from './state.js';
+import * as save from './save.js';
+import { enableTitleEditing } from './inline-edit.js';
+import { confettiBurst } from './confetti.js';
 
 /**
  * Mount this view. Called by the SPA router on every navigation here.
@@ -91,6 +95,153 @@ export function init(_root) {
         reinitializeDatePicker, untrackDatePicker, clearAllTracking,
     } = __datePickers;
     Object.assign(window, __datePickers);
+
+    // v2 wiring: state-driven mount-render, click-to-edit-titles, manual save.
+    // Title-clicks and bar-background-clicks are both delegated on the mount.
+    // The bar-click handler bails when the click target is inside a .task-title
+    // so the inline-edit handler "wins" without needing event-flow tricks.
+
+    // Single-file pick from the top nav lands here. Parses the JSON,
+    // populates the form, hands the writable handle (if any) to the save
+    // module so subsequent saves write directly to that file.
+    window.onRoadmapFilePicked = ({ content, name, fileHandle }) => {
+        try {
+            const data = JSON.parse(content);
+            const teamData = data.teamData || data;
+            if (!teamData || typeof teamData !== 'object') throw new Error('not a roadmap document');
+            if (typeof window.fixDatesOnLoad === 'function') window.fixDatesOnLoad(teamData);
+            window.loadTeamData(teamData);
+            if (typeof window.updateFilenameDisplay === 'function') window.updateFilenameDisplay(name);
+            // fileHandle is null on Safari (server-side single-file mode); save
+            // routes that case through POST /api/save which the server points
+            // at the stored absolute path.
+            save.setFileHandle(fileHandle && typeof fileHandle.createWritable === 'function' ? fileHandle : null);
+            setTimeout(() => {
+                if (typeof window.refreshAllDatePickers === 'function') window.refreshAllDatePickers();
+                if (typeof window.generatePreview === 'function') window.generatePreview();
+            }, 200);
+        } catch (err) {
+            alert(`Could not load file: ${err.message}`);
+        }
+    };
+
+    {
+        const mount = document.getElementById('roadmap-mount');
+        const statusEl = document.getElementById('saveStatus');
+        if (statusEl) save.init({ statusElement: statusEl });
+        // Save button(s) are disabled until the user picks a folder via the
+        // top-nav Load roadmaps button. AppDir state drives the toggle; the
+        // subscription fires once with the current value, so the initial
+        // enabled/disabled state is set without an extra read.
+        save.onSaveAvailabilityChange((available) => {
+            document.querySelectorAll('.js-save-button').forEach((btn) => {
+                btn.disabled = !available;
+                btn.title = available ? '' : 'Pick a folder first via Load roadmaps';
+            });
+        });
+
+        // The Current Filename input is read-only across the board: save
+        // always writes back to the loaded file (single-file mode) or to
+        // the file with that name in the picked folder (folder mode);
+        // renaming via this input would either silently no-op or create
+        // a new file, neither of which is what the user expects.
+        // The `readonly` attribute is set in the HTML; nothing to wire here.
+
+        // On save success: pulse the Save button green and burst confetti
+        // out of it. The save module fires this event after each successful
+        // write (browser-handle path or server path).
+        document.addEventListener('roadmap:saved', () => {
+            const buttons = document.querySelectorAll('.js-save-button');
+            let originRect = null;
+            buttons.forEach((btn) => {
+                btn.classList.remove('is-just-saved');
+                // Force reflow so the animation restarts on rapid saves.
+                void btn.offsetWidth;
+                btn.classList.add('is-just-saved');
+                if (!originRect && btn.offsetParent) originRect = btn.getBoundingClientRect();
+            });
+            if (originRect) {
+                confettiBurst({
+                    x: originRect.left + originRect.width / 2,
+                    y: originRect.top + originRect.height / 2,
+                });
+            }
+        });
+        if (mount) {
+            enableTitleEditing(mount, {
+                onCommit: ({ storyEl, nextTitle }) => {
+                    // Propagate the change into the form input so the next
+                    // collectFormData() picks it up. KTLO has its own input;
+                    // BTL and EPIC stories use the per-story dynamic input
+                    // located via the hidden story-id matching the JSON storyId.
+                    if (storyEl.classList.contains('ktlo-story')) {
+                        const ktloTitleEl = document.getElementById('ktlo-title');
+                        if (ktloTitleEl) {
+                            ktloTitleEl.value = nextTitle;
+                            ktloTitleEl.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        return;
+                    }
+                    const inputId = findFormTitleInputId(storyEl);
+                    if (!inputId) {
+                        console.warn('inline-edit: could not find form input for story', storyEl);
+                        return;
+                    }
+                    const input = document.getElementById(inputId);
+                    if (input) {
+                        input.value = nextTitle;
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                },
+            });
+            mount.addEventListener('click', (e) => {
+                if (e.target.closest('.task-title')) return; // handled by inline-edit
+                const story = e.target.closest('.story-item, .ktlo-story');
+                if (!story) return;
+                if (typeof window.openEditStoryModal !== 'function') return;
+                window.openEditStoryModal({
+                    epicName: story.dataset.epicName,
+                    storyTitle: story.dataset.storyTitle,
+                    storyIndex: story.dataset.storyIndex,
+                });
+            });
+            // Re-render on every state mutation triggered by direct mutate()
+            // calls (none yet in this slice). generatePreview() does its own
+            // render after setState (kind=replace), so we skip those to
+            // avoid double-rendering.
+            roadmapState.subscribe((teamData, kind) => {
+                if (kind === 'replace') return;
+                if (roadmapState.isEditingLocked()) return;
+                renderRoadmapToMount(teamData);
+            });
+        }
+    }
+
+    // Map a rendered story-item back to its form-side title input id.
+    // The form's hidden `story-id-${formId}` carries the JSON storyId; we
+    // grep for the one whose value matches the rendered story's
+    // data-json-story-id and derive the matching title input.
+    function findFormTitleInputId(storyEl) {
+        const jsonId = storyEl.dataset.jsonStoryId;
+        if (!jsonId) return null;
+        const hiddenInputs = document.querySelectorAll('input[id^="story-id-"]');
+        for (const input of hiddenInputs) {
+            if (input.value === jsonId) {
+                const formStoryId = input.id.slice('story-id-'.length);
+                return `story-title-${formStoryId}`;
+            }
+        }
+        return null;
+    }
+
+    function renderRoadmapToMount(teamData) {
+        const mount = document.getElementById('roadmap-mount');
+        if (!mount) return;
+        const Generator = window.RoadmapGenerator;
+        if (!Generator) return;
+        const generator = new Generator(teamData.roadmapYear);
+        mount.innerHTML = generator.generateRoadmapBody(teamData, true);
+    }
 
     // Phase 1 regressed the legacy body's reliance on `<script>`-tag globals.
     // The utility classes/functions and the getX() wrappers used to live in
@@ -700,6 +851,7 @@ export function init(_root) {
         const __fileBrowser = createFileBrowser({
             loadTeamData, updateFilenameDisplay,
             refreshAllDatePickers, generatePreview, handleFileLoad,
+            setFileHandle: save.setFileHandle,
         });
         const {
             toggleFileBrowser, loadDirectoryFiles, openRoadmapFile,
@@ -969,11 +1121,15 @@ export function init(_root) {
                                 <input type="checkbox" id="story-include-product-roadmap-${storyId}" checked style="margin: 0;"> 
                             </label>
                         </div>
-                    <div class="form-group">
+                    <!-- v2: title editing migrated to inline-edit on the preview. The
+                         input stays in the DOM (hidden) so collectFormData and the
+                         collapsed story header still read it; inline-edit writes back
+                         to it via dispatching an 'input' event. -->
+                    <div class="form-group" style="display: none;">
                         <label for="story-title-${storyId}">Story Title:</label>
                         <input type="text" id="story-title-${storyId}" placeholder="Story title">
                     </div>
-                    
+
                     <!-- Hidden Story ID field for data collection -->
                     <input type="hidden" id="story-id-${storyId}" value="${storyUniqueId}">
                     
@@ -1613,86 +1769,45 @@ export function init(_root) {
         function generatePreview() {
             if (isGeneratingPreview) return;
             isGeneratingPreview = true;
-            
+
+            const mount = document.getElementById('roadmap-mount');
             try {
-                // Check if RoadmapGenerator is available
                 if (typeof RoadmapGenerator === 'undefined') {
                     console.error('RoadmapGenerator is undefined');
-                    const iframe = document.getElementById('preview-area');
-                    iframe.srcdoc = `<html><body><div style="padding: 20px; text-align: center; color: red;">
-                        <h3>RoadmapGenerator Not Loaded</h3>
-                        <p>The roadmap-generator.js file failed to load. Please:</p>
-                        <ul style="text-align: left; max-width: 400px; margin: 0 auto;">
-                            <li>Make sure both files are in the same folder</li>
-                            <li>Use a local web server (like <code>python3 -m http.server 8000</code>)</li>
-                            <li>Check the browser console for JavaScript errors</li>
-                            <li>Refresh the page and try again</li>
-                        </ul>
-                    </div></body></html>`;
+                    if (mount) mount.innerHTML = `<div style="padding:20px; color:red;">RoadmapGenerator failed to load. Refresh and try again.</div>`;
                     return;
                 }
-                
-                // Check if DateUtility is available 
                 if (typeof DateUtility === 'undefined') {
                     console.error('DateUtility is undefined');
-                    const iframe = document.getElementById('preview-area');
-                    iframe.srcdoc = `<html><body><div style="padding: 20px; text-align: center; color: red;">
-                        <h3>DateUtility Not Loaded</h3>
-                        <p>The utilities/date-utility.js file failed to load properly. Please refresh the page.</p>
-                    </div></body></html>`;
+                    if (mount) mount.innerHTML = `<div style="padding:20px; color:red;">DateUtility failed to load. Refresh and try again.</div>`;
                     return;
                 }
-                
 
-                
                 const teamData = collectFormData();
-                
-                const generator = new RoadmapGenerator(teamData.roadmapYear);
-                
-                // Create roadmap for preview (no scaling needed with vertical layout)
-                const previewHtml = generator.generateRoadmap(teamData, true, true); // embedded=true, enableEditing=true
-                
-                const iframe = document.getElementById('preview-area');
 
-                // Save scroll position
-                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-                const savedScrollTop = iframeDoc?.documentElement?.scrollTop || iframeDoc?.body?.scrollTop || 0;
-                const savedScrollLeft = iframeDoc?.documentElement?.scrollLeft || iframeDoc?.body?.scrollLeft || 0;
+                // Preserve mount scroll across re-render so editing in the
+                // middle of a long roadmap doesn't snap to the top.
+                const savedScrollTop = mount ? mount.scrollTop : 0;
+                const savedScrollLeft = mount ? mount.scrollLeft : 0;
 
-                iframe.srcdoc = previewHtml;
-                
-                // Setup iframe interaction after it loads
-                iframe.onload = function() {
-                    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-                    if (doc?.documentElement) {
-                        doc.documentElement.scrollTop = savedScrollTop;
-                        doc.documentElement.scrollLeft = savedScrollLeft;
-                        if (doc.body) {
-                            doc.body.scrollTop = savedScrollTop;
-                            doc.body.scrollLeft = savedScrollLeft;
-                        }
-                    }
-                    initializeIframeInteraction(iframe);
-                };
-                
-                // Store the teamData for fullscreen generation when needed, but don't generate it now
+                roadmapState.setState(teamData);
+                renderRoadmapToMount(teamData);
+
+                if (mount) {
+                    mount.scrollTop = savedScrollTop;
+                    mount.scrollLeft = savedScrollLeft;
+                }
+
+                // Fullscreen overlay still uses an iframe with the export-style
+                // full document; it reads currentTeamData when shown.
                 window.currentTeamData = teamData;
-                
-                // Fallback: if srcdoc doesn't work, try data URL
-                setTimeout(() => {
-                    if (!iframe.contentDocument || !iframe.contentDocument.body || !iframe.contentDocument.body.innerHTML) {
-                        const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(previewHtml);
-                        iframe.src = dataUrl;
-                    }
-                }, 100);
-                
             } catch (error) {
-                const iframe = document.getElementById('preview-area');
-                iframe.srcdoc = `<html><body><div style="padding: 20px; text-align: center; color: red;">
-                    <h3>Error generating roadmap</h3>
-                    <p>${error.message}</p>
-                    <p style="font-size: 12px; margin-top: 20px;">Please check your data and try again.</p>
-                </div></body></html>`;
+                if (mount) {
+                    mount.innerHTML = `<div style="padding:20px; color:red;">
+                        <h3>Error generating roadmap</h3>
+                        <p>${error.message}</p>
+                    </div>`;
+                }
             } finally {
                 isGeneratingPreview = false;
             }
@@ -2571,16 +2686,50 @@ export function init(_root) {
             document.getElementById('newRoadmapModal').style.display = 'none';
         }
         
-        function confirmNewRoadmap() {
+        async function confirmNewRoadmap() {
             const selectedYear = parseInt(document.getElementById('newRoadmapYear').value);
             if (!selectedYear || selectedYear < 2020 || selectedYear > 2030) {
                 alert('Please enter a valid year between 2020 and 2030.');
                 return;
             }
-            
+
             // Close the modal
             closeNewRoadmapModal();
-            
+
+            // New roadmap = no associated file or folder yet. Clear:
+            //   - save module's per-file handle (so path 1 doesn't fire)
+            //   - AppDir's folder/file selection (so path 2/3 don't fire
+            //     and the Save button auto-disables via canSave())
+            // The server has no per-selection state to clear (it's stateless
+            // and only acts on signed paths sent in each request).
+            save.setFileHandle(null);
+            if (window.AppDir && typeof window.AppDir.clear === 'function') {
+                window.AppDir.clear();
+            }
+
+            // Immediately prompt for a save destination (filename + dir),
+            // not just a folder. The new roadmap goes into single-file mode
+            // pointing at that exact path - subsequent saves write there
+            // without prompting. If the user cancels, they can still pick
+            // later via the top-nav Load roadmaps button.
+            const suggestedName = `MyTeam.Teya-Roadmap.${selectedYear}.json`;
+            if (window.AppDir && typeof window.AppDir.selectSaveLocation === 'function') {
+                try {
+                    const result = await window.AppDir.selectSaveLocation(suggestedName);
+                    if (result) {
+                        // Native handle (Chrome): hand it to save module so
+                        // path 1 fires for silent writes. Safari path goes
+                        // through path 3 / server using AppDir's __path.
+                        if (result.fileHandle) save.setFileHandle(result.fileHandle);
+                        if (typeof window.updateFilenameDisplay === 'function') {
+                            window.updateFilenameDisplay(result.name);
+                        }
+                    }
+                } catch (e) {
+                    console.warn(e);
+                }
+            }
+
             // Set flag to prevent KTLO data corruption during new roadmap creation
             window.isCreatingNewRoadmap = true;
             
@@ -2694,68 +2843,34 @@ export function init(_root) {
         }
         
         async function saveRoadmap() {
-            // Ensure current KTLO data is saved before export
+            // Flush in-progress KTLO month edits into form state before serializing.
             saveCurrentKTLOData();
-            
+
+            // Sync state from the form, then ask the save module to write.
+            // If a file handle was captured at load time (file-browser panel)
+            // or from a previous "Save As", the write happens silently.
+            // Otherwise the picker is shown once and the chosen handle sticks.
             const teamData = collectFormData();
-            
-            // Add metadata for better file organization
-            const roadmapData = {
-                version: "1.0",
-                created: new Date().toISOString(),
-                teamData: teamData
-            };
-            
-            const json = JSON.stringify(roadmapData, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
-            
-            // Use current filename if available, otherwise generate from team name and year
+            roadmapState.setState(teamData);
+
             const currentFilename = document.getElementById('currentFilename').value.trim();
-            let defaultFileName;
-            if (currentFilename) {
-                // Use existing filename, ensure it has .json extension
-                defaultFileName = currentFilename.endsWith('.json') ? currentFilename : `${currentFilename}.json`;
-            } else {
-                // Generate default filename based on team name and year
-                defaultFileName = `${teamData.teamName || 'MyTeam'}.Teya-Roadmap.${teamData.roadmapYear || 2025}.json`;
+            const suggestedName = currentFilename
+                ? (currentFilename.endsWith('.json') ? currentFilename : `${currentFilename}.json`)
+                : `${teamData.teamName || 'MyTeam'}.Teya-Roadmap.${teamData.roadmapYear || 2025}.json`;
+
+            // Confirmation: writing to the underlying JSON is destructive
+            // (overwrites the file in place), so make the user opt in. The
+            // message names the target file so they know what they're about
+            // to overwrite.
+            const snap = window.AppDir?.get?.();
+            const targetLabel = snap && snap.type === 'file' && snap.name
+                ? snap.name
+                : suggestedName;
+            if (!window.confirm(`Save changes to ${targetLabel}?\n\nThis will overwrite the file on disk.`)) {
+                return;
             }
-            
-            // Try to use the File System Access API for native save dialog
-            if ('showSaveFilePicker' in window) {
-                try {
-                    const fileHandle = await window.showSaveFilePicker({
-                        suggestedName: defaultFileName,
-                        types: [{
-                            description: 'Teya Roadmap files',
-                            accept: {
-                                'application/json': ['.json']
-                            }
-                        }]
-                    });
-                    
-                    const writable = await fileHandle.createWritable();
-                    await writable.write(blob);
-                    await writable.close();
-                    
-                    return;
-                } catch (error) {
-                    if (error.name === 'AbortError') {
-                        // User cancelled the save dialog
-                        return;
-                    }
-                    // File System Access API failed, fall back to download
-                }
-            }
-            
-            // Fallback to download method for browsers that don't support File System Access API
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = defaultFileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+
+            await save.save({ suggestedName });
         }
         
         // Load roadmap function - JSON only
@@ -2862,25 +2977,31 @@ export function init(_root) {
         function handleFileLoad(event) {
             const file = event.target.files[0];
             if (!file) return;
-            
+
+            // The HTML file input gives us a raw File, not a writable handle.
+            // Clear any stale handle from a previous file-browser-panel load
+            // so the next Save prompts for a destination instead of silently
+            // overwriting the wrong file.
+            save.setFileHandle(null);
+
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
                     const data = JSON.parse(e.target.result);
-                    
+
                     // Handle both new format (with metadata) and legacy format (direct teamData)
                     const teamData = data.teamData || data;
-                    
+
                     // Validate basic structure
                     if (!teamData || typeof teamData !== 'object') {
                         throw new Error('Invalid roadmap data structure');
                     }
-                    
+
                     // Fix dates without years by adding current roadmap year
                     fixDatesOnLoad(teamData);
-                    
+
                     loadTeamData(teamData);
-                    
+
                     // Update filename display
                     updateFilenameDisplay(file.name);
                     
