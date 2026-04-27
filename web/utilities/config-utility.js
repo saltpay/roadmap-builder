@@ -2,7 +2,7 @@
  * Centralized Configuration & Layout Utility
  * Consolidates constants, magic numbers, and layout calculations
  */
-class ConfigUtility {
+export class ConfigUtility {
     // Grid and Layout Constants
     static GRID = {
         ZOOM_THRESHOLD: 75,           // Grid units below which items can zoom
@@ -374,9 +374,8 @@ class ConfigUtility {
     }
 }
 
-// Export for use in Node.js or browser
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { ConfigUtility };
-} else if (typeof window !== 'undefined') {
+// Phase 2 will remove this. Inline scripts in views still resolve `ConfigUtility`
+// against window; we keep that working until those scripts move to imports.
+if (typeof window !== 'undefined') {
     window.ConfigUtility = ConfigUtility;
-} 
+}

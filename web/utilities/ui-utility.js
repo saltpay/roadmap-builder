@@ -2,7 +2,7 @@
  * Centralized UI Utility Functions
  * Consolidates repeated HTML generation, formatting, and styling logic
  */
-class UIUtility {
+export class UIUtility {
     // Color constants for roadmap styling
     static COLORS = {
         LIME_BACKGROUND: '#f4ffdd',
@@ -165,9 +165,8 @@ class UIUtility {
     }
 }
 
-// Export for use in Node.js or browser
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { UIUtility };
-} else if (typeof window !== 'undefined') {
+// Phase 2 will remove this. Inline scripts in views still resolve `UIUtility`
+// against window; we keep that working until those scripts move to imports.
+if (typeof window !== 'undefined') {
     window.UIUtility = UIUtility;
-} 
+}

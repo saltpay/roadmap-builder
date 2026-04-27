@@ -1,55 +1,14 @@
-const fs = typeof require !== 'undefined' ? require('fs') : null;
-const path = typeof require !== 'undefined' ? require('path') : null;
+import { DateUtility } from './utilities/date-utility.js';
+import { UIUtility } from './utilities/ui-utility.js';
+import { ConfigUtility } from './utilities/config-utility.js';
 
-// Import DateUtility for centralized date handling
-let _DateUtility;
-function getDateUtility() {
-    if (!_DateUtility) {
-        if (typeof require !== 'undefined') {
-            _DateUtility = require('./utilities/date-utility');
-        } else if (typeof window !== 'undefined') {
-            _DateUtility = window.DateUtility;
-        }
-        if (!_DateUtility) {
-            throw new Error('DateUtility not available. Make sure utilities/date-utility.js is loaded before roadmap-generator.js');
-        }
-    }
-    return _DateUtility;
-}
+// Wrappers preserved so existing call sites (`getDateUtility().method(...)`)
+// inside this file keep working with minimal churn. Phase 3 will inline these.
+const getDateUtility = () => DateUtility;
+const getUIUtility = () => UIUtility;
+const getConfigUtility = () => ConfigUtility;
 
-// Import UIUtility for centralized UI generation
-let _UIUtility;
-function getUIUtility() {
-    if (!_UIUtility) {
-        if (typeof require !== 'undefined') {
-            _UIUtility = require('./utilities/ui-utility').UIUtility;
-        } else if (typeof window !== 'undefined') {
-            _UIUtility = window.UIUtility;
-        }
-        if (!_UIUtility) {
-            throw new Error('UIUtility not available. Make sure utilities/ui-utility.js is loaded before roadmap-generator.js');
-        }
-    }
-    return _UIUtility;
-}
-
-// Import ConfigUtility for centralized configuration
-let _ConfigUtility;
-function getConfigUtility() {
-    if (!_ConfigUtility) {
-        if (typeof require !== 'undefined') {
-            _ConfigUtility = require('./utilities/config-utility').ConfigUtility;
-        } else if (typeof window !== 'undefined') {
-            _ConfigUtility = window.ConfigUtility;
-        }
-        if (!_ConfigUtility) {
-            throw new Error('ConfigUtility not available. Make sure utilities/config-utility.js is loaded before roadmap-generator.js');
-        }
-    }
-    return _ConfigUtility;
-}
-
-class RoadmapGenerator {
+export class RoadmapGenerator {
     constructor(roadmapYear = null) {
         this.months = getConfigUtility().getAllMonthNames();
         const year = roadmapYear || new Date().getFullYear();
@@ -1767,9 +1726,8 @@ class RoadmapGenerator {
     }
 }
 
-// Export for use in Node.js or browser
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { RoadmapGenerator };
-} else if (typeof window !== 'undefined') {
+// Phase 2 will remove this. Inline scripts in views still resolve `RoadmapGenerator`
+// against window; we keep that working until those scripts move to imports.
+if (typeof window !== 'undefined') {
     window.RoadmapGenerator = RoadmapGenerator;
 }

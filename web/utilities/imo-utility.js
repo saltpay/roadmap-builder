@@ -2,7 +2,7 @@
  * IMO Utility - Cross-Team IMO and Timeline Search Functionality
  * Handles directory scanning, story extraction, and filtering across multiple roadmap files
  */
-class IMOUtility {
+export class IMOUtility {
 
     static scanCache = new WeakMap();
 
@@ -712,9 +712,8 @@ class IMOUtility {
     }
 }
 
-// Export for both CommonJS and browser environments
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { IMOUtility };
-} else if (typeof window !== 'undefined') {
+// Phase 2 will remove this. Inline scripts in views still resolve `IMOUtility`
+// against window; we keep that working until those scripts move to imports.
+if (typeof window !== 'undefined') {
     window.IMOUtility = IMOUtility;
 }

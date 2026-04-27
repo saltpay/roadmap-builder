@@ -1,0 +1,452 @@
+
+
+    <div class="search-container">
+        <!-- Search Header -->
+        <div class="search-header">
+            <div class="title-and-controls">
+                <div class="search-title">
+                    <h1>🔍 Cross-Team Search</h1>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="search-button" onclick="openSearchStatsModal()" id="searchStatsBtn" disabled style="min-width: 120px;">
+                            📊 Stats
+                        </button>
+                        <button class="search-button" onclick="clearAllSearchFields()" style="min-width: 160px;">
+                            🧹 Clear All
+                        </button>
+                    </div>
+                </div>
+                <!-- Directory Status (shared with Builder via the top nav) -->
+                <div class="directory-selection">
+                    <div class="directory-row">
+                        <span class="directory-status" id="directoryStatus">No folder selected — pick one in the top bar</span>
+                    </div>
+                    <div style="margin-top: 12px; text-align: left;">
+                        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px; white-space: nowrap;">
+                            <input type="checkbox" id="filterProductRoadmapOnly">
+                            <span style="white-space: nowrap;">Product Roadmap Only</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Director/VP ID Search -->
+                <div class="search-section">
+                    <h3 class="search-section-title">🏷️ Director/VP ID Search</h3>
+                    <div class="search-input-group">
+                        <input type="text"
+                               class="search-input imo-input"
+                               id="directorVPIdSearchInput"
+                               placeholder="Enter Director/VP ID (partial match)"
+                               onkeypress="handleDirectorVPIdSearchKeyPress(event)">
+                        <button class="search-button" id="directorVPIdSearchBtn" onclick="performDirectorVPIdSearch()" disabled>
+                            🏷️ Search Director/VP ID
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Country Flag Search -->
+                <div class="search-section">
+                    <h3 class="search-section-title">🌍 Country Flag Search</h3>
+                    <div class="country-flags-search-row">
+                        <div id="searchFlagsContainer" class="country-flags-search-slot"></div>
+                        <button class="search-button" id="countryFlagSearchBtn" onclick="performCountryFlagSearch()" disabled>
+                            🌍 Search Countries
+                        </button>
+                    </div>
+                </div>
+
+                <!-- IMO Search -->
+                <div class="search-section">
+                    <h3 class="search-section-title">🔍 IMO/Project ID Search</h3>
+                    <div class="search-input-group">
+                            <input type="text"
+                               class="search-input imo-input"
+                                   id="searchInput"
+                               placeholder="Enter IMO/Project ID"
+                                   onkeypress="handleSearchKeyPress(event)">
+                        <select class="search-input dropdown-select" id="prioritySelect" onchange="updateSearchButtonStates()">
+                            <option value="">Any Priority</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
+                        <button class="search-button" id="imoSearchBtn" onclick="performIMOSearch()" disabled>
+                            🔍 Search
+                            </button>
+                    </div>
+                </div>
+                <!-- Story Title Search -->
+                <div class="search-section">
+                    <h3 class="search-section-title">📝 Story Title Search</h3>
+                    <div class="search-input-group">
+                        <input type="text" 
+                               class="search-input imo-input" 
+                               id="titleSearchInput" 
+                               placeholder="Enter text to search in story titles" 
+                               onkeypress="handleTitleSearchKeyPress(event)">
+                        <button class="search-button" id="titleSearchBtn" onclick="performTitleSearch()" disabled>
+                            📝 Search Titles
+                        </button>
+                    </div>
+                </div>
+                <!-- Date Range Search -->
+                <div class="search-section">
+                    <h3 class="search-section-title">📅 Date Search</h3>
+                    <div class="search-input-group">
+                        <input type="date" 
+                               class="search-input date-input" 
+                               id="startDateInput" 
+                               placeholder="Start Date (optional)"
+                               onchange="handleDateRangeChange(event)">
+                        <input type="date" 
+                               class="search-input date-input" 
+                               id="endDateInput" 
+                               placeholder="End Date (optional)"
+                               onchange="handleDateRangeChange(event)">
+                        <select class="search-input range-select wide-dropdown" id="searchModeSelect" onchange="updateSearchModeHelp()">
+                            <option value="exact">Exact</option>
+                            <option value="exact-7days">Exact +/- 7 Days</option>
+                            <option value="range">Range</option>
+                            <option value="current-year">Current Year</option>
+                        </select>
+                        <button class="search-button" id="dateRangeSearchBtn" onclick="performDateRangeSearch()" disabled>
+                            📅 Search Dates
+                        </button>
+                    </div>
+                    <div id="searchModeHelp" style="font-size: 12px; color: #666; margin-top: 5px;">
+                        Exact: Stories must start/end exactly on the specified dates.
+                    </div>
+                </div>
+
+                <!-- Status Filters Section -->
+                <div class="search-section">
+                    <h3 class="search-section-title">🎯 Status Filters</h3>
+                    <div style="padding: 0 5px; margin-top: 10px;">
+                        <!-- Row 1: New, Done, Cancelled, Info, Timeline -->
+                        <div style="display: flex; flex-wrap: wrap; column-gap: 15px; row-gap: 8px; align-items: center; margin-bottom: 10px;">
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" onclick="cycleFilterState('filterNew', event)">
+                                <span id="filterNew" class="tri-state-checkbox" data-state="none"></span>
+                                <span>New</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" onclick="cycleFilterState('filterDone', event)">
+                                <span id="filterDone" class="tri-state-checkbox" data-state="none"></span>
+                                <span>Done</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" onclick="cycleFilterState('filterCancelled', event)">
+                                <span id="filterCancelled" class="tri-state-checkbox" data-state="none"></span>
+                                <span>Cancelled</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" onclick="cycleFilterState('filterInfo', event)">
+                                <span id="filterInfo" class="tri-state-checkbox" data-state="none"></span>
+                                <span>Info</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" onclick="cycleFilterState('filterTimeline', event)">
+                                <span id="filterTimeline" class="tri-state-checkbox" data-state="none"></span>
+                                <span>Timeline</span>
+                            </label>
+                            <!-- Force line break -->
+                            <div style="flex-basis: 100%; height: 0;"></div>
+                            <!-- Row 2: At Risk, Proposed, Transferred: In, Out -->
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap;" onclick="cycleFilterState('filterAtRisk', event)">
+                                <span id="filterAtRisk" class="tri-state-checkbox" data-state="none"></span>
+                                <span>At Risk</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" onclick="cycleFilterState('filterProposed', event)">
+                                <span id="filterProposed" class="tri-state-checkbox" data-state="none"></span>
+                                <span>Proposed</span>
+                            </label>
+                            <span style="font-weight: bold; margin-right: 5px; display: flex; align-items: center; position: relative; top: -2px; left: 6px;">Transferred:</span>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; margin-right: 5px;" onclick="cycleFilterState('filterTransferredIn', event)">
+                                <span id="filterTransferredIn" class="tri-state-checkbox" data-state="none"></span>
+                                <span>In</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;" onclick="cycleFilterState('filterTransferredOut', event)">
+                                <span id="filterTransferredOut" class="tri-state-checkbox" data-state="none"></span>
+                                <span>Out</span>
+                            </label>
+                        </div>
+                        <div style="font-size: 11px; color: #888; margin-top: 8px;">
+                            Click once for ✓ (include), twice for ! (exclude/NOT), three times to clear. Filters apply to all search results.
+                        </div>
+                        <!-- Advanced Expression Filter -->
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
+                            <div style="font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px;">Advanced Filter (Optional):</div>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="text" id="advancedFilterExpression" 
+                                       placeholder="e.g., Done && !Timeline, (Cancelled || AtRisk) && New"
+                                       onchange="handleAdvancedFilterChange(this)"
+                                       onkeydown="handleAdvancedFilterKeyDown(event, this)"
+                                       style="width: 50%; height: 32px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 12px; box-sizing: border-box;">
+                                <button class="search-button" onclick="applyStatusFilters()" style="min-width: 80px; height: 32px; padding: 4px 12px;">
+                                    🔍 Apply
+                                </button>
+                            </div>
+                            <div style="font-size: 10px; color: #888; margin-top: 5px;">
+                                Use: <code>&&</code> (AND), <code>||</code> (OR), <code>!</code> (NOT), <code>( )</code> (grouping)<br>
+                                Status names: Done, Cancelled, Timeline, New, AtRisk, Proposed, Info, TransferredIn, TransferredOut<br>
+                                Field presence: IMO, Priority (use <code>!</code> for empty) &nbsp;&nbsp; Priority values: High, Medium, Low<br>
+                                Expression overrides checkboxes if provided.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                </div>
+
+            </div>
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div id="contentArea">
+                <!-- Blank State -->
+                <div class="blank-state" id="blankState">
+                    <div class="blank-state-icon">🔍</div>
+                    <h2>Cross-Team IMO & Timeline Search</h2>
+                    <p>Search across multiple team roadmaps to find stories by IMO number or timeline</p>
+                    <p style="font-size: 14px; color: #999;">
+                        First select a directory containing roadmap JSON files, then enter your search query
+                    </p>
+                            </div>
+                            </div>
+                            </div>
+                        </div>
+
+    <!-- Story Details Modal (Read-Only) -->
+    <div id="storyDetailsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="storyDetailsTitle">Story Details</h3>
+                <span class="close" onclick="closeStoryDetailsModal()">&times;</span>
+                </div>
+            <div class="modal-body">
+                <form id="viewStoryForm">
+                    <!-- Story Details Box -->
+                    <div class="section-box">
+                        <div class="section-box-title">Story Details</div>
+                    <div class="form-group">
+                        <label>Story Title:</label>
+                        <div class="readonly-field" id="viewTitle"></div>
+            </div>
+                    <div class="form-group">
+                        <label>Team:</label>
+                        <div class="readonly-field" id="viewTeam"></div>
+        </div>
+                    <div class="form-group">
+                        <label>Epic:</label>
+                        <div class="readonly-field" id="viewEpic"></div>
+                    </div>
+                    <!-- KTLO Position Toggle (only shown for KTLO) -->
+                    <div class="form-group" id="viewKTLOPositionGroup" style="display: none;">
+                        <label>KTLO Position:</label>
+                        <div class="readonly-field" id="viewKTLOPosition"></div>
+                    </div>
+                    <div class="inline-group">
+                        <div class="form-group">
+                            <label>Start Date/Month:</label>
+                            <div class="readonly-field" id="viewStart"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>End Date/Month:</label>
+                            <div class="readonly-field" id="viewEnd"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Bullet Points:</label>
+                        <div class="readonly-field readonly-bullets" id="viewBullets"></div>
+                    </div>
+                    <!-- BTL Date Added field (only shown for BTL) -->
+                    <div id="viewBTLDateAddedGroup" class="form-group" style="display: none;">
+                        <label>Date Added:</label>
+                        <div class="readonly-field" id="viewBTLDateAdded"></div>
+                    </div>
+                    <div id="viewBTLDescriptionGroup" class="form-group" style="display: none;">
+                        <label>Description:</label>
+                        <div class="readonly-field" id="viewBTLDescription"></div>
+                    </div>
+                    <!-- Monthly KTLO Data (only shown for KTLO) -->
+                    <div id="viewKTLOMonthlySection" style="display: none; margin-top: 15px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
+                        <h4 style="margin: 0 0 15px 0;">Monthly KTLO Data</h4>
+                        <div id="viewKTLOMonthsContainer"></div>
+                    </div>
+                    <div class="form-group" style="margin-top: 20px;">
+                        <label>Director/VP ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                        <div class="readonly-field" id="viewDirectorVPId"></div>
+                    </div>
+                    <div class="form-group" style="display: flex; gap: 15px; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <label>IMO <span style="font-style: italic; color: #888;">(optional)</span>:</label>
+                            <div class="readonly-field" id="viewIMO"></div>
+                        </div>
+                        <div style="flex: 1;">
+                            <label>Priority:</label>
+                            <div class="readonly-field" id="viewPriority"></div>
+                        </div>
+                    </div>
+                    <div class="form-group" id="viewFlagsContainer"></div>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label style="display: block; margin-bottom: 4px;">Product Roadmap:</label>
+                        <label style="display: inline-flex; align-items: center; gap: 4px; cursor: default; font-size: 13px;">
+                            <input type="checkbox" class="view-flag-checkbox" id="viewIncludeInProductRoadmap"> 
+                            <span>Include</span>
+                        </label>
+                    </div>
+                    </div><!-- End Story Details Box -->
+                    <!-- Story Status Box -->
+                    <div class="section-box">
+                        <div class="section-box-title">Story Status</div>
+                    <!-- Row 1: New, Done, Cancelled, Info, Timeline -->
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="viewNewStory" disabled>
+                        <label for="viewNewStory">New</label>
+                        <input type="checkbox" id="viewDone" disabled>
+                        <label for="viewDone">Done</label>
+                        <input type="checkbox" id="viewCancelled" disabled>
+                        <label for="viewCancelled">Cancelled</label>
+                        <input type="checkbox" id="viewInfo" disabled>
+                        <label for="viewInfo">Info</label>
+                        <input type="checkbox" id="viewTimelineChanges" disabled>
+                        <label for="viewTimelineChanges">Timeline</label>
+                    </div>
+                    <!-- Row 2: At Risk, Proposed, Transferred: In, Out -->
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="viewAtRisk" disabled>
+                        <label for="viewAtRisk">At Risk</label>
+                        <input type="checkbox" id="viewProposed" disabled>
+                        <label for="viewProposed">Proposed</label>
+                        <label style="margin-left: 8px; margin-right: 2px;">Transferred:</label>
+                        <input type="checkbox" id="viewTransferredIn" disabled>
+                        <label for="viewTransferredIn" style="margin-right: 5px;">In</label>
+                        <input type="checkbox" id="viewTransferredOut" disabled>
+                        <label for="viewTransferredOut">Out</label>
+                    </div>
+                    <div id="viewStatusFields" style="margin-top: 10px;">
+                        <div id="viewDoneFields" class="border-card" style="display: none;">
+                            <h5>Story Complete</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Done Date:</label>
+                                    <div class="readonly-field" id="viewDoneDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Done Notes:</label>
+                                    <div class="readonly-field" id="viewDoneNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="viewCancelFields" class="border-card" style="display: none;">
+                            <h5>Story Cancellation</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Cancel Date:</label>
+                                    <div class="readonly-field" id="viewCancelDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Cancel Notes:</label>
+                                    <div class="readonly-field" id="viewCancelNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="viewAtRiskFields" class="border-card" style="display: none;">
+                            <h5>Story At Risk</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Risk Date:</label>
+                                    <div class="readonly-field" id="viewAtRiskDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Risk Notes:</label>
+                                    <div class="readonly-field" id="viewAtRiskNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="viewNewStoryFields" class="border-card" style="display: none;">
+                            <h5>New Story</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>New Date:</label>
+                                    <div class="readonly-field" id="viewNewStoryDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>New Notes:</label>
+                                    <div class="readonly-field" id="viewNewStoryNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="viewInfoFields" class="border-card" style="display: none;">
+                            <h5>Story Information</h5>
+                            <div id="viewInfoEntries">
+                                <!-- Info entries will be added here -->
+                            </div>
+                        </div>
+
+                        <div id="viewTransferredInFields" class="border-card" style="display: none;">
+                            <h5>Story Transferred In Details</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Transfer In Date:</label>
+                                    <div class="readonly-field" id="viewTransferredInDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Transfer In Notes:</label>
+                                    <div class="readonly-field" id="viewTransferredInNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="viewTransferredOutFields" class="border-card" style="display: none;">
+                            <h5>Story Transferred Out Details</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Transfer Out Date:</label>
+                                    <div class="readonly-field" id="viewTransferredOutDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Transfer Out Notes:</label>
+                                    <div class="readonly-field" id="viewTransferredOutNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="viewProposedFields" class="border-card" style="display: none;">
+                            <h5>Proposed Story</h5>
+                            <div class="inline-group">
+                                <div class="form-group">
+                                    <label>Proposed Date:</label>
+                                    <div class="readonly-field" id="viewProposedDate"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Proposed Notes:</label>
+                                    <div class="readonly-field" id="viewProposedNotes"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Story Timeline Section -->
+                    <div id="viewTimelineChangesSection" class="border-section" style="display: none; margin-top: 20px;">
+                        <h4>Story Timeline</h4>
+                        <div id="viewChangesContainer">
+                            <!-- Story timeline entries will be added here -->
+                        </div>
+                    </div>
+                    </div><!-- End Story Status Box -->
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="secondary" onclick="closeStoryDetailsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Stats Modal -->
+    <div id="searchStatsModal" style="display:none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
+        <div style="background: #fff; border-radius: 10px; width: 60vw; max-width: 500px; max-height: 90vh; box-shadow: 0 10px 30px rgba(0,0,0,0.25); display: flex; flex-direction: column;">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;">
+                <h3 style="margin:0; font-size: 18px;">📊 Search Results Statistics</h3>
+                <button onclick="closeSearchStatsModal()" style="border:none; background:none; font-size: 20px; line-height: 1; cursor:pointer; color: #666; padding: 4px;">×</button>
+            </div>
+            <div id="searchStatsModalBody" style="padding: 16px; overflow-y: auto; flex: 1; min-height: 0;">
+                <!-- Stats content will be injected here -->
+            </div>
+            <div style="padding: 12px 16px; border-top: 1px solid #e5e7eb; text-align: right; flex-shrink: 0;">
+                <button onclick="closeSearchStatsModal()" class="secondary">Close</button>
+            </div>
+        </div>
+    </div>

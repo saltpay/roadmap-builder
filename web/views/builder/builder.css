@@ -1,0 +1,132 @@
+/* Country flag icon (local SVG, avoids Windows flag-emoji gaps) */
+        .flag-icon {
+            display: inline-block;
+            height: 1em;
+            width: auto;
+            vertical-align: -0.15em;
+            margin-right: 3px;
+            line-height: 1;
+            border-radius: 1px;
+        }
+
+        /* Country checkbox group rendered by renderCountryFlagsHTML().
+           Fixed-column grid keeps items in place across resize; Global is on
+           its own row with a divider to signal the "applies to all" meaning.
+           Fieldset has an implicit `min-inline-size: min-content` in Chrome/Safari
+           that makes it grow past the parent and overflow the modal — force it
+           to honour the parent width. */
+        .country-flags-fieldset {
+            border: 0;
+            padding: 0;
+            margin: 0;
+            width: 100%;
+            min-width: 0;
+            min-inline-size: 0;
+            box-sizing: border-box;
+        }
+
+        .country-flags-legend {
+            display: block;
+            padding: 0;
+            margin: 0 0 4px;
+            float: none;
+            width: auto;
+            font-size: 13px;
+            font-weight: normal;
+        }
+
+        .country-flags-legend--hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .country-flags-global-row,
+        .country-flags-list {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            column-gap: 12px;
+            row-gap: 6px;
+        }
+
+        .country-flags-global-row {
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed var(--border-subtle);
+        }
+
+        @media (max-width: 720px) {
+            .country-flags-global-row,
+            .country-flags-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 480px) {
+            .country-flags-global-row,
+            .country-flags-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        /* Each option is a content-width inline-flex row pinned to the grid
+           cell's left edge. Resets the global label-block rule. */
+        .country-flag-option {
+            display: inline-flex;
+            align-items: center;
+            justify-self: start;
+            gap: 3px;
+            font-size: 13px;
+            font-weight: normal;
+            color: inherit;
+            margin: 0;
+            padding: 2px 0;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .country-flags-fieldset--readonly .country-flag-option {
+            cursor: default;
+        }
+
+        /* Undo the global full-width input style for the checkbox inside the
+           flag option — we want a native-sized checkbox here. */
+        .country-flag-option > input[type="checkbox"] {
+            width: auto;
+            height: auto;
+            padding: 0;
+            border: 0;
+            margin: 0;
+            flex-shrink: 0;
+        }
+
+        .country-flag-option > img.flag-icon {
+            margin: 0;
+            flex-shrink: 0;
+        }
+
+        .country-flag-option input:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+            border-radius: 2px;
+        }
+
+        /* Auto-filled timeline change date fields */
+        .auto-filled {
+            font-style: italic;
+            color: var(--text-muted);
+        }
+
+        /* Bar chart expand/collapse (stats modal) */
+        .bar-chart-container[data-tooltip="breakdown"]:hover {
+            background: var(--surface-2) !important;
+        }
+        .expand-chevron {
+            display: inline-block;
+            transition: transform var(--motion-fast);
+        }
+        .bar-chart-container:hover .expand-chevron {
+            color: var(--text-strong);
+        }

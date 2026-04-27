@@ -1,1136 +1,123 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <title>🗺️ Roadmap Builder</title>
-    <!-- Link to external CSS file -->
-    <link rel="stylesheet" href="./styles.css">
-    
-    <!-- Import DateUtility for centralized date handling -->
-            <script src="./utilities/date-utility.js"></script>
-    
-    <!-- Import UIUtility for centralized UI generation -->
-            <script src="./utilities/ui-utility.js"></script>
-    
-    <!-- Import ConfigUtility for centralized configuration -->
-            <script src="./utilities/config-utility.js"></script>
-    
-    <!-- Import IMO Utilities for cross-team search -->
-    <script src="./utilities/imo-utility.js"></script>
-    <script src="./utilities/imo-view-generator.js"></script>
+// Auto-extracted from views/builder.html during Phase 2 of the v2 migration.
+// Phase 3 is gradually slicing this into smaller modules. So far:
+//   - Share dropdown UI moved to ./share.js
+//   - PDF/JPG export moved to ./export.js
+//   - Story drag-and-drop handlers moved to ./drag-drop.js
+//   - Country-flag mutual-exclusion handlers moved to ./country-flags.js
+//   - Modal focus trap moved to ./focus-trap.js
+//   - Story status checkboxes moved to ./status.js
+//   - Info entry helpers moved to ./info-entries.js
+//   - Story sorting toggles moved to ./sorting.js
+//   - Timeline change handlers (story-form + edit-modal + applyPending) moved to ./timeline-changes.js
+//   - Toast notifications moved to ./notifications.js
+//   - Fullscreen helpers moved to ./fullscreen.js
+//   - Stats modal moved to ./stats.js
+//   - KTLO percentage validation moved to ./ktlo-validation.js
+//   - Generic collapse helpers + builder-panel collapse moved to ./collapse.js
+//   - KTLO section show/hide/reposition moved to ./ktlo-sections.js
+//   - File browser side panel + drag-drop file load moved to ./file-browser.js
+//   - Date picker UI + tracking moved to ./date-pickers.js
+//   - Story up/down move helpers moved to ./story-moves.js
+// The remainder is still legacy script-body code that depends on window
+// globals set by the utilities (DateUtility, RoadmapGenerator, etc.).
 
-    <!-- Canonical country list + renderer for the flag-checkbox group -->
-    <script src="./utilities/countries.js"></script>
-    
-    <!-- Page-specific styles (country-flag layout, page-scoped helpers).
-         All shared layout/panel/card/token styling lives in styles.css. -->
-    <style>
-        /* Country flag icon (local SVG, avoids Windows flag-emoji gaps) */
-        .flag-icon {
-            display: inline-block;
-            height: 1em;
-            width: auto;
-            vertical-align: -0.15em;
-            margin-right: 3px;
-            line-height: 1;
-            border-radius: 1px;
-        }
+import * as share from './share.js';
+import { exportJPG, exportPDF, createExportHTML } from './export.js';
+import { toggleCollapse, collapseAllSections, createBuilderCollapse } from './collapse.js';
+import {
+    hideKTLOSection,
+    showKTLOSection,
+    repositionKTLOSection,
+    createKTLOSectionHandlers,
+} from './ktlo-sections.js';
+import { createFileBrowser } from './file-browser.js';
+import { createDatePickers } from './date-pickers.js';
+import { createStoryMoves } from './story-moves.js';
+import { createStoryDragHandlers } from './drag-drop.js';
+import { createCountryFlagHandlers } from './country-flags.js';
+import { createModalFocusTrap } from './focus-trap.js';
+import { createStatusHandlers } from './status.js';
+import { createInfoEntryHandlers } from './info-entries.js';
+import { createSortingHandlers } from './sorting.js';
+import {
+    createTimelineChangeHandlers,
+    createEditTimelineChangeHandlers,
+    sortTimelineChangesByDate,
+} from './timeline-changes.js';
+import { showToast } from './notifications.js';
+import * as fullscreen from './fullscreen.js';
+import { createStatsHandlers } from './stats.js';
+import {
+    initializeKTLOValidation,
+    validateKTLOPercentage,
+} from './ktlo-validation.js';
 
-        /* Country checkbox group rendered by renderCountryFlagsHTML().
-           Fixed-column grid keeps items in place across resize; Global is on
-           its own row with a divider to signal the "applies to all" meaning.
-           Fieldset has an implicit `min-inline-size: min-content` in Chrome/Safari
-           that makes it grow past the parent and overflow the modal — force it
-           to honour the parent width. */
-        .country-flags-fieldset {
-            border: 0;
-            padding: 0;
-            margin: 0;
-            width: 100%;
-            min-width: 0;
-            min-inline-size: 0;
-            box-sizing: border-box;
-        }
+/**
+ * Mount this view. Called by the SPA router on every navigation here.
+ *
+ * @param {HTMLElement} _root - The container element (currently unused;
+ *                              legacy code reaches DOM via document.* directly)
+ */
+export function init(_root) {
+    // Inline onclick="toggleShareDropdown(event)" etc. resolves names against
+    // window. Slices that have been pulled out of the legacy body need their
+    // exports re-attached here on every mount.
+    Object.assign(window, share, fullscreen, {
+        exportJPG, exportPDF,
+        toggleCollapse, collapseAllSections,
+    });
 
-        .country-flags-legend {
-            display: block;
-            padding: 0;
-            margin: 0 0 4px;
-            float: none;
-            width: auto;
-            font-size: 13px;
-            font-weight: normal;
-        }
+    // hideFullscreen is also called from the Escape keydown handler in body
+    // code, so we destructure it as a local.
+    const { hideFullscreen } = fullscreen;
 
-        .country-flags-legend--hidden {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0 0 0 0);
-            white-space: nowrap;
-            border: 0;
-        }
+    // Builder collapse owns its open/closed state internally. The body reads
+    // it via the isBuilderCollapsed() getter (different from the legacy
+    // `if (!isBuilderCollapsed)` boolean read; minimal change to the
+    // call site).
+    const { toggleBuilderCollapse, isBuilderCollapsed } = createBuilderCollapse();
+    window.toggleBuilderCollapse = toggleBuilderCollapse;
 
-        .country-flags-global-row,
-        .country-flags-list {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            column-gap: 12px;
-            row-gap: 6px;
-        }
+    // Date pickers - hidden native pickers behind the visible text inputs.
+    // The factory owns the initialization-tracking Set; body code uses
+    // untrackDatePicker / clearAllTracking to invalidate entries when it
+    // re-renders inputs that share an id.
+    const __datePickers = createDatePickers({
+        getRoadmapYear: () => parseInt(document.getElementById('roadmapYear').value, 10) || new Date().getFullYear(),
+    });
+    const {
+        initializeDatePicker, initializeDatePickersForEpic, initializeDatePickersForSection,
+        refreshAllDatePickers, updateAllDatePickerRanges, validateEndDate,
+        reinitializeDatePicker, untrackDatePicker, clearAllTracking,
+    } = __datePickers;
+    Object.assign(window, __datePickers);
 
-        .country-flags-global-row {
-            margin-bottom: 8px;
-            padding-bottom: 8px;
-            border-bottom: 1px dashed var(--border-subtle);
-        }
+    // Phase 1 regressed the legacy body's reliance on `<script>`-tag globals.
+    // The utility classes/functions and the getX() wrappers used to live in
+    // the global scope; converting their files to ES modules made them
+    // module-scoped. Each one is still aliased to window by a Phase 1 shim,
+    // so we point the legacy names at window.* here and the 30+ call sites
+    // below keep working unchanged. Phase 3 follow-up: rewrite the call sites
+    // with direct imports and delete this block.
+    const getConfigUtility = () => window.ConfigUtility;
+    const getDateUtility = () => window.DateUtility;
+    const getUIUtility = () => window.UIUtility;
+    const DateUtility = window.DateUtility;
+    const RoadmapGenerator = window.RoadmapGenerator;
+    const renderCountryFlagsHTML = window.renderCountryFlagsHTML;
 
-        @media (max-width: 720px) {
-            .country-flags-global-row,
-            .country-flags-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        }
+    const __viewReady = [];
+    const __origAdd = document.addEventListener.bind(document);
+    document.addEventListener = function (type, listener, opts) {
+        if (type === 'DOMContentLoaded') { __viewReady.push(listener); return; }
+        return __origAdd(type, listener, opts);
+    };
+    try {
+        // === BEGIN legacy script body ===
 
-        @media (max-width: 480px) {
-            .country-flags-global-row,
-            .country-flags-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-
-        /* Each option is a content-width inline-flex row pinned to the grid
-           cell's left edge. Resets the global label-block rule. */
-        .country-flag-option {
-            display: inline-flex;
-            align-items: center;
-            justify-self: start;
-            gap: 3px;
-            font-size: 13px;
-            font-weight: normal;
-            color: inherit;
-            margin: 0;
-            padding: 2px 0;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        .country-flags-fieldset--readonly .country-flag-option {
-            cursor: default;
-        }
-
-        /* Undo the global full-width input style for the checkbox inside the
-           flag option — we want a native-sized checkbox here. */
-        .country-flag-option > input[type="checkbox"] {
-            width: auto;
-            height: auto;
-            padding: 0;
-            border: 0;
-            margin: 0;
-            flex-shrink: 0;
-        }
-
-        .country-flag-option > img.flag-icon {
-            margin: 0;
-            flex-shrink: 0;
-        }
-
-        .country-flag-option input:focus-visible {
-            outline: 2px solid var(--primary);
-            outline-offset: 2px;
-            border-radius: 2px;
-        }
-
-        /* Auto-filled timeline change date fields */
-        .auto-filled {
-            font-style: italic;
-            color: var(--text-muted);
-        }
-
-        /* Bar chart expand/collapse (stats modal) */
-        .bar-chart-container[data-tooltip="breakdown"]:hover {
-            background: var(--surface-2) !important;
-        }
-        .expand-chevron {
-            display: inline-block;
-            transition: transform var(--motion-fast);
-        }
-        .bar-chart-container:hover .expand-chevron {
-            color: var(--text-strong);
-        }
-    </style>
-</head>
-<body>
-
-
-    <div class="builder-container">
-        <!-- File Browser Panel -->
-        <div class="file-browser-panel collapsed" id="fileBrowserPanel">
-            <div class="file-browser-header">
-                <h3>📁 Roadmap Files</h3>
-                <button onclick="toggleFileBrowser()" class="collapse-btn" id="fileBrowserToggle" title="Close File Browser">×</button>
-            </div>
-            <div class="file-browser-content" id="fileBrowserContent">
-                <div class="file-browser-actions">
-                    <button onclick="selectDirectory()" class="secondary" style="width: 100%; margin-bottom: 10px;">
-                        📂 Select Folder
-                    </button>
-                </div>
-                <div class="file-list" id="fileList">
-                    <div class="no-directory-message">
-                        Click "Select Folder" to browse your roadmap files
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Main Content (Builder + Preview) -->
-        <div class="main-content">
-            <!-- Builder Panel -->
-            <div class="builder-panel">
-            <div class="header-with-buttons">
-                <div style="margin-bottom: 10px;">
-                    <button class="expand-file-browser-btn visible" id="expandFileBrowserBtn" onclick="toggleFileBrowser()" title="Show File Browser">
-                        ▶ Show Files
-                    </button>
-                    <button onclick="toggleBuilderCollapse()" id="builderCollapseBtn" class="secondary builder-collapse-btn">▲ Hide Builder</button>
-                </div>
-                <div class="title-and-buttons">
-                    <h1 style="margin: 0; padding: 0; text-align: left;"><span id="roadmapIcon">🗺️</span> Roadmap Builder</h1>
-                    <div class="top-action-buttons">
-                    <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
-                    <button onclick="loadRoadmap()" class="secondary">📂 Load Roadmap</button>
-                    <button onclick="saveRoadmap()" class="secondary">💾 Save Roadmap</button>
-                    <button onclick="openIMOSearch()" class="secondary">🔍 Search</button>
-                    <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
-                    <div class="dropdown" style="display: inline-block; position: relative;">
-                        <button id="shareDropdownBtn" class="secondary" onclick="toggleShareDropdown(event)">🌐 Share ▼</button>
-                        <div id="shareDropdownMenu" class="dropdown-content">
-                            <a href="#" onclick="exportHTML(); closeShareDropdown(); return false;">HTML</a>
-                            <a href="#" onclick="exportJPG(); closeShareDropdown(); return false;">JPG</a>
-                            <a href="#" onclick="exportPDF(); closeShareDropdown(); return false;">PDF</a>
-                        </div>
-                    </div>
-                        <!-- html-to-image for JPG export -->
-                    <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
-                    <!-- jsPDF for PDF export -->
-                    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-    <script>
-    // --- Share Dropdown Logic ---
-    function toggleShareDropdown(event) {
-        event.stopPropagation();
-        const menu = document.getElementById('shareDropdownMenu');
-        const builderPanel = document.querySelector('.builder-panel');
-        
-        if (menu.style.display === 'block') {
-            menu.style.display = 'none';
-            return;
-        }
-        
-        // Check if builder is collapsed
-        const isCollapsed = builderPanel.classList.contains('collapsed');
-        
-        if (isCollapsed) {
-            // When collapsed, use fixed positioning to drop down below button
-            const shareButton = document.getElementById('shareDropdownBtn');
-            const buttonRect = shareButton.getBoundingClientRect();
-            
-            // Position dropdown below the button using fixed positioning
-            menu.style.position = 'fixed';
-            menu.style.top = (buttonRect.bottom + 2) + 'px';  // 2px below button
-            menu.style.left = (buttonRect.right - 120) + 'px';  // Align with right edge of button
-            menu.style.right = 'auto';
-            menu.style.bottom = 'auto';
-        } else {
-            // When expanded, use normal relative positioning
-            menu.style.position = 'absolute';
-            menu.style.top = '100%';
-            menu.style.left = 'auto';
-            menu.style.right = '0';
-            menu.style.bottom = 'auto';
-        }
-        
-        menu.style.display = 'block';
-        
-        // Close on outside click
-        setTimeout(() => {
-            document.addEventListener('click', closeShareDropdown, { once: true });
-        }, 0);
-    }
-    function closeShareDropdown() {
-        const menu = document.getElementById('shareDropdownMenu');
-        if (menu) menu.style.display = 'none';
-    }
-
-    // --- Bottom Share Dropdown Logic ---
-    function toggleShareDropdownBottom(event) {
-        event.stopPropagation();
-        const menu = document.getElementById('shareDropdownMenuBottom');
-        
-        if (menu.style.display === 'block') {
-            menu.style.display = 'none';
-            return;
-        }
-        
-        // Position dropdown to open upward (above the button) to avoid iframe obstruction
-        menu.style.position = 'absolute';
-        menu.style.top = 'auto';
-        menu.style.left = 'auto';
-        menu.style.right = '0';
-        menu.style.bottom = '100%';
-        
-        menu.style.display = 'block';
-        
-        // Close on outside click
-        setTimeout(() => {
-            document.addEventListener('click', closeShareDropdownBottom, { once: true });
-        }, 0);
-    }
-
-    function closeShareDropdownBottom() {
-        const menu = document.getElementById('shareDropdownMenuBottom');
-        if (menu) menu.style.display = 'none';
-    }
-
-    // --- Export as JPG ---
-    async function exportJPG() {
-        // Find the preview iframe and get its document
-        const iframe = document.getElementById('preview-area');
-        if (!iframe || !iframe.contentWindow || !iframe.contentDocument) {
-            alert('Preview not available.');
-            return;
-        }
-        const previewDoc = iframe.contentDocument;
-        // Try to find the main roadmap content (assume full document)
-        // Use the HTML element for true full height/width
-        const htmlElem = previewDoc.documentElement;
-        if (!htmlElem) {
-            alert('Preview not available.');
-            return;
-        }
-        try {
-            // Get the true full scrollable size (html > body)
-            const width = Math.max(htmlElem.scrollWidth, htmlElem.offsetWidth, htmlElem.clientWidth, 1200);
-            // Add extra padding to height to avoid clipping bottom
-            const height = Math.max(htmlElem.scrollHeight, htmlElem.offsetHeight, htmlElem.clientHeight, 800) + 32;
-            // Clone the HTML element for rendering
-            const clone = htmlElem.cloneNode(true);
-            clone.style.background = '#fff';
-            clone.style.overflow = 'visible';
-            clone.style.width = width + 'px';
-            clone.style.height = height + 'px';
-            // Container for offscreen rendering
-            const container = document.createElement('div');
-            container.style.position = 'fixed';
-            container.style.left = '-9999px';
-            container.style.top = '0';
-            container.style.background = '#fff';
-            container.style.width = width + 'px';
-            container.style.height = height + 'px';
-            container.appendChild(clone);
-            document.body.appendChild(container);
-            
-            // Hide edit icons in the clone for JPG export
-            const style = document.createElement('style');
-            style.textContent = `
-                .edit-icon,
-                .monthly-edit-icon {
-                    display: none !important;
-                }
-            `;
-            clone.appendChild(style);
-            
-            // Wait for images/fonts to load (best effort)
-            await new Promise(resolve => setTimeout(resolve, 200));
-            const dataUrl = await window.htmlToImage.toJpeg(clone, { quality: 0.95, backgroundColor: '#fff', width, height });
-            
-            // Get team name and year for default filename
-            const teamName = document.getElementById('teamName').value.trim() || 'MyTeam';
-            const roadmapYear = document.getElementById('roadmapYear').value || '2025';
-            const defaultFilename = `${teamName}.Teya-Roadmap.${roadmapYear}.jpg`;
-            
-            // Try to use File System Access API for save dialog (if supported)
-            if ('showSaveFilePicker' in window) {
-                try {
-                    const fileHandle = await window.showSaveFilePicker({
-                        suggestedName: defaultFilename,
-                        types: [{
-                            description: 'JPEG images',
-                            accept: { 'image/jpeg': ['.jpg', '.jpeg'] }
-                        }]
-                    });
-                    
-                    // Convert dataUrl to blob
-                    const response = await fetch(dataUrl);
-                    const blob = await response.blob();
-                    
-                    // Write to file
-                    const writable = await fileHandle.createWritable();
-                    await writable.write(blob);
-                    await writable.close();
-                    
-                    document.body.removeChild(container);
-                    return;
-                } catch (err) {
-                    // If user cancelled, don't do anything
-                    if (err.name === 'AbortError') {
-                        document.body.removeChild(container);
-                        return;
-                    }
-                    
-                    // For other errors, fall back to automatic download
-                }
-            }
-            
-            // Fallback: automatic download (original behavior)
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = defaultFilename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            document.body.removeChild(container);
-        } catch (err) {
-            alert('Failed to export JPG: ' + err);
-        }
-    }
-
-    // --- Export as PDF ---
-    async function exportPDF() {
-        // Find the preview iframe and get its document
-        const iframe = document.getElementById('preview-area');
-        if (!iframe || !iframe.contentWindow || !iframe.contentDocument) {
-            alert('Preview not available.');
-            return;
-        }
-        const previewDoc = iframe.contentDocument;
-        // Try to find the main roadmap content (assume full document)
-        // Use the HTML element for true full height/width
-        const htmlElem = previewDoc.documentElement;
-        if (!htmlElem) {
-            alert('Preview not available.');
-            return;
-        }
-        try {
-            // Get the true full scrollable size (html > body)
-            const width = Math.max(htmlElem.scrollWidth, htmlElem.offsetWidth, htmlElem.clientWidth, 1200);
-            // Add extra padding to height to avoid clipping bottom
-            const height = Math.max(htmlElem.scrollHeight, htmlElem.offsetHeight, htmlElem.clientHeight, 800) + 32;
-            // Clone the HTML element for rendering
-            const clone = htmlElem.cloneNode(true);
-            clone.style.background = '#fff';
-            clone.style.overflow = 'visible';
-            clone.style.width = width + 'px';
-            clone.style.height = height + 'px';
-            // Container for offscreen rendering
-            const container = document.createElement('div');
-            container.style.position = 'fixed';
-            container.style.left = '-9999px';
-            container.style.top = '0';
-            container.style.background = '#fff';
-            container.style.width = width + 'px';
-            container.style.height = height + 'px';
-            container.appendChild(clone);
-            document.body.appendChild(container);
-            
-            // Hide edit icons in the clone for PDF export
-            const stylePDF = document.createElement('style');
-            stylePDF.textContent = `
-                .edit-icon,
-                .monthly-edit-icon {
-                    display: none !important;
-                }
-            `;
-            clone.appendChild(stylePDF);
-            
-            // Wait for images/fonts to load (best effort)
-            await new Promise(resolve => setTimeout(resolve, 200));
-            
-            // Generate image data (same as JPG export)
-            const dataUrl = await window.htmlToImage.toJpeg(clone, { quality: 0.95, backgroundColor: '#fff', width, height });
-            
-            // Convert to PDF using jsPDF
-            const { jsPDF } = window.jspdf;
-            
-            // Calculate PDF dimensions (landscape orientation for roadmaps)
-            const pdfWidth = Math.min(width / 4, 420); // A3 landscape width in mm (420mm)
-            const pdfHeight = (height / width) * pdfWidth;
-            
-            // Create PDF in landscape orientation
-            const pdf = new jsPDF({
-                orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
-                unit: 'mm',
-                format: [pdfWidth, pdfHeight]
-            });
-            
-            // Add the image to PDF
-            pdf.addImage(dataUrl, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-            
-            // Get team name and year for default filename
-            const teamName = document.getElementById('teamName').value.trim() || 'MyTeam';
-            const roadmapYear = document.getElementById('roadmapYear').value || '2025';
-            const defaultFilename = `${teamName}.Teya-Roadmap.${roadmapYear}.pdf`;
-            
-            // Try to use File System Access API for save dialog (if supported)
-            if ('showSaveFilePicker' in window) {
-                try {
-                    const fileHandle = await window.showSaveFilePicker({
-                        suggestedName: defaultFilename,
-                        types: [{
-                            description: 'PDF documents',
-                            accept: { 'application/pdf': ['.pdf'] }
-                        }]
-                    });
-                    
-                    // Generate PDF as blob
-                    const pdfBlob = pdf.output('blob');
-                    
-                    // Write to file
-                    const writable = await fileHandle.createWritable();
-                    await writable.write(pdfBlob);
-                    await writable.close();
-                    
-                    document.body.removeChild(container);
-                    return;
-                } catch (err) {
-                    // If user cancelled, don't do anything
-                    if (err.name === 'AbortError') {
-                        document.body.removeChild(container);
-                        return;
-                    }
-                    
-                    // For other errors, fall back to automatic download
-                }
-            }
-            
-            // Fallback: automatic download (original behavior)
-            pdf.save(defaultFilename);
-            document.body.removeChild(container);
-        } catch (err) {
-            alert('Failed to export PDF: ' + err);
-        }
-    }
-    </script>
-                </div>
-                </div>
-            </div>
-            
-            <!-- Stats Modal -->
-            <div id="statsModal" class="modal" style="display: none;">
-                <div class="modal-content" style="max-width: 500px;">
-                    <div class="modal-header">
-                        <h3>Roadmap Statistics</h3>
-                        <span class="close" onclick="closeStatsModal()">&times;</span>
-                    </div>
-                    <div class="modal-body" id="statsModalBody">
-                        <!-- Stats content injected here -->
-                    </div>
-                    <div class="modal-footer" style="justify-content: flex-end;">
-                        <button onclick="closeStatsModal()" class="secondary">Close</button>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="form-group" style="max-width: 70px;">
-                <label for="roadmapYear">Year:</label>
-                <input type="number" id="roadmapYear" placeholder="2025" value="2025" min="2020" max="2030">
-            </div>
-            
-            <!-- Current Filename (editable) -->
-            <div id="currentFilenameDisplay" style="display: none;">
-                <div class="inline-group">
-                    <div class="form-group">
-                        <label for="currentFilename">Current Filename:</label>
-                        <input type="text" id="currentFilename" placeholder="Roadmap filename">
-                    </div>
-                    <div class="form-group" style="visibility: hidden;">
-                        <!-- Empty space to match inline-group layout -->
-                    </div>
-                </div>
-            </div>
-            
-            <div class="inline-group">
-                <div class="form-group">
-                    <label for="teamName">Team Name:</label>
-                    <input type="text" id="teamName" placeholder="e.g., eCommerce">
-                </div>
-                <div class="form-group">
-                    <label for="directorVP">Engineering Director/VP:</label>
-                    <input type="text" id="directorVP" placeholder="Director or VP Name">
-                </div>
-            </div>
-            <div class="inline-group">
-                <div class="form-group">
-                    <label for="em">Engineering Manager:</label>
-                    <input type="text" id="em" placeholder="EM Name">
-                </div>
-                <div class="form-group">
-                    <label for="pm">Product Manager:</label>
-                    <input type="text" id="pm" placeholder="PM Name">
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="teamDescription">Team Description:</label>
-                <textarea id="teamDescription" placeholder="Describe your team's mission, goals, and context" rows="3" style="resize: vertical;"></textarea>
-            </div>
-            
-            <!-- KTLO Section -->
-            <h2>KTLO (Keep The Lights On)</h2>
-            <div class="ktlo-section" style="border-color: #28a745;">
-                <div class="flex-header">
-                    <div class="flex-center">
-                        <button id="ktlo-collapse-btn" onclick="toggleKTLOCollapse()" title="Collapse KTLO">▼</button>
-                        <h4 class="no-margin">KTLO Configuration</h4>
-                    </div>
-                </div>
-                
-                <div id="ktlo-content">
-                    <div class="form-group">
-                        <label for="ktlo-position-toggle">KTLO Position: <span style="font-weight: normal; color: #666;">(Shift+K to toggle)</span></label>
-                        <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 5px; text-align: left; margin-left: 3px;">
-                            <input type="checkbox" id="ktlo-position-toggle" style="width: auto; flex-shrink: 0;">
-                            Top (Before the Epics)
-                        </label>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="ktlo-title">KTLO Story Title:</label>
-                        <input type="text" id="ktlo-title" placeholder="e.g., KTLO">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="ktlo-bullets">KTLO Bullet Points (one per line):</label>
-                        <textarea id="ktlo-bullets" placeholder="Keep the Lights On&#10;Operational Excellence&#10;Infrastructure Maintenance"></textarea>
-                    </div>
-                    
-                    <h4>Monthly KTLO Data</h4>
-                    
-                    <div id="ktlo-monthly-content">
-                        <div class="form-group">
-                            <label for="ktlo-month-selector">Select Month:</label>
-                            <select id="ktlo-month-selector" onchange="switchKTLOMonth()" style="width: 120px; display: inline-block;">
-                                <option value="jan">JAN</option>
-                                <option value="feb">FEB</option>
-                                <option value="mar">MAR</option>
-                                <option value="apr">APR</option>
-                                <option value="may">MAY</option>
-                                <option value="jun">JUN</option>
-                                <option value="jul">JUL</option>
-                                <option value="aug">AUG</option>
-                                <option value="sep">SEP</option>
-                                <option value="oct">OCT</option>
-                                <option value="nov">NOV</option>
-                                <option value="dec">DEC</option>
-                            </select>
-                        </div>
-                        
-                        <div style="display: flex; gap: 100px; align-items: flex-end;">
-                            <div class="form-group" style="flex: none; width: auto;">
-                                <label for="ktlo-current-number">Team Size:</label>
-                                <input type="number" id="ktlo-current-number" placeholder="5" min="0" style="width: 200px;">
-                            </div>
-                            
-                            <div class="form-group" style="flex: none; width: auto;">
-                                <label for="ktlo-current-percentage">KTLO %:</label>
-                                <input type="number" id="ktlo-current-percentage" placeholder="15" min="0" max="100" step="5" style="width: 200px;">
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="ktlo-current-description">Description:</label>
-                            <textarea id="ktlo-current-description" placeholder="Line 1: Main activity&#10;Line 2: Additional details" rows="2" style="resize: vertical;"></textarea>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- EPICs Section -->
-            <h2>EPICs</h2>
-            <div id="epics-container">
-                <!-- EPICs will be added here dynamically -->
-            </div>
-            <button onclick="addEpic()">+ Add EPIC</button>
-            
-            <!-- Below The Line Section -->
-            <h2>Below The Line</h2>
-            <div class="btl-section">
-                <div class="flex-header">
-                    <div class="flex-center">
-                        <button id="btl-collapse-btn" onclick="toggleBTLCollapse()" title="Expand Below The Line" class="collapse-btn-collapsed">▶</button>
-                        <h4 class="no-margin">Below The Line Stories</h4>
-                    </div>
-                </div>
-                
-                <div id="btl-content" style="display: none;">
-                    <p style="margin-bottom: 15px; color: #666; font-style: italic;">Stories that are below the line - placeholder items for potential future consideration. <strong>Maximum of 3 stories.</strong></p>
-                    
-                    <div id="btl-stories-container">
-                        <!-- BTL stories will be added here -->
-                    </div>
-                    <button onclick="addBTLStory()">+ Add Story</button>
-                </div>
-            </div>
-            
-            <!-- Story Sorting Settings -->
-            <div class="form-group" style="margin-bottom: 20px;">
-                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal;">
-                    <input type="checkbox" id="story-sorting-toggle" style="width: auto; flex-shrink: 0;" onchange="handleSortingToggle()">
-                    Sort stories by start date within each epic
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 6px;">
-                    <input type="checkbox" id="story-sorting-end-toggle" style="width: auto; flex-shrink: 0;" onchange="handleEndSortingToggle()">
-                    Sort stories by end date within each epic
-                </label>
-                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 6px;">
-                    <input type="checkbox" id="force-text-below-toggle" style="width: auto; flex-shrink: 0;" onchange="handleForceTextBelowToggle()">
-                    Force all text boxes below stories
-                </label>
-            </div>
-            
-            <!-- Action Buttons -->
-            <div class="action-buttons">
-                <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
-                <button onclick="loadRoadmap()" class="secondary">📂 Load Roadmap</button>
-                <button onclick="saveRoadmap()" class="secondary">💾 Save Roadmap</button>
-                <button onclick="openIMOSearch()" class="secondary">🔍 Search</button>
-                <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
-                <div class="dropdown" style="display: inline-block; position: relative;">
-                    <button id="shareDropdownBtnBottom" class="secondary" onclick="toggleShareDropdownBottom(event)">🌐 Share ▼</button>
-                    <div id="shareDropdownMenuBottom" class="dropdown-content">
-                        <a href="#" onclick="exportHTML(); closeShareDropdownBottom(); return false;">HTML</a>
-                        <a href="#" onclick="exportJPG(); closeShareDropdownBottom(); return false;">JPG</a>
-                        <a href="#" onclick="exportPDF(); closeShareDropdownBottom(); return false;">PDF</a>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Hidden file input for loading roadmaps (JSON only) -->
-            <input type="file" id="roadmapLoadInput" accept=".json" style="display: none;" onchange="handleRoadmapLoad(event)">
-            <!-- Legacy inputs kept for compatibility -->
-            <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="handleFileLoad(event)">
-            <!-- Fallback directory picker for browsers without File System Access API -->
-            <input type="file" id="directoryFileInput" style="display: none;" multiple webkitdirectory>
-
-        </div>
-        
-            <!-- Preview Panel -->
-            <div class="preview-panel" onclick="showFullscreen()">
-                <button class="fullscreen-button" onclick="event.stopPropagation(); toggleFullscreen()" title="Enter Fullscreen">
-                    <span class="fullscreen-icon">⛶</span>
-                </button>
-                <iframe id="preview-area" src="about:blank"></iframe>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Fullscreen Overlay -->
-    <div class="fullscreen-overlay" id="fullscreen-overlay" onclick="hideFullscreen()">
-        <div class="fullscreen-content" onclick="event.stopPropagation()">
-            <button class="fullscreen-close" onclick="hideFullscreen()">✕ Close</button>
-            <iframe id="fullscreen-preview" src="about:blank"></iframe>
-        </div>
-    </div>
-    <!-- Edit Story Modal -->
-    <div id="editStoryModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="editStoryTitle">Edit Story</h3>
-                <span class="close" onclick="closeEditModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="editStoryForm" onsubmit="return false;">
-                    <!-- Story Details Box -->
-                    <div class="section-box">
-                        <div class="section-box-title" style="display: flex; justify-content: space-between; align-items: center;">
-                            <span>Story Details</span>
-                            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; font-weight: normal; color: #555; background: #f0f0f0; padding: 4px 10px; border-radius: 4px; border: 1px solid #ddd;">
-                                <span style="text-align: left; line-height: 1.3;"><span style="white-space: nowrap;">Include in</span><br><span style="white-space: nowrap;">Product Roadmap</span></span>
-                                <input type="checkbox" id="editIncludeInProductRoadmap" name="includeInProductRoadmap" checked style="margin: 0;"> 
-                            </label>
-                        </div>
-                    <div class="form-group">
-                        <label for="editTitle">Story Title:</label>
-                        <input type="text" id="editTitle" name="title" required>
-                    </div>
-                    
-                    <!-- KTLO Position Toggle (only shown for KTLO) -->
-                    <div class="form-group" id="editKTLOPositionGroup" style="display: none;">
-                        <label for="editKTLOPosition">KTLO Position:</label>
-                        <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 5px; text-align: left; margin-left: 3px;">
-                            <input type="checkbox" id="editKTLOPosition" style="width: auto; flex-shrink: 0;">
-                            Top (Before the Epics)
-                        </label>
-                    </div>
-                    
-                    <div class="inline-group">
-                        <div class="form-group">
-                            <label for="editStart">Start Date/Month:</label>
-                            <input type="text" id="editStart" name="start" placeholder="JAN, SEPT, or 15/1/25">
-                        </div>
-                        <div class="form-group">
-                            <label for="editEnd">End Date/Month:</label>
-                            <input type="text" id="editEnd" name="end" placeholder="MAR, SEPT, or 15/3/25">
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editBullets">Bullet Points (one per line):</label>
-                        <textarea id="editBullets" name="bullets" rows="4"></textarea>
-                    </div>
-                    
-                    <!-- BTL Date Added field (only shown for BTL) -->
-                    <div id="editBTLDateAddedGroup" class="form-group" style="display: none;">
-                        <label for="editBTLDateAdded">Date Added:</label>
-                        <input type="text" id="editBTLDateAdded" placeholder="15/01/25 or 15-01-2025">
-                    </div>
-                    
-                    <div id="editBTLDescriptionGroup" class="form-group" style="display: none;">
-                        <label for="editBTLDescription">Description (optional):</label>
-                        <input type="text" id="editBTLDescription" placeholder="Why was this added?">
-                    </div>
-                    
-                    <!-- Monthly KTLO Data (only shown for KTLO) -->
-                    <div id="editKTLOMonthlySection" style="display: none; margin-top: 15px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
-                        <h4 style="margin: 0 0 15px 0;">Monthly KTLO Data</h4>
-                        <div id="editKTLOMonthsContainer">
-                            <div class="form-group">
-                                <label for="edit-ktlo-month-selector">Select Month:</label>
-                                <select id="edit-ktlo-month-selector" onchange="switchEditKTLOMonth()" style="width: 120px; display: inline-block;">
-                                    <option value="jan">JAN</option>
-                                    <option value="feb">FEB</option>
-                                    <option value="mar">MAR</option>
-                                    <option value="apr">APR</option>
-                                    <option value="may">MAY</option>
-                                    <option value="jun">JUN</option>
-                                    <option value="jul">JUL</option>
-                                    <option value="aug">AUG</option>
-                                    <option value="sep">SEP</option>
-                                    <option value="oct">OCT</option>
-                                    <option value="nov">NOV</option>
-                                    <option value="dec">DEC</option>
-                                </select>
-                            </div>
-                            
-                            <div style="display: flex; gap: 100px; align-items: flex-end;">
-                                <div class="form-group" style="flex: none; width: auto;">
-                                    <label for="edit-ktlo-current-number">Team Size:</label>
-                                    <input type="number" id="edit-ktlo-current-number" min="0" style="width: 200px;" placeholder="5">
-                                </div>
-                                
-                                <div class="form-group" style="flex: none; width: auto;">
-                                    <label for="edit-ktlo-current-percentage">KTLO %:</label>
-                                    <input type="number" id="edit-ktlo-current-percentage" min="0" max="100" step="5" style="width: 200px;" placeholder="15">
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="edit-ktlo-current-description">Description:</label>
-                                <textarea id="edit-ktlo-current-description" rows="2" style="resize: vertical;"></textarea>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group" style="margin-top: 20px;">
-                        <label for="editDirectorVPId">Director/VP ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
-                        <input type="text" id="editDirectorVPId" name="directorVPId" placeholder="Enter identifier for filtering">
-                    </div>
-                    
-                    <div class="form-group" style="display: flex; gap: 15px; align-items: flex-end;">
-                        <div style="flex: 1;">
-                            <label for="editIMO">IMO/Project ID <span style="font-style: italic; color: #888;">(optional)</span>:</label>
-                            <input type="text" id="editIMO" name="imo" placeholder="0001">
-                        </div>
-                        <div style="flex: 1;">
-                            <label for="editPriority">Priority <span style="font-style: italic; color: #888;">(optional)</span>:</label>
-                            <select id="editPriority" name="priority" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-                                <option value="">Select...</option>
-                                <option value="High">High</option>
-                                <option value="Medium">Medium</option>
-                                <option value="Low">Low</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group" id="editFlagsContainer"></div>
-                    
-                    <div class="form-group" style="margin-top: 15px;">
-                        <label for="editComments">Comments <span style="font-style: italic; color: #888;">(optional, not shown on roadmap)</span>:</label>
-                        <textarea id="editComments" name="comments" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical;" placeholder="Add any notes or comments..."></textarea>
-                    </div>
-                    </div><!-- End Story Details Box -->
-                    
-                    <!-- Story Status Box -->
-                    <div class="section-box">
-                        <div class="section-box-title">Story Status</div>
-                    
-                    <!-- Row 1: New, Done, Cancelled, Info, Timeline -->
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="editNewStory" name="newstory" onchange="toggleEditStatusFields()">
-                        <label for="editNewStory">New</label>
-                        
-                        <input type="checkbox" id="editDone" name="done" onchange="toggleEditStatusFields()">
-                        <label for="editDone">Done</label>
-                        
-                        <input type="checkbox" id="editCancelled" name="cancelled" onchange="toggleEditStatusFields()">
-                        <label for="editCancelled">Cancelled</label>
-                        
-                        <input type="checkbox" id="editInfo" name="info" onchange="toggleEditStatusFields()">
-                        <label for="editInfo">Info</label>
-                        
-                        <input type="checkbox" id="editTimelineChanges" name="timelinechanges" onchange="toggleEditTimelineChanges()">
-                        <label for="editTimelineChanges">Timeline</label>
-                    </div>
-                    
-                    <!-- Row 2: At Risk, Proposed, Transferred: In, Out -->
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="editAtRisk" name="atrisk" onchange="toggleEditStatusFields()">
-                        <label for="editAtRisk">At Risk</label>
-                        
-                        <input type="checkbox" id="editProposed" name="proposed" onchange="toggleEditStatusFields()">
-                        <label for="editProposed">Proposed</label>
-                        
-                        <label style="margin-left: 8px; margin-right: 2px;">Transferred:</label>
-                        <input type="checkbox" id="editTransferredIn" name="transferredin" onchange="toggleEditStatusFields()">
-                        <label for="editTransferredIn" style="margin-right: 5px;">In</label>
-                        
-                        <input type="checkbox" id="editTransferredOut" name="transferredout" onchange="toggleEditStatusFields()">
-                        <label for="editTransferredOut">Out</label>
-                    </div>
-                    
-                    <div id="editStatusFields" style="margin-top: 10px;">
-                        <div id="editDoneFields" class="border-card" style="display: none;">
-                            <h5>Story Complete</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editDoneDate">Done Date:</label>
-                                    <input type="text" id="editDoneDate" placeholder="15/3/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editDoneNotes">Done Notes:</label>
-                                    <input type="text" id="editDoneNotes">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div id="editCancelFields" class="border-card" style="display: none;">
-                            <h5>Story Cancellation</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editCancelDate">Cancel Date:</label>
-                                    <input type="text" id="editCancelDate" placeholder="15/3/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editCancelNotes">Cancel Notes:</label>
-                                    <input type="text" id="editCancelNotes">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div id="editAtRiskFields" class="border-card" style="display: none;">
-                            <h5>Story At Risk</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editAtRiskDate">Risk Date:</label>
-                                    <input type="text" id="editAtRiskDate" placeholder="15/3/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editAtRiskNotes">Risk Notes:</label>
-                                    <input type="text" id="editAtRiskNotes">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div id="editNewStoryFields" class="border-card" style="display: none;">
-                            <h5>New Story</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editNewStoryDate">New Date:</label>
-                                    <input type="text" id="editNewStoryDate" placeholder="15/3/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editNewStoryNotes">New Notes:</label>
-                                    <input type="text" id="editNewStoryNotes">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div id="editInfoFields" class="border-card" style="display: none; margin-bottom: 5px;">
-                            <h5 style="margin-top: 0; margin-bottom: 10px;">Story Information</h5>
-                            <div id="editInfoEntries">
-                                <!-- Info entries will be added here -->
-                                </div>
-                            <button id="add-edit-info-btn" onclick="addEditInfoEntry()" class="secondary" style="margin-top: 10px;">+ Add Info Entry</button>
-                        </div>
-
-                                                <div id="editTransferredInFields" class="border-card" style="display: none;">
-                            <h5>Story Transferred In Details</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editTransferredInDate">Transfer In Date:</label>
-                                    <input type="text" id="editTransferredInDate" placeholder="15/01/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editTransferredInNotes">Transfer In Notes:</label>
-                                    <input type="text" id="editTransferredInNotes">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="editTransferredOutFields" class="border-card" style="display: none;">
-                            <h5>Story Transferred Out Details</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editTransferredOutDate">Transfer Out Date:</label>
-                                    <input type="text" id="editTransferredOutDate" placeholder="15/12/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editTransferredOutNotes">Transfer Out Notes:</label>
-                                    <input type="text" id="editTransferredOutNotes">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="editProposedFields" class="border-card" style="display: none;">
-                            <h5>Proposed Story</h5>
-                            <div class="inline-group">
-                                <div class="form-group">
-                                    <label for="editProposedDate">Proposed Date:</label>
-                                    <input type="text" id="editProposedDate" placeholder="15/01/25">
-                                </div>
-                                <div class="form-group">
-                                    <label for="editProposedNotes">Proposed Notes:</label>
-                                    <input type="text" id="editProposedNotes">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Story Timeline Section -->
-                    <div id="editTimelineChangesSection" class="border-section" style="display: none; margin-top: 0px;">
-                        <h4 style="margin-top: 0; margin-bottom: 10px;">Story Timeline</h4>
-                        <div id="editChangesContainer">
-                            <!-- Story timeline entries will be added here -->
-                        </div>
-                        <button type="button" id="add-edit-change-btn" class="secondary" onclick="addEditChange()" style="margin-top: 10px;">+ Add Timeline Entry</button>
-                    </div>
-                    </div><!-- End Story Status Box -->
-                </form>
-            </div>
-            <div class="modal-footer">
-                <div class="flex-form">
-                    <button type="button" class="btn-modal" style="background: #28a745; color: white; border: none; padding: 6px 8px; font-size: 14px; margin-right: 2px; cursor: pointer;" onclick="moveCurrentStoryUp()" title="Move story up" tabindex="-1">▲</button>
-                    <button type="button" class="btn-modal" style="background: #28a745; color: white; border: none; padding: 6px 8px; font-size: 14px; margin-right: 2px; cursor: pointer;" onclick="moveCurrentStoryDown()" title="Move story down" tabindex="-1">▼</button>
-                    <button type="button" class="btn-modal danger" style="padding: 6px 8px; font-size: 14px; cursor: pointer;" onclick="deleteCurrentStory()" title="Delete story" tabindex="-1">🗑️</button>
-                </div>
-                <div class="flex-modal-footer">
-                    <button type="button" class="primary" onclick="saveStoryChanges()" tabindex="-1">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- New Roadmap Modal -->
-    <div id="newRoadmapModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>New Roadmap</h2>
-                <button class="close" onclick="closeNewRoadmapModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p style="margin-bottom: 20px;">Select the year for your new roadmap. All current data will be cleared.</p>
-                <div class="form-group">
-                    <label for="newRoadmapYear">Roadmap Year:</label>
-                    <input type="number" id="newRoadmapYear" value="2025" min="2020" max="2030" style="width: 100px;" onkeydown="if(event.key === 'Enter') confirmNewRoadmap();">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <div class="flex-modal-footer">
-                    <button type="button" onclick="closeNewRoadmapModal()" class="secondary">Cancel</button>
-                    <button type="button" onclick="confirmNewRoadmap()" class="btn-modal">Create New Roadmap</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Monthly KTLO Edit Modal -->
-    <div id="editMonthlyKTLOModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="editMonthlyKTLOTitle">Edit Monthly KTLO</h2>
-                <button class="close" onclick="closeEditMonthlyKTLOModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="editMonthlyKTLOForm">
-                    <div class="form-group">
-                        <label for="editMonthlyKTLOMonth">Month:</label>
-                        <select id="editMonthlyKTLOMonth" disabled style="width: 120px;">
-                            <option value="jan">January</option>
-                            <option value="feb">February</option>
-                            <option value="mar">March</option>
-                            <option value="apr">April</option>
-                            <option value="may">May</option>
-                            <option value="jun">June</option>
-                            <option value="jul">July</option>
-                            <option value="aug">August</option>
-                            <option value="sep">September</option>
-                            <option value="oct">October</option>
-                            <option value="nov">November</option>
-                            <option value="dec">December</option>
-                        </select>
-                    </div>
-                    
-                    <div class="inline-group">
-                        <div class="form-group">
-                            <label for="editMonthlyKTLONumber">Team Size:</label>
-                            <input type="number" id="editMonthlyKTLONumber" min="0" placeholder="5" style="width: 200px;">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="editMonthlyKTLOPercentage">KTLO %:</label>
-                            <input type="number" id="editMonthlyKTLOPercentage" min="0" max="100" step="5" placeholder="15" style="width: 200px;">
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editMonthlyKTLODescription">Description:</label>
-                        <textarea id="editMonthlyKTLODescription" rows="2" style="resize: vertical;" placeholder="Line 1: Main activity&#10;Line 2: Additional details"></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <div></div>
-                <div class="flex-modal-footer">
-                    <button type="button" class="primary" onclick="saveMonthlyKTLOChanges()">Save Changes</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="roadmap-generator.js"></script>
-    <!-- Native date picker - no external JS needed -->
-    <script>
-        // Check for RoadmapGenerator availability
-        if (typeof RoadmapGenerator === 'undefined') {
-            // Try to reload the script if it failed to load
-            document.addEventListener('DOMContentLoaded', function() {
-                setTimeout(() => {
-                    if (typeof RoadmapGenerator === 'undefined') {
-                        const script = document.createElement('script');
-                        script.src = 'roadmap-generator.js';
-                        document.head.appendChild(script);
-                    }
-                }, 100);
-            });
-        }
-    </script>
-    <script>
         let epicCounter = 0;
         let storyCounters = {};
-        let changeCounter = 0;
+        // changeCounter moved into ./timeline-changes.js (resetTimelineChangeCounter resets it).
         let isGeneratingPreview = false; // Flag to prevent duplicate preview generation
         
         // Hexadecimal counter-based unique identifier generation
@@ -1508,104 +495,12 @@
             }
         }
         
-        function initializeDatePickersForEpic(epicId) {
-            // Find all date fields within this specific EPIC
-            const epicElement = document.getElementById(`epic-${epicId}`);
-            if (!epicElement) {
-                return;
-            }
-            
-            // Story start/end date fields (allow month names)
-            const storyDateFields = epicElement.querySelectorAll('input[id*="-start-"], input[id*="-end-"]');
-            storyDateFields.forEach(field => {
-                if (!field.dataset.datePickerInitialized) {
-                    initializeDatePicker(field, true);
-                }
-            });
-            
-            // Status date fields (specific dates only)
-            const statusDateFields = epicElement.querySelectorAll('input[id*="-date-"]');
-            statusDateFields.forEach(field => {
-                if (!field.dataset.datePickerInitialized) {
-                    initializeDatePicker(field, false);
-                }
-            });
-            
-            // Timeline change date fields (specific dates only)
-            const timelineFields = epicElement.querySelectorAll('input[id*="-prev-"], input[id*="-new-"]');
-            timelineFields.forEach(field => {
-                if (!field.dataset.datePickerInitialized) {
-                    initializeDatePicker(field, false);
-                }
-            });
-        }
         
-        function initializeDatePickersForSection(sectionType) {
-            let sectionElement;
-            if (sectionType === 'ktlo') {
-                sectionElement = document.getElementById('ktlo-content');
-            } else if (sectionType === 'btl') {
-                sectionElement = document.getElementById('btl-content');
-            }
-            
-            if (!sectionElement) {
-                return;
-            }
-            
-            // BTL start/end date fields (allow month names)
-            if (sectionType === 'btl') {
-                const btlDateFields = sectionElement.querySelectorAll('input[id*="-start-"], input[id*="-end-"]');
-                btlDateFields.forEach(field => {
-                    if (!field.dataset.datePickerInitialized) {
-                        initializeDatePicker(field, true);
-                    }
-                });
-            }
-        }
         
-        function toggleKTLOCollapse() {
-            const contentDiv = document.getElementById('ktlo-content');
-            const collapseBtn = document.getElementById('ktlo-collapse-btn');
-            
-            if (contentDiv.style.display === 'none') {
-                // Expand
-                contentDiv.style.display = 'block';
-                collapseBtn.textContent = '▼';
-                collapseBtn.title = 'Collapse KTLO';
-                collapseBtn.classList.remove('collapse-btn-collapsed');
-                
-                // Initialize date pickers for KTLO section after expansion
-                setTimeout(() => {
-                    initializeDatePickersForSection('ktlo');
-                }, 50);
-            } else {
-                // Collapse
-                contentDiv.style.display = 'none';
-                collapseBtn.textContent = '▶';
-                collapseBtn.title = 'Expand KTLO';
-                collapseBtn.classList.add('collapse-btn-collapsed');
-            }
-        }
+        // (moved to ./ktlo-sections.js)
         
         // Generic collapse toggle function
-        function toggleCollapse(contentId, buttonId, sectionName) {
-            const contentDiv = document.getElementById(contentId);
-            const collapseBtn = document.getElementById(buttonId);
-            
-            if (contentDiv.style.display === 'none') {
-                // Expand
-                contentDiv.style.display = 'block';
-                collapseBtn.textContent = '▼';
-                collapseBtn.title = `Collapse ${sectionName}`;
-                collapseBtn.classList.remove('collapse-btn-collapsed');
-            } else {
-                // Collapse
-                contentDiv.style.display = 'none';
-                collapseBtn.textContent = '▶';
-                collapseBtn.title = `Expand ${sectionName}`;
-                collapseBtn.classList.add('collapse-btn-collapsed');
-            }
-        }
+        // toggleCollapse (generic helper) moved to ./collapse.js.
         
         function toggleBTLCollapse() {
             const contentDiv = document.getElementById('btl-content');
@@ -1701,173 +596,147 @@
             }
         }
         
-        // Drag and drop handlers for story reordering
-        let draggedStoryElement = null;
+        // Slices that depend on hoisted function declarations from this body
+        // are wired here. Their handlers go on window so inline on*= attributes
+        // in the markup resolve.
+        Object.assign(window, createStoryDragHandlers({ updateStoryNumbers, generatePreview }));
+        Object.assign(window, createCountryFlagHandlers({ onStoryChange: () => debouncedGeneratePreview() }));
+        // Story moves: moveStoryUpByEpic/moveStoryDownByEpic are also called
+        // directly from body code (moveCurrentStoryUp/Down) so we destructure
+        // them as locals.
+        const __storyMoves = createStoryMoves({ updateStoryNumbers, generatePreview });
+        const { moveStoryUpByEpic, moveStoryDownByEpic } = __storyMoves;
+        Object.assign(window, __storyMoves);
+        // Focus trap is also called directly from body code (not just inline
+        // attributes), so we destructure the names into init() scope. Strict
+        // mode in ES modules means bare references don't fall through to
+        // window, unlike legacy non-module sloppy mode.
+        const { setupModalFocusTrap, removeModalFocusTrap } = createModalFocusTrap({
+            closeFns: { editStoryModal: closeEditModal, editMonthlyKTLOModal: closeEditMonthlyKTLOModal },
+        });
+        window.setupModalFocusTrap = setupModalFocusTrap;
+        window.removeModalFocusTrap = removeModalFocusTrap;
+
+        // Story-form info entry helpers. addInfoEntry/removeInfoEntry are
+        // referenced from inline onclick attributes in the rendered entry
+        // markup, and addInfoEntry/convertSingleInfoToMultiple are deps of
+        // the status module below.
+        const __infoEntries = createInfoEntryHandlers({
+            getToday: () => window.DateUtility.getTodaysDateEuropean(),
+            onChange: () => generatePreview(),
+        });
+        const { addInfoEntry, removeInfoEntry, convertSingleInfoToMultiple } = __infoEntries;
+        Object.assign(window, __infoEntries);
+
+        // Sorting handlers. storeOriginalStoryOrder is called from loadTeamData
+        // to snapshot a freshly-loaded order, so we hoist it as a local. The
+        // others are exposed on window for inline onchange="..." attribute
+        // resolution on the sorting checkboxes in the form.
+        const __sorting = createSortingHandlers({ collectStoryData, generatePreview });
+        const { storeOriginalStoryOrder } = __sorting;
+        Object.assign(window, __sorting);
+
+        // Story-form timeline change handlers. toggleChanges/addChange/
+        // updateChangeButton are called directly from body code (loadStoryData
+        // and the loaded-roadmap pipeline), so we hoist all three as locals.
+        // resetTimelineChangeCounter is invoked by newRoadmap to mirror the
+        // legacy behavior of clearing the counter on a fresh roadmap.
+        const __timeline = createTimelineChangeHandlers({
+            addListenersToElement,
+            initializeDatePicker,
+            getToday: () => window.DateUtility.getTodaysDateEuropean(),
+        });
+        const {
+            toggleChanges, addChange, updateChangeButton,
+            applyPendingTimelineChanges,
+            resetCounter: resetTimelineChangeCounter,
+        } = __timeline;
+        Object.assign(window, __timeline);
+
+        // Edit Story modal timeline change handlers. The Edit modal stays
+        // mounted across story openings, so date-picker tracking can go stale;
+        // reinitializeDatePicker (from ./date-pickers.js) clears the dataset
+        // flag and the Set entry before re-installing.
+        const __editTimeline = createEditTimelineChangeHandlers({
+            reinitializeDatePicker,
+            getToday: () => window.DateUtility.getTodaysDateEuropean(),
+        });
+        const {
+            toggleEditTimelineChanges, addEditChange, updateEditChangeButton,
+            resetCounter: resetEditChangeCounter,
+        } = __editTimeline;
+        Object.assign(window, __editTimeline, { sortTimelineChangesByDate });
+
+        // Stats modal. openStatsModal is called from the "Stats" button click
+        // and closeStatsModal from the Escape keydown handler, so we hoist
+        // both as locals.
+        const __stats = createStatsHandlers({ collectFormData });
+        const { openStatsModal, closeStatsModal } = __stats;
+        Object.assign(window, __stats);
+
+        // HTML export. Needs the live form data so it's factoried here, where
+        // collectFormData is hoisted into scope. Exposed on window for the
+        // inline onclick="exportHTML()" in the share dropdown.
+        window.exportHTML = createExportHTML({ collectFormData });
+
+        // KTLO section handlers. toggleKTLOCollapse needs initializeDatePickersForSection
+        // (still in builder.js); toggleKTLOPosition needs generatePreview. Both
+        // are body function declarations so they're hoisted at this point.
+        // Plain hide/show/reposition exports come straight from the module.
+        const __ktloSections = createKTLOSectionHandlers({
+            initializeDatePickersForSection,
+            generatePreview,
+        });
+        const { toggleKTLOPosition, handleKTLOToggleShortcut } = __ktloSections;
+        Object.assign(window, __ktloSections, {
+            hideKTLOSection, showKTLOSection, repositionKTLOSection,
+        });
+
+        // File browser: side panel listing of .json roadmaps + drag-drop
+        // file load. Subscribes to AppDir for the selected folder; bails
+        // when builder isn't mounted (router-level cleanup is a future task).
+        // toggleFileBrowser/loadDirectoryFiles/openRoadmapFile are
+        // referenced from inline onclick attributes and from body code.
+        const __fileBrowser = createFileBrowser({
+            loadTeamData, updateFilenameDisplay,
+            refreshAllDatePickers, generatePreview, handleFileLoad,
+        });
+        const {
+            toggleFileBrowser, loadDirectoryFiles, openRoadmapFile,
+            initializeDragAndDrop,
+        } = __fileBrowser;
+        Object.assign(window, __fileBrowser);
+        // Mirror the legacy boot pattern: wire drag-drop on DOMContentLoaded
+        // and subscribe to AppDir now (subscribe immediately fires once with
+        // current state, so the file list paints if a folder is already set).
+        document.addEventListener('DOMContentLoaded', initializeDragAndDrop);
+        __fileBrowser.subscribeToAppDir();
+
+        // KTLO percentage validation. The legacy body bound this on
+        // DOMContentLoaded; we shimmed addEventListener to capture that
+        // listener, so adding it here gets the same lifecycle.
+        document.addEventListener('DOMContentLoaded', initializeKTLOValidation);
+
+        // Status checkbox handlers. The body calls handleDoneChange and the
+        // others directly during form load (loadStoryData re-fires each handler
+        // to show/hide its section), so we destructure every handler name into
+        // init() scope. Object.assign also exposes them on window for inline
+        // onchange="handle*Change('${storyId}')" attribute resolution.
+        const __statusBundle = createStatusHandlers({ addInfoEntry, convertSingleInfoToMultiple });
+        const {
+            STATUS_CONFIG, StatusUtils, handleStatusChange,
+            handleDoneChange, handleCancelledChange, handleAtRiskChange,
+            handleNewStoryChange, handleInfoChange,
+            handleTransferredInChange, handleTransferredOutChange, handleProposedChange,
+        } = __statusBundle;
+        Object.assign(window, __statusBundle);
+
+        // (moved to ./ktlo-sections.js)
         
-        function handleStoryDragStart(event, storyId) {
-            // Only allow dragging if story is collapsed
-            const contentDiv = document.getElementById(`story-content-${storyId}`);
-            const isCollapsed = contentDiv && contentDiv.style.display === 'none';
-            
-            if (!isCollapsed) {
-                // Story is expanded, don't allow dragging
-                event.preventDefault();
-                return false;
-            }
-            
-            draggedStoryElement = document.getElementById(`story-${storyId}`);
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/html', draggedStoryElement.innerHTML);
-            
-            // Add visual feedback
-            setTimeout(() => {
-                if (draggedStoryElement) {
-                    draggedStoryElement.style.opacity = '0.4';
-                }
-            }, 0);
-        }
-        
-        function handleStoryDragOver(event) {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = 'move';
-            
-            const targetStory = event.currentTarget;
-            if (targetStory && targetStory.classList.contains('story-section') && targetStory !== draggedStoryElement) {
-                // Check if both stories are in the same epic
-                const draggedEpic = draggedStoryElement.closest('.epic-section');
-                const targetEpic = targetStory.closest('.epic-section');
-                
-                if (draggedEpic !== targetEpic) {
-                    return false; // Can't drag between epics
-                }
-                
-                const container = targetStory.parentNode;
-                const allStories = Array.from(container.querySelectorAll('.story-section'));
-                const draggedIndex = allStories.indexOf(draggedStoryElement);
-                const targetIndex = allStories.indexOf(targetStory);
-                
-                if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) {
-                    return false;
-                }
-                
-                // Determine if we should insert before or after based on mouse position
-                const rect = targetStory.getBoundingClientRect();
-                const midpoint = rect.top + rect.height / 2;
-                const insertBefore = event.clientY < midpoint;
-                
-                // Perform live reordering
-                if (insertBefore) {
-                    if (draggedIndex < targetIndex) {
-                        // Moving down, insert before target
-                        container.insertBefore(draggedStoryElement, targetStory);
-                    } else if (draggedIndex > targetIndex) {
-                        // Moving up, insert before target
-                        container.insertBefore(draggedStoryElement, targetStory);
-                    }
-                } else {
-                    if (draggedIndex < targetIndex) {
-                        // Moving down, insert after target
-                        container.insertBefore(draggedStoryElement, targetStory.nextSibling);
-                    } else if (draggedIndex > targetIndex) {
-                        // Moving up, insert after target
-                        container.insertBefore(draggedStoryElement, targetStory.nextSibling);
-                    }
-                }
-            }
-            
-            return false;
-        }
-        
-        function handleStoryDrop(event, targetStoryId) {
-            event.stopPropagation();
-            event.preventDefault();
-            
-            // Reordering already happened during dragover
-            // Just update the story numbers and refresh preview
-            if (draggedStoryElement) {
-                const draggedEpic = draggedStoryElement.closest('.epic-section');
-                if (draggedEpic) {
-                    updateStoryNumbers(draggedEpic);
-                    setTimeout(generatePreview, 100);
-                }
-            }
-            
-            return false;
-        }
-        
-        function handleStoryDragEnd(event) {
-            // Reset opacity
-            if (draggedStoryElement) {
-                draggedStoryElement.style.opacity = '1';
-            }
-            
-            // Clear all drop zone indicators
-            const allStories = document.querySelectorAll('.story-section');
-            allStories.forEach(story => {
-                story.style.borderTop = '';
-                story.style.borderBottom = '';
-                story.style.marginTop = '';
-                story.style.marginBottom = '';
-            });
-            
-            draggedStoryElement = null;
-        }
-        
-        function hideKTLOSection() {
-            // Find the KTLO section header and content
-            const ktloHeader = [...document.querySelectorAll('h2')].find(h2 => h2.textContent.includes('KTLO (Keep The Lights On)'));
-            const ktloDiv = ktloHeader ? ktloHeader.nextElementSibling : null;
-            
-            if (ktloHeader) ktloHeader.style.display = 'none';
-            if (ktloDiv) ktloDiv.style.display = 'none';
-        }
-        
-        function showKTLOSection() {
-            // Find the KTLO section header and content
-            const ktloHeader = [...document.querySelectorAll('h2')].find(h2 => h2.textContent.includes('KTLO (Keep The Lights On)'));
-            const ktloDiv = ktloHeader ? ktloHeader.nextElementSibling : null;
-            
-            if (ktloHeader) ktloHeader.style.display = '';
-            if (ktloDiv) ktloDiv.style.display = '';
-        }
+        // (moved to ./ktlo-sections.js)
 
         
-        function repositionKTLOSection() {
-            const ktloToggle = document.getElementById('ktlo-position-toggle');
-            if (!ktloToggle) return;
-            
-            // Find the complete KTLO section (h2 + div)
-            const ktloHeader = [...document.querySelectorAll('h2')].find(h2 => h2.textContent.includes('KTLO (Keep The Lights On)'));
-            const ktloDiv = ktloHeader ? ktloHeader.nextElementSibling : null;
-            
-            // Find the complete EPICs section (h2 + div + button)
-            const epicsHeader = [...document.querySelectorAll('h2')].find(h2 => h2.textContent.trim() === 'EPICs');
-            const epicsContainer = epicsHeader ? epicsHeader.nextElementSibling : null;
-            const epicsButton = epicsContainer ? epicsContainer.nextElementSibling : null;
-            
-            // Find BTL section for reference when positioning at bottom
-            const btlHeader = [...document.querySelectorAll('h2')].find(h2 => h2.textContent.includes('Below The Line'));
-            
-            if (!ktloHeader || !ktloDiv || !epicsHeader || !epicsContainer || !epicsButton) {
-                return;
-            }
-            
-            if (ktloToggle.checked) {
-                // Move KTLO before EPICs (top position)
-                epicsHeader.parentNode.insertBefore(ktloHeader, epicsHeader);
-                epicsHeader.parentNode.insertBefore(ktloDiv, epicsHeader);
-            } else {
-                // Move KTLO after EPICs, before BTL (bottom position)
-                if (btlHeader) {
-                    btlHeader.parentNode.insertBefore(ktloHeader, btlHeader);
-                    btlHeader.parentNode.insertBefore(ktloDiv, btlHeader);
-                } else {
-                    // If no BTL section, insert after EPICs button
-                    epicsButton.parentNode.insertBefore(ktloHeader, epicsButton.nextSibling);
-                    epicsButton.parentNode.insertBefore(ktloDiv, epicsButton.nextSibling);
-                }
-            }
-        }
+        // (moved to ./ktlo-sections.js)
         
         // Debounced generatePreview to avoid too many rapid updates
         let previewTimeout;
@@ -1877,117 +746,13 @@
         }
 
         // Keyboard shortcut for toggling KTLO position
-        function handleKTLOToggleShortcut(event) {
-            // Check if user is currently typing in an editable element
-            const activeElement = document.activeElement;
-            const isEditable = activeElement && (
-                activeElement.tagName === 'INPUT' ||
-                activeElement.tagName === 'TEXTAREA' ||
-                activeElement.contentEditable === 'true'
-            );
-            
-            // Don't handle shortcuts when user is typing in an editable field
-            if (isEditable) {
-                return;
-            }
-            
-            // Check for Shift+K
-            if (event.shiftKey && event.key === 'K') {
-                // Check if KTLO is hidden (can only happen by editing JSON directly)
-                const ktloToggle = document.getElementById('ktlo-position-toggle');
-                if (ktloToggle && ktloToggle.dataset.originalPosition === 'hidden') {
-                    // KTLO is hidden, do nothing
-                    return;
-                }
-                
-                event.preventDefault();
-                toggleKTLOPosition();
-            }
-        }
+        // (moved to ./ktlo-sections.js)
 
-        function toggleKTLOPosition() {
-            const ktloToggle = document.getElementById('ktlo-position-toggle');
-            if (ktloToggle) {
-                // If currently hidden, clear the hidden state and set to top
-                if (ktloToggle.dataset.originalPosition === 'hidden') {
-                    delete ktloToggle.dataset.originalPosition;
-                    ktloToggle.checked = true; // Set to top
-                    showKTLOSection(); // Make KTLO visible in builder
-                } else {
-                    // Normal toggle between top and bottom
-                    ktloToggle.checked = !ktloToggle.checked;
-                }
-                
-                // Reposition the KTLO section in the builder form
-                repositionKTLOSection();
-                
-                // Regenerate the preview to show the change
-                generatePreview();
-                
-                // Show a brief notification
-                showKTLOPositionNotification(ktloToggle.checked);
-            }
-        }
+        // (moved to ./ktlo-sections.js)
 
-        function handleSortingToggle() {
-            const sortingToggle = document.getElementById('story-sorting-toggle');
-            if (sortingToggle) {
-                // Save the preference
-                getConfigUtility().setSortStories(sortingToggle.checked);
-                // Ensure mutual exclusivity
-                if (sortingToggle.checked) {
-                    const endToggle = document.getElementById('story-sorting-end-toggle');
-                    if (endToggle) {
-                        endToggle.checked = false;
-                        getConfigUtility().setSortByEnd(false);
-                    }
-                    getConfigUtility().setSortByStart(true);
-                } else {
-                    getConfigUtility().setSortByStart(false);
-                }
-                
-                // Reorder stories in the UI based on sorting preference
-                if (sortingToggle.checked) {
-                    reorderStoriesInUI();
-                } else {
-                    // Restore original order when sorting is disabled
-                    restoreOriginalStoryOrder();
-                }
-                
-                // Regenerate the preview to show the change
-                generatePreview();
-                
-                // Show a brief notification
-                showSortingNotification(sortingToggle.checked);
-            }
-        }
-
-        function handleEndSortingToggle() {
-            const endToggle = document.getElementById('story-sorting-end-toggle');
-            if (endToggle) {
-                // Persist preference and enforce mutual exclusivity
-                getConfigUtility().setSortByEnd(endToggle.checked);
-                if (endToggle.checked) {
-                    const startToggle = document.getElementById('story-sorting-toggle');
-                    if (startToggle) {
-                        startToggle.checked = false;
-                        getConfigUtility().setSortStories(false);
-                        getConfigUtility().setSortByStart(false);
-                    }
-                }
-                
-                // Apply or restore ordering
-                if (endToggle.checked) {
-                    reorderStoriesInUI(true);
-                } else {
-                    restoreOriginalStoryOrder();
-                }
-                
-                // Update preview
-                generatePreview();
-                showSortingNotification(endToggle.checked);
-            }
-        }
+        // Story sorting toggles (start/end) are now in ./sorting.js. The
+        // factory is wired at the top of init() and exposes the handlers
+        // on window for inline onchange attrs.
 
         // Temporary variable for force text below (one-time action)
         let tempForceTextBelow = false;
@@ -2002,163 +767,9 @@
             }
         }
 
-        // Store original story order for each epic
-        const originalStoryOrders = new Map();
-        
-        function storeOriginalStoryOrder(epicId) {
-            const epicEl = document.getElementById(`epic-${epicId}`);
-            if (!epicEl) return;
-            
-            const storyElements = epicEl.querySelectorAll('.story-section');
-            const originalOrder = Array.from(storyElements).map(el => el.id);
-            originalStoryOrders.set(epicId, originalOrder);
-        }
-        
-        function reorderStoriesInUI(sortByEnd = false) {
-            // Get all epic sections
-            const epicElements = document.querySelectorAll('.epic-section');
-            epicElements.forEach(epicEl => {
-                const epicId = epicEl.id.split('-')[1];
-                const storyElements = epicEl.querySelectorAll('.story-section');
-                
-                if (storyElements.length <= 1) return; // No need to sort single stories
-                
-                // Store original order if not already stored
-                if (!originalStoryOrders.has(epicId)) {
-                    storeOriginalStoryOrder(epicId);
-                }
-                
-                // Collect story data and sort it
-                const stories = [];
-                storyElements.forEach(storyEl => {
-                    const storyId = storyEl.id.replace('story-', '');
-                    try {
-                        const story = collectStoryData(storyId);
-                        story._element = storyEl; // Keep reference to DOM element
-                        stories.push(story);
-                    } catch (error) {
-                        // Skip invalid stories
-                    }
-                });
-                
-                // Sort stories (start-first or end-first based on flag)
-                stories.sort((a, b) => {
-                    const aStart = a.startDate || a.startMonth || 'JAN';
-                    const bStart = b.startDate || b.startMonth || 'JAN';
-                    const aEnd = a.endDate || a.endMonth || 'MAR';
-                    const bEnd = b.endDate || b.endMonth || 'MAR';
-
-                    const year = parseInt(document.getElementById('roadmapYear').value) || 2025;
-                    if (sortByEnd) {
-                        const endComparison = getDateUtility().compareDateOrMonth(aEnd, bEnd, year);
-                        if (endComparison !== 0) return endComparison;
-                        return getDateUtility().compareDateOrMonth(aStart, bStart, year);
-                    } else {
-                        const startComparison = getDateUtility().compareDateOrMonth(aStart, bStart, year);
-                        if (startComparison !== 0) return startComparison;
-                        return getDateUtility().compareDateOrMonth(aEnd, bEnd, year);
-                    }
-                });
-                
-                // Reorder DOM elements - find the correct container
-                const storiesContainer = document.getElementById(`stories-container-${epicId}`);
-                if (storiesContainer) {
-                    stories.forEach(story => {
-                        if (story._element) {
-                            storiesContainer.appendChild(story._element);
-                        }
-                    });
-                }
-            });
-        }
-        
-        function restoreOriginalStoryOrder() {
-            // Get all epic sections
-            const epicElements = document.querySelectorAll('.epic-section');
-            epicElements.forEach(epicEl => {
-                const epicId = epicEl.id.split('-')[1];
-                const originalOrder = originalStoryOrders.get(epicId);
-                
-                if (!originalOrder) return; // No original order stored
-                
-                const storiesContainer = document.getElementById(`stories-container-${epicId}`);
-                if (storiesContainer) {
-                    // Restore original order
-                    originalOrder.forEach(storyId => {
-                        const storyElement = document.getElementById(storyId);
-                        if (storyElement) {
-                            storiesContainer.appendChild(storyElement);
-                        }
-                    });
-                }
-            });
-        }
-
-        function showSortingNotification(isEnabled) {
-            const notification = document.createElement('div');
-            notification.innerHTML = `Story sorting ${isEnabled ? 'ENABLED' : 'DISABLED'}`;
-            notification.style.cssText = `
-                position: fixed;
-                top: 60px;
-                right: 20px;
-                background: ${isEnabled ? '#28a745' : '#6c757d'};
-                color: white;
-                padding: 10px 15px;
-                border-radius: 5px;
-                font-weight: bold;
-                z-index: 10000;
-                animation: fadeInOut 2s ease-in-out;
-            `;
-            
-            document.body.appendChild(notification);
-            
-            // Remove notification after animation
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 2000);
-        }
-        function showKTLOPositionNotification(isTop) {
-            const notification = document.createElement('div');
-            notification.innerHTML = `KTLO moved to ${isTop ? 'TOP' : 'BOTTOM'} (Shift+K to toggle)`;
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: #28a745;
-                color: white;
-                padding: 10px 15px;
-                border-radius: 5px;
-                font-weight: bold;
-                z-index: 10000;
-                animation: fadeInOut 2s ease-in-out;
-            `;
-            
-            // Add animation CSS if it doesn't exist
-            if (!document.getElementById('ktlo-notification-style')) {
-                const style = document.createElement('style');
-                style.id = 'ktlo-notification-style';
-                style.textContent = `
-                    @keyframes fadeInOut {
-                        0% { opacity: 0; transform: translateY(-10px); }
-                        20% { opacity: 1; transform: translateY(0); }
-                        80% { opacity: 1; transform: translateY(0); }
-                        100% { opacity: 0; transform: translateY(-10px); }
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-            
-            document.body.appendChild(notification);
-            
-            // Remove notification after animation
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 2000);
-        }
+        // (originalStoryOrders, storeOriginalStoryOrder, reorderStoriesInUI,
+        // restoreOriginalStoryOrder, showSortingNotification moved to ./sorting.js)
+        // (moved to ./ktlo-sections.js)
         
         function addAutoUpdateListeners() {
             // Team information fields
@@ -2237,65 +848,6 @@
         /**
          * Validate that end date is not before start date
          */
-        function validateEndDate(event) {
-            const endField = event.target;
-            const endValue = endField.value.trim();
-            
-            if (!endValue) {
-                // Empty is okay - clear any error styling
-                endField.style.borderColor = '';
-                endField.style.backgroundColor = '';
-                return;
-            }
-            
-            // Find corresponding start date field
-            const endFieldId = endField.id;
-            let startFieldId = '';
-            
-            if (endFieldId.includes('story-end-')) {
-                startFieldId = endFieldId.replace('story-end-', 'story-start-');
-            } else if (endFieldId.includes('btl-end-')) {
-                startFieldId = endFieldId.replace('btl-end-', 'btl-start-');
-            } else if (endFieldId.includes('End')) {
-                startFieldId = endFieldId.replace('End', 'Start');
-            }
-            
-            if (!startFieldId) return;
-            
-            const startField = document.getElementById(startFieldId);
-            if (!startField) return;
-            
-            const startValue = startField.value.trim();
-            if (!startValue) {
-                // No start date to compare - clear any error styling
-                endField.style.borderColor = '';
-                endField.style.backgroundColor = '';
-                return;
-            }
-            
-            try {
-                const roadmapYear = parseInt(document.getElementById('roadmapYear').value) || new Date().getFullYear();
-                
-                // Parse both dates to ISO format for comparison
-                const startISO = DateUtility.parseTextValue(startValue, false, roadmapYear);
-                const endISO = DateUtility.parseTextValue(endValue, true, roadmapYear);
-                
-                if (startISO && endISO && endISO < startISO) {
-                    // End date is before start date - show error styling (stays until user fixes it)
-                    endField.style.borderColor = '#dc3545';
-                    endField.style.backgroundColor = '#ffe6e6';
-                    alert(`Warning: End date (${endValue}) is before start date (${startValue}).`);
-                } else {
-                    // Valid - clear any error styling
-                    endField.style.borderColor = '';
-                    endField.style.backgroundColor = '';
-                }
-            } catch (error) {
-                // If parsing fails, don't validate (might be month name)
-                endField.style.borderColor = '';
-                endField.style.backgroundColor = '';
-            }
-        }
         
         function addListenersToExistingElements() {
             // EPIC name fields
@@ -2384,55 +936,7 @@
             }
         }
         
-        function collapseAllSections() {
-            // Collapse all EPICs
-            const epicElements = document.querySelectorAll('.epic-section');
-            epicElements.forEach(epicEl => {
-                const epicId = epicEl.id.split('-')[1];
-                const contentDiv = document.getElementById(`epic-content-${epicId}`);
-                const collapseBtn = document.getElementById(`collapse-btn-${epicId}`);
-                
-                if (contentDiv && collapseBtn) {
-                    contentDiv.style.display = 'none';
-                    collapseBtn.textContent = '▶';
-                    collapseBtn.title = 'Expand EPIC';
-                    collapseBtn.classList.add('collapse-btn-collapsed');
-                }
-            });
-            
-            // Collapse KTLO
-            const ktloContentDiv = document.getElementById('ktlo-content');
-            const ktloCollapseBtn = document.getElementById('ktlo-collapse-btn');
-            
-            if (ktloContentDiv && ktloCollapseBtn) {
-                ktloContentDiv.style.display = 'none';
-                ktloCollapseBtn.textContent = '▶';
-                ktloCollapseBtn.title = 'Expand KTLO';
-                ktloCollapseBtn.classList.add('collapse-btn-collapsed');
-            }
-            
-            // Collapse BTL
-            const btlContentDiv = document.getElementById('btl-content');
-            const btlCollapseBtn = document.getElementById('btl-collapse-btn');
-            
-            if (btlContentDiv && btlCollapseBtn) {
-                btlContentDiv.style.display = 'none';
-                btlCollapseBtn.textContent = '▶';
-                btlCollapseBtn.title = 'Expand BTL';
-                btlCollapseBtn.classList.add('collapse-btn-collapsed');
-            }
-            
-            // Collapse Monthly KTLO
-            const ktloMonthlyContentDiv = document.getElementById('ktlo-monthly-content');
-            const ktloMonthlyCollapseBtn = document.getElementById('ktlo-monthly-collapse-btn');
-            
-            if (ktloMonthlyContentDiv && ktloMonthlyCollapseBtn) {
-                ktloMonthlyContentDiv.style.display = 'none';
-                ktloMonthlyCollapseBtn.textContent = '▶';
-                ktloMonthlyCollapseBtn.title = 'Expand Monthly KTLO';
-                ktloMonthlyCollapseBtn.classList.add('collapse-btn-collapsed');
-            }
-        }
+        // collapseAllSections moved to ./collapse.js.
         
         function addStory(epicId) {
             storyCounters[epicId]++;
@@ -2986,45 +1490,11 @@
             }
         }
         
-        function moveBTLStoryUp(storyId) {
-            const story = document.getElementById(`story-${storyId}`);
-            const prevStory = story.previousElementSibling;
-            if (prevStory && prevStory.classList.contains('story-section')) {
-                story.parentNode.insertBefore(story, prevStory);
-            }
-        }
+        // (moved to ./story-moves.js)
         
-        function moveBTLStoryDown(storyId) {
-            const story = document.getElementById(`story-${storyId}`);
-            const nextStory = story.nextElementSibling;
-            if (nextStory && nextStory.classList.contains('story-section')) {
-                story.parentNode.insertBefore(nextStory, story);
-            }
-        }
-        function toggleChanges(storyId) {
-            const checkbox = document.getElementById(`story-changes-${storyId}`);
-            const section = document.getElementById(`changes-section-${storyId}`);
-            
-            if (checkbox.checked) {
-                section.style.display = 'block';
-                
-                // Automatically add one timeline change if none exist
-                const container = document.getElementById(`changes-container-${storyId}`);
-                const existingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
-                if (existingChanges.length === 0) {
-                    addChange(storyId);
-                }
-            } else {
-                section.style.display = 'none';
-                // Clear existing changes when hiding
-                const container = document.getElementById(`changes-container-${storyId}`);
-                if (container) {
-                    container.innerHTML = '';
-                }
-                // Update button state after clearing changes
-                updateChangeButton(storyId);
-            }
-        }
+        // (moved to ./story-moves.js)
+        // Story-form timeline-change handlers (toggleChanges) are now in
+        // ./timeline-changes.js. The factory is wired at the top of init().
         
         function getTodaysDateEuropean() {
             return DateUtility.getTodaysDateEuropean();
@@ -3035,317 +1505,12 @@
             return parseInt(document.getElementById('roadmapYear').value) || new Date().getFullYear();
         }
 
-        // Global tracking for date picker initialization to prevent duplicates
-        const initializedDatePickers = new Set();
         
         // Simple date picker helper using native HTML5 date input
-        function initializeDatePicker(inputElement, allowMonthOnly = true) {
-            if (!inputElement) {
-                return;
-            }
-            
-            // Use multiple methods to prevent duplicates
-            if (inputElement.dataset.datePickerInitialized === 'true') {
-                return;
-            }
-            
-            if (initializedDatePickers.has(inputElement.id)) {
-                inputElement.dataset.datePickerInitialized = 'true'; // Ensure flag is set
-                return;
-            }
-            
-            // Double-check by looking for existing hidden date input
-            const existingHidden = inputElement.parentNode?.querySelector('input[type="date"]');
-            if (existingHidden) {
-                inputElement.dataset.datePickerInitialized = 'true';
-                initializedDatePickers.add(inputElement.id);
-                return;
-            }
-            
-            // Mark as initialized immediately using both methods
-            inputElement.dataset.datePickerInitialized = 'true';
-            initializedDatePickers.add(inputElement.id);
-            
-            // Determine if this is an end date field (should default to last day of month)
-            const isEndDateField = inputElement.id.includes('-end-') || 
-                                  inputElement.id.includes('End') || 
-                                  inputElement.id.includes('-prev-') ||  // Previous End Date
-                                  inputElement.id.includes('-new-');     // New End Date
-            
-            // Create a simple, hidden native date input as helper
-            const hiddenDateInput = document.createElement('input');
-            hiddenDateInput.type = 'date';
-            hiddenDateInput.tabIndex = -1; // Exclude from tab order
-            
-            // Set date range to allow roadmap year dates
-            const roadmapYear = getCurrentRoadmapYear();
-            hiddenDateInput.min = `${roadmapYear - 1}-01-01`; // Allow previous year
-            hiddenDateInput.max = `${roadmapYear + 1}-12-31`; // Allow next year
-            
-            hiddenDateInput.style.cssText = `
-                position: absolute;
-                opacity: 0;
-                pointer-events: none;
-                width: 1px;
-                height: 1px;
-                z-index: -1;
-            `;
-            
-            // Insert hidden date input after the text input
-            inputElement.parentNode.insertBefore(hiddenDateInput, inputElement.nextSibling);
-            
-                         // Add calendar icon to the text input with hover effect
-             inputElement.style.backgroundImage = 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'16\' height=\'16\' fill=\'%23666\' viewBox=\'0 0 16 16\'%3E%3Cpath d=\'M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5 0zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z\'/%3E%3C/svg%3E")';
-             inputElement.style.backgroundRepeat = 'no-repeat';
-             inputElement.style.backgroundPosition = 'right 8px center';
-             inputElement.style.backgroundSize = '16px 16px';
-             inputElement.style.paddingRight = '30px';
-             inputElement.style.cursor = 'text';
-             inputElement.title = 'Type date/month directly or click calendar icon to open date picker';
-            
-                         // Helper function to convert text input value to date
-             const parseTextValue = (value) => {
-                 // Always get current roadmap year value to handle year changes
-                 const roadmapYear = getCurrentRoadmapYear();
-                 return DateUtility.parseTextValue(value, isEndDateField, roadmapYear);
-             };
-            
-            // Helper function to convert date input value back to text format
-            const formatDateToText = (dateValue) => {
-                return DateUtility.formatDateToText(dateValue);
-            };
-            
-                         // Sync text input value to hidden date input
-             const syncToDateInput = () => {
-                 // Ensure we have a valid input element
-                 if (!inputElement || !inputElement.value) {
-                     return; // Silent return - this is normal during initialization
-                 }
-                 
-                 const textValue = inputElement.value.trim();
-                 
-
-                 
-                 const dateValue = parseTextValue(textValue);
-                 if (hiddenDateInput) {
-                     // Update date range dynamically in case roadmap year changed
-                     const currentRoadmapYear = getCurrentRoadmapYear();
-                     hiddenDateInput.min = `${currentRoadmapYear - 1}-01-01`;
-                     hiddenDateInput.max = `${currentRoadmapYear + 1}-12-31`;
-                     
-                     hiddenDateInput.value = dateValue;
-                 }
-             };
-             
-             // Initialize with existing value if present
-             setTimeout(() => {
-                 syncToDateInput();
-             }, 10);
-             
-             // Open date picker only when clicking on the calendar icon (right side of input)
-             inputElement.addEventListener('click', function(e) {
-                 const inputRect = this.getBoundingClientRect();
-                 const clickX = e.clientX - inputRect.left;
-                 const inputWidth = inputRect.width;
-                 
-                 // Only open date picker if clicked on the right 30px (where the calendar icon is)
-                 if (clickX > inputWidth - 30) {
-                     e.preventDefault();
-                     
-                     // Ensure date range is current before opening picker
-                     const currentRoadmapYear = getCurrentRoadmapYear();
-                     hiddenDateInput.min = `${currentRoadmapYear - 1}-01-01`;
-                     hiddenDateInput.max = `${currentRoadmapYear + 1}-12-31`;
-                     
-                     // Smart default date logic for empty fields
-                     if (!inputElement.value.trim()) {
-                         let defaultDate = null;
-                         
-                         // Priority 1: If this is an end date field, try to default to start date
-                         if (isEndDateField) {
-                             // Extract story ID and find corresponding start date field
-                             const fieldId = inputElement.id;
-                             let startFieldId = '';
-                             
-                             if (fieldId.includes('story-end-')) {
-                                 startFieldId = fieldId.replace('story-end-', 'story-start-');
-                             } else if (fieldId.includes('End')) {
-                                 startFieldId = fieldId.replace('End', 'Start');
-                             }
-                             
-                             if (startFieldId) {
-                                 const startField = document.getElementById(startFieldId);
-                                 if (startField && startField.value.trim()) {
-                                     // Parse the start date and set as default for end date picker
-                                     defaultDate = parseTextValue(startField.value.trim());
-                                 }
-                             }
-                         }
-                         
-                         // Priority 2: If no start date found (or it's a start date field), 
-                         // check if roadmap year is in the future
-                         if (!defaultDate) {
-                             const currentYear = new Date().getFullYear();
-                             if (currentRoadmapYear > currentYear) {
-                                 // Set to January 1st of the roadmap year
-                                 defaultDate = `${currentRoadmapYear}-01-01`;
-                             }
-                         }
-                         
-                         // Apply the default date if we found one
-                         if (defaultDate) {
-                             hiddenDateInput.value = defaultDate;
-                         }
-                     }
-                     
-                     syncToDateInput();
-                     
-                     // Position the hidden input near the calendar icon (right side of the input)
-                     const rect = this.getBoundingClientRect();
-                     let scrollLeft = 0;
-                     let scrollTop = 0;
-                     
-                     // Check if we're in a modal dialog (different positioning context)
-                     const modal = this.closest('.modal');
-                     if (!modal) {
-                         // Normal page positioning - account for scroll
-                         scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-                         scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-                     }
-                     // For modals, use direct positioning since they're typically fixed/absolute
-                     
-                     // Position with right edge aligned to right edge of input field
-                     const datePickerWidth = 200; // Reasonable width for date picker
-                     const rightEdgePos = rect.left + rect.width + scrollLeft; // Right edge of input
-                     const leftPos = rightEdgePos - datePickerWidth; // Position so right edge aligns
-                     const topPos = rect.top + scrollTop;
-                     
-                     hiddenDateInput.style.position = 'absolute';
-                     hiddenDateInput.style.left = leftPos + 'px';
-                     hiddenDateInput.style.top = topPos + 'px';
-                     hiddenDateInput.style.width = datePickerWidth + 'px'; // Full width for proper alignment
-                     hiddenDateInput.style.height = rect.height + 'px';
-                     hiddenDateInput.style.zIndex = '10000';
-                     hiddenDateInput.style.opacity = '0';
-                     hiddenDateInput.style.pointerEvents = 'none';
-                     
-                     // Scroll into view if needed
-                     this.scrollIntoView({ behavior: 'instant', block: 'center' });
-                     
-                     setTimeout(() => {
-                         try {
-                             if (hiddenDateInput.showPicker) {
-                                 hiddenDateInput.showPicker();
-                             } else {
-                                 // Fallback for browsers without showPicker support
-                                 hiddenDateInput.style.opacity = '1';
-                                 hiddenDateInput.style.pointerEvents = 'auto';
-                                 hiddenDateInput.focus();
-                                 hiddenDateInput.click();
-                                 setTimeout(() => {
-                                     hiddenDateInput.style.opacity = '0';
-                                     hiddenDateInput.style.pointerEvents = 'none';
-                                 }, 100);
-                             }
-                         } catch (error) {
-                             // If showPicker fails, try alternative approach
-                             hiddenDateInput.style.opacity = '1';
-                             hiddenDateInput.style.pointerEvents = 'auto';
-                             hiddenDateInput.focus();
-                             hiddenDateInput.click();
-                             setTimeout(() => {
-                                 hiddenDateInput.style.opacity = '0';
-                                 hiddenDateInput.style.pointerEvents = 'none';
-                             }, 100);
-                         }
-                     }, 10);
-                 }
-                 // Otherwise, allow normal text input behavior
-             });
-             
-             // Change cursor to pointer when hovering over calendar icon area
-             inputElement.addEventListener('mousemove', function(e) {
-                 const inputRect = this.getBoundingClientRect();
-                 const mouseX = e.clientX - inputRect.left;
-                 const inputWidth = inputRect.width;
-                 
-                 if (mouseX > inputWidth - 30) {
-                     this.style.cursor = 'pointer';
-                 } else {
-                     this.style.cursor = 'text';
-                 }
-             });
-             
-             // Reset cursor when mouse leaves
-             inputElement.addEventListener('mouseleave', function() {
-                 this.style.cursor = 'text';
-             });
-            
-                         // Update text input when date is selected
-             hiddenDateInput.addEventListener('change', function() {
-                 if (this.value) {
-                     inputElement.value = formatDateToText(this.value);
-                     inputElement.dispatchEvent(new Event('change', { bubbles: true }));
-                 }
-             });
-             
-             // Keep date picker in sync when user types manually, and format with year
-             inputElement.addEventListener('blur', function() {
-                 const textValue = this.value.trim();
-                 if (textValue) {
-                     // Parse the date
-                     const dateValue = parseTextValue(textValue);
-                     if (dateValue) {
-                         // Format it back with the year included
-                         const formattedDate = formatDateToText(dateValue);
-                         if (formattedDate && formattedDate !== textValue) {
-                             this.value = formattedDate;
-                         }
-                     }
-                 }
-                 syncToDateInput();
-             });
-             
-             // Already marked as initialized at the beginning of function
-        }
 
         // Global function to refresh all date pickers with their current values
-        function refreshAllDatePickers() {
-            // Find all date inputs that should have date pickers
-            const dateInputs = document.querySelectorAll('input[type="text"][id*="start"], input[type="text"][id*="end"], input[type="text"][id*="date"]');
-            
-            dateInputs.forEach(input => {
-                // Only reinitialize if not already initialized or missing calendar icon
-                const hasCalendarIcon = input.style.backgroundImage && input.style.backgroundImage.includes('data:image/svg+xml');
-                
-                if (!hasCalendarIcon) {
-                    // Remove existing initialization flags to force reinit
-                    input.dataset.datePickerInitialized = 'false';
-                    initializedDatePickers.delete(input.id);
-                    
-                    // Determine if this is a month-only field
-                    const allowMonthOnly = input.id.includes('start') || input.id.includes('end');
-                    
-                    // Reinitialize the date picker
-                    initializeDatePicker(input, allowMonthOnly);
-                }
-            });
-        }
         
         // Update date picker ranges when roadmap year changes
-        function updateAllDatePickerRanges() {
-            const currentRoadmapYear = getCurrentRoadmapYear();
-            const minDate = `${currentRoadmapYear - 1}-01-01`;
-            const maxDate = `${currentRoadmapYear + 1}-12-31`;
-            
-            // Update all hidden date inputs
-            document.querySelectorAll('input[type="date"]').forEach(dateInput => {
-                if (dateInput.style.opacity === '0') { // This identifies our hidden date inputs
-                    dateInput.min = minDate;
-                    dateInput.max = maxDate;
-                }
-            });
-        }
 
         // ===== OPTIMIZED CHECKBOX HANDLING SYSTEM =====
         // 
@@ -3358,345 +1523,24 @@
         //
         
         // Configuration object defining all status types
-        const STATUS_CONFIG = {
-            done: {
-                label: 'Done',
-                sectionTitle: 'Story Complete',
-                dateLabel: 'Done Date',
-                notesLabel: 'Done Notes',
-                datePlaceholder: '07/10 or 07/10/25 or 07-10-2025',
-                notesPlaceholder: 'Completion notes'
-            },
-            cancelled: {
-                label: 'Cancelled', 
-                sectionTitle: 'Story Cancellation',
-                dateLabel: 'Cancel Date',
-                notesLabel: 'Cancel Notes',
-                datePlaceholder: '15/10 or 15/10/25 or 15-10-2025',
-                notesPlaceholder: 'Cancellation reason'
-            },
-            atrisk: {
-                label: 'At Risk',
-                sectionTitle: 'Story At Risk',
-                dateLabel: 'Risk Date', 
-                notesLabel: 'Risk Notes',
-                datePlaceholder: '20/10 or 20/10/25 or 20-10-2025',
-                notesPlaceholder: 'Risk details'
-            },
-            newstory: {
-                label: 'New',
-                sectionTitle: 'New Story Details',
-                dateLabel: 'Story Date',
-                notesLabel: 'Story Notes', 
-                datePlaceholder: '01/11 or 01/11/25 or 01-11-2025',
-                notesPlaceholder: 'New story details'
-            },
-            transferredout: {
-                label: 'Out',
-                sectionTitle: 'Story Transferred Out Details',
-                dateLabel: 'Transfer Out Date',
-                notesLabel: 'Transfer Out Notes',
-                datePlaceholder: '15/12 or 15/12/25 or 15-12-2025', 
-                notesPlaceholder: 'Transfer out details'
-            },
-            transferredin: {
-                label: 'In',
-                sectionTitle: 'Story Transferred In Details',
-                dateLabel: 'Transfer In Date',
-                notesLabel: 'Transfer In Notes',
-                datePlaceholder: '01/12 or 01/12/25 or 01-12-2025',
-                notesPlaceholder: 'Transfer in details'
-            },
-            proposed: {
-                label: 'Proposed',
-                sectionTitle: 'Story Proposed Details', 
-                dateLabel: 'Proposed Date',
-                notesLabel: 'Proposed Notes',
-                datePlaceholder: '10/12 or 10/12/25 or 10-12-2025',
-                notesPlaceholder: 'Proposal details'
-            }
-        };
+        // Status checkboxes (Done/Cancelled/At Risk/New/Info/Transferred In/Out/
+        // Proposed) are now in ./status.js. The factory is wired at the top of
+        // init() and exposes the handlers on window for inline onchange attrs.
 
-        // Generic status change handler - replaces all individual handlers
-        function handleStatusChange(storyId, statusType) {
-            const checkboxId = `story-${statusType}-${storyId}`;
-            const sectionId = `${statusType}-section-${storyId}`;
-            const dateFieldId = `${statusType === 'atrisk' ? 'atrisk' : statusType === 'cancelled' ? 'cancel' : statusType}-date-${storyId}`;
-            
-            const checkbox = document.getElementById(checkboxId);
-            const section = document.getElementById(sectionId);
-            
-            
-            if (!checkbox || !section) return;
-            
-            if (checkbox.checked) {
-                // Show the section
-                section.style.display = 'block';
-                
-                // Special handling for info status
-                if (statusType === 'info') {
-                    // For info, create the first entry automatically if none exist
-                    setTimeout(() => {
-                        const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
-                        if (infoEntriesContainer) {
-                            const existingEntries = infoEntriesContainer.querySelectorAll('.info-entry');
-                            if (existingEntries.length === 0) {
-                                addInfoEntry(storyId);
-                            }
-                        }
-                    }, 100);
-                } else {
-                // Auto-fill today's date if date field is empty
-                const dateField = document.getElementById(dateFieldId);
-                if (dateField && !dateField.value) {
-                    dateField.value = getTodaysDateEuropean();
-                }
-                
-                // Focus on the date field for convenience
-                setTimeout(() => {
-                    if (dateField) {
-                        dateField.focus({ preventScroll: true });
-                    }
-                }, 100);
-                }
-            } else {
-                // Hide the section
-                section.style.display = 'none';
-            }
-        }
-
-        // Utility functions for status management
-        const StatusUtils = {
-            // Get all status checkboxes for a story
-            getStatusCheckboxes(storyId) {
-                const checkboxes = {};
-                Object.keys(STATUS_CONFIG).forEach(statusType => {
-                    checkboxes[statusType] = document.getElementById(`story-${statusType}-${storyId}`);
-                });
-                return checkboxes;
-            },
-            
-            // Get status data for a story
-            getStatusData(storyId) {
-                const data = {};
-                Object.keys(STATUS_CONFIG).forEach(statusType => {
-                    const checkbox = document.getElementById(`story-${statusType}-${storyId}`);
-                    const dateField = document.getElementById(`${statusType === 'atrisk' ? 'atrisk' : statusType === 'cancelled' ? 'cancel' : statusType}-date-${storyId}`);
-                    const notesField = document.getElementById(`${statusType === 'atrisk' ? 'atrisk' : statusType === 'cancelled' ? 'cancel' : statusType}-notes-${storyId}`);
-                    
-                    data[statusType] = {
-                        checked: checkbox ? checkbox.checked : false,
-                        date: dateField ? dateField.value : '',
-                        notes: notesField ? notesField.value : ''
-                    };
-                });
-                return data;
-            },
-            
-            // Set status data for a story
-            setStatusData(storyId, statusType, checked, date = '', notes = '') {
-                const checkbox = document.getElementById(`story-${statusType}-${storyId}`);
-                const dateField = document.getElementById(`${statusType === 'atrisk' ? 'atrisk' : statusType === 'cancelled' ? 'cancel' : statusType}-date-${storyId}`);
-                const notesField = document.getElementById(`${statusType === 'atrisk' ? 'atrisk' : statusType === 'cancelled' ? 'cancel' : statusType}-notes-${storyId}`);
-                
-                if (checkbox) {
-                    checkbox.checked = checked;
-                    handleStatusChange(storyId, statusType);
-                }
-                if (dateField) dateField.value = date;
-                if (notesField) notesField.value = notes;
-            },
-            
-            // Bulk set multiple status types at once
-            setMultipleStatusData(storyId, statusConfigs) {
-                Object.entries(statusConfigs).forEach(([statusType, config]) => {
-                    if (config.checked) {
-                        this.setStatusData(storyId, statusType, true, config.date || '', config.notes || '');
-                    }
-                });
-            }
-        };
-
-        // ===== END OPTIMIZED CHECKBOX HANDLING SYSTEM =====
-
-        function handleDoneChange(storyId) {
-            handleStatusChange(storyId, 'done');
-        }
-        
-        function handleCancelledChange(storyId) {
-            handleStatusChange(storyId, 'cancelled');
-        }
-        
-        function handleAtRiskChange(storyId) {
-            handleStatusChange(storyId, 'atrisk');
-        }
-        
-        function handleNewStoryChange(storyId) {
-            handleStatusChange(storyId, 'newstory');
-        }
-
-        function handleInfoChange(storyId) {
-            const checkbox = document.getElementById(`story-info-${storyId}`);
-            const section = document.getElementById(`info-section-${storyId}`);
-            
-            if (!checkbox || !section) return;
-            
-            if (checkbox.checked) {
-                // Show the section
-                section.style.display = 'block';
-                
-                // For info, create the first entry automatically if none exist
-                setTimeout(() => {
-                    const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
-                    if (infoEntriesContainer) {
-                        const existingEntries = infoEntriesContainer.querySelectorAll('.info-entry');
-                        if (existingEntries.length === 0) {
-                            addInfoEntry(storyId);
-                        }
-                    }
-                }, 100);
-            } else {
-                // Hide the section
-                section.style.display = 'none';
-            }
-            
-            // Convert single info to multiple instances if needed
-            setTimeout(() => {
-                convertSingleInfoToMultiple(storyId);
-            }, 100);
-        }
-
-        // Add new info entry
-        function addInfoEntry(storyId) {
-            const entriesContainer = document.getElementById(`info-entries-${storyId}`);
-            const entryId = `info-entry-${storyId}-${Date.now()}`;
-            
-            // Count existing entries to get the next number
-            const existingEntries = entriesContainer.querySelectorAll('.info-entry');
-            const entryNumber = existingEntries.length + 1;
-            
-            const entryHtml = `
-                <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <strong>Info Entry #${entryNumber}</strong>
-                        <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
-                    </div>
-                    <div class="inline-group">
-                        <div class="form-group">
-                            <label for="info-date-${entryId}">Info Date:</label>
-                            <input type="text" id="info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025">
-                        </div>
-                        <div class="form-group">
-                            <label for="info-notes-${entryId}">Information Details:</label>
-                            <textarea id="info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;"></textarea>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            entriesContainer.insertAdjacentHTML('beforeend', entryHtml);
-            
-            // Auto-fill today's date
-            const dateField = document.getElementById(`info-date-${entryId}`);
-            if (dateField) {
-                dateField.value = getTodaysDateEuropean();
-                dateField.focus({ preventScroll: true });
-            }
-            
-            // Add auto-update listener
-            const dateInput = document.getElementById(`info-date-${entryId}`);
-            const notesInput = document.getElementById(`info-notes-${entryId}`);
-            
-            if (dateInput) {
-                dateInput.addEventListener('input', () => generatePreview());
-            }
-            if (notesInput) {
-                notesInput.addEventListener('input', () => generatePreview());
-            }
-        }
-
-        // Remove info entry
-        function removeInfoEntry(entryId) {
-            const entry = document.getElementById(entryId);
-            if (entry) {
-                entry.remove();
-                
-                // Renumber remaining entries
-                const storyId = entryId.split('-')[2]; // Extract storyId from entryId
-                const entriesContainer = document.getElementById(`info-entries-${storyId}`);
-                if (entriesContainer) {
-                    const remainingEntries = entriesContainer.querySelectorAll('.info-entry');
-                    remainingEntries.forEach((entry, index) => {
-                        const header = entry.querySelector('strong');
-                        if (header) {
-                            header.textContent = `Info Entry #${index + 1}`;
-                        }
-                    });
-                }
-                
-                generatePreview();
-            }
-        }
-
-        // Convert single info entry to multiple instances format
-        function convertSingleInfoToMultiple(storyId) {
-            const infoEntriesContainer = document.getElementById(`info-entries-${storyId}`);
-            if (!infoEntriesContainer) return;
-            
-            // Check if there are any existing entries
-            const existingEntries = infoEntriesContainer.querySelectorAll('.info-entry');
-            if (existingEntries.length > 0) return; // Already converted or has entries
-            
-            // Check if there's old single info data
-            const oldInfoDateEl = document.getElementById(`info-date-${storyId}`);
-            const oldInfoNotesEl = document.getElementById(`info-notes-${storyId}`);
-            
-            if (oldInfoDateEl && oldInfoNotesEl && (oldInfoDateEl.value || oldInfoNotesEl.value)) {
-                // Convert the old single entry to the new format
-                const entryId = `info-entry-${storyId}-${Date.now()}`;
-                const entryHtml = `
-                    <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <strong>Info Entry #${entryNumber}</strong>
-                            <button type="button" onclick="removeInfoEntry('${entryId}')" style="background: #dc3545; color: white; border: none; border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 12px;">Remove</button>
-                        </div>
-                        <div class="inline-group">
-                            <div class="form-group">
-                                <label for="info-date-${entryId}">Info Date:</label>
-                                <input type="text" id="info-date-${entryId}" placeholder="15/01 or 15/01/25 or 15-01-2025" value="${oldInfoDateEl.value}">
-                            </div>
-                            <div class="form-group">
-                                <label for="info-notes-${entryId}">Information Details:</label>
-                                <textarea id="info-notes-${entryId}" placeholder="Additional information about this story (multiple lines supported)" rows="3" style="height: 60px;">${oldInfoNotesEl.value}</textarea>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                infoEntriesContainer.insertAdjacentHTML('beforeend', entryHtml);
-                
-                // Add auto-update listeners
-                const dateInput = document.getElementById(`info-date-${entryId}`);
-                const notesInput = document.getElementById(`info-notes-${entryId}`);
-                if (dateInput) dateInput.addEventListener('input', () => generatePreview());
-                if (notesInput) notesInput.addEventListener('input', () => generatePreview());
-                
-                // Clear the old fields
-                oldInfoDateEl.value = '';
-                oldInfoNotesEl.value = '';
-            }
-        }
-
-        // Modal-specific info entry functions
+        // Story-form info entry helpers (addInfoEntry/removeInfoEntry/
+        // convertSingleInfoToMultiple) are in ./info-entries.js. The Edit
+        // Story modal variants stay here because loadStoryData mutates
+        // editInfoEntryCounter directly to render saved entries; sharing
+        // that primitive across the module boundary isn't worth the API
+        // surface for two functions.
         let editInfoEntryCounter = 0;
 
         function addEditInfoEntry() {
             const entriesContainer = document.getElementById('editInfoEntries');
             const entryId = `edit-info-entry-${editInfoEntryCounter++}`;
-            
-            // Count existing entries to get the next number
             const existingEntries = entriesContainer.querySelectorAll('.info-entry');
             const entryNumber = existingEntries.length + 1;
-            
+
             const entryHtml = `
                 <div id="${entryId}" class="info-entry" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background-color: #f9f9f9;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -3715,194 +1559,28 @@
                     </div>
                 </div>
             `;
-            
             entriesContainer.insertAdjacentHTML('beforeend', entryHtml);
-            
-            // Auto-fill today's date
+
             const dateField = document.getElementById(`edit-info-date-${entryId}`);
             if (dateField) {
-                dateField.value = getTodaysDateEuropean();
+                dateField.value = window.DateUtility.getTodaysDateEuropean();
                 dateField.focus({ preventScroll: true });
             }
         }
 
         function removeEditInfoEntry(entryId) {
             const entry = document.getElementById(entryId);
-            if (entry) {
-                entry.remove();
-            }
+            if (entry) entry.remove();
         }
 
-        function handleTransferredOutChange(storyId) {
-            handleStatusChange(storyId, 'transferredout');
-        }
-
-        function handleTransferredInChange(storyId) {
-            handleStatusChange(storyId, 'transferredin');
-        }
-
-        function handleProposedChange(storyId) {
-            handleStatusChange(storyId, 'proposed');
-        }
-        function addChange(storyId) {
-            const container = document.getElementById(`changes-container-${storyId}`);
-            
-            // Check if we've reached the maximum of 5 changes (allowing for 4th delay)
-            const existingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
-            if (existingChanges.length >= 5) {
-                return; // Don't add more changes if limit is reached
-            }
-            
-            // Get current story end date for auto-population
-            const currentEndDateElement = document.getElementById(`story-end-${storyId}`);
-            const currentEndDate = currentEndDateElement ? currentEndDateElement.value : '';
-            
-            // Count existing changes to get the next number
-            const entryNumber = existingChanges.length + 1;
-            
-            changeCounter++;
-            const changeId = `${storyId}-change-${Date.now()}-${changeCounter}`;
-            
-            const changeHtml = `
-                <div class="form-group" id="change-${changeId}" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <strong>Timeline #${entryNumber}</strong>
-                        <button class="danger" onclick="removeChange('${changeId}', '${storyId}')" tabindex="-1">Remove</button>
-                    </div>
-                    
-                    <div class="inline-group">
-                        <div class="form-group">
-                            <label>Change Date:</label>
-                            <input type="text" id="change-date-${changeId}" placeholder="15/12 or 15/12/24 or 15-12-2024" value="${getTodaysDateEuropean()}">
-                        </div>
-                        <div class="form-group">
-                            <label>Description:</label>
-                            <input type="text" id="change-desc-${changeId}" placeholder="Reason for change">
-                        </div>
-                    </div>
-                    
-                    <div class="inline-group">
-                        <div class="form-group">
-                            <label>Previous End Date:</label>
-                            <input type="text" id="change-prev-${changeId}" placeholder="31/03 or 31-03" style="margin-bottom: 1px;" value="${currentEndDate}">
-                        </div>
-                        <div class="form-group">
-                            <label>New End Date:</label>
-                            <input type="text" id="change-new-${changeId}" placeholder="15/04 or 15-04" style="margin-bottom: 1px;" value="${currentEndDate}">
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            container.insertAdjacentHTML('beforeend', changeHtml);
-            
-            // Add auto-update listeners to the new timeline change elements
-            const changeFields = [
-                `change-date-${changeId}`,
-                `change-desc-${changeId}`,
-                `change-prev-${changeId}`,
-                `change-new-${changeId}`
-            ];
-            
-            // Initialize immediately since timeline changes are only added within expanded EPICs
-            changeFields.forEach(fieldId => {
-                const element = document.getElementById(fieldId);
-                if (element) {
-                    addListenersToElement(element);
-                    
-                    // Initialize date pickers for timeline change date fields
-                    if (fieldId.includes('-date-') || fieldId.includes('-prev-') || fieldId.includes('-new-')) {
-                        // Timeline change dates are specific dates only
-                        initializeDatePicker(element, false);
-                    }
-                }
-            });
-            
-            // Update the Add Change button state
-            updateChangeButton(storyId);
-        }
-        
-        function removeChange(changeId, storyId) {
-            document.getElementById(`change-${changeId}`).remove();
-            
-            // Renumber remaining timeline entries
-            const container = document.getElementById(`changes-container-${storyId}`);
-            if (container) {
-                const remainingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
-                remainingChanges.forEach((change, index) => {
-                    const header = change.querySelector('strong');
-                    if (header) {
-                        header.textContent = `Timeline #${index + 1}`;
-                    }
-                });
-            }
-            
-            // Update the Add Change button state
-            updateChangeButton(storyId);
-        }
-        
-        function updateChangeButton(storyId) {
-            const container = document.getElementById(`changes-container-${storyId}`);
-            const addButton = document.getElementById(`add-change-btn-${storyId}`);
-            
-            if (!container || !addButton) return;
-            
-            const existingChanges = container.querySelectorAll(`div[id^="change-${storyId}-change-"]`);
-            
-            if (existingChanges.length >= 4) {
-                addButton.disabled = true;
-                addButton.textContent = '+ Add Change (Max 4 reached)';
-                addButton.style.opacity = '0.5';
-                addButton.style.cursor = 'not-allowed';
-            } else {
-                addButton.disabled = false;
-                addButton.textContent = '+ Add Change';
-                addButton.style.opacity = '1';
-                addButton.style.cursor = 'pointer';
-            }
-        }
+        // (handleTransferredOutChange/handleTransferredInChange/handleProposedChange
+        // moved to ./status.js)
+        // (addChange/removeChange/updateChangeButton moved to ./timeline-changes.js)
         
         // Story reordering with up/down arrows
-        function moveStoryUp(storyId) {
-            const storyElement = document.getElementById(`story-${storyId}`);
-            const previousStory = storyElement.previousElementSibling;
-            
-            if (previousStory && previousStory.classList.contains('story-section')) {
-                storyElement.parentNode.insertBefore(storyElement, previousStory);
-                updateStoryNumbers(storyElement.closest('.epic-section'));
-                
-                // Keep focus on the moved story's up button
-                setTimeout(() => {
-                    const upButton = storyElement.querySelector('button[onclick*="moveStoryUp"]');
-                    if (upButton) upButton.focus({ preventScroll: true });
-                }, 10);
-                
-                setTimeout(generatePreview, 100);
-            }
-        }
+        // (moved to ./story-moves.js)
         
-        function moveStoryDown(storyId) {
-            const storyElement = document.getElementById(`story-${storyId}`);
-            const nextStory = storyElement.nextElementSibling;
-            
-            if (nextStory && nextStory.classList.contains('story-section')) {
-                const afterNext = nextStory.nextElementSibling;
-                if (afterNext) {
-                    storyElement.parentNode.insertBefore(storyElement, afterNext);
-                } else {
-                    storyElement.parentNode.appendChild(storyElement);
-                }
-                updateStoryNumbers(storyElement.closest('.epic-section'));
-                
-                // Keep focus on the moved story's down button
-                setTimeout(() => {
-                    const downButton = storyElement.querySelector('button[onclick*="moveStoryDown"]');
-                    if (downButton) downButton.focus({ preventScroll: true });
-                }, 10);
-                
-                setTimeout(generatePreview, 100);
-            }
-        }
+        // (moved to ./story-moves.js)
         
         function updateStoryNumbers(epicElement) {
             const stories = epicElement.querySelectorAll('.story-section');
@@ -3928,81 +1606,9 @@
         }
         
         // Move story functions that work with epic name and story index from roadmap preview
-        function moveStoryUpByEpic(epicName, storyIndex) {
-            // Find the EPIC section by name
-            const epicElements = document.querySelectorAll('.epic-section');
-            let targetEpicElement = null;
-            
-            epicElements.forEach(epicEl => {
-                const epicId = epicEl.id.split('-')[1];
-                const epicNameEl = document.getElementById(`epic-name-${epicId}`);
-                if (epicNameEl && epicNameEl.value.trim() === epicName) {
-                    targetEpicElement = epicEl;
-                }
-            });
-            
-            if (!targetEpicElement) {
-                console.error('Could not find EPIC:', epicName);
-                return;
-            }
-            const storiesContainer = targetEpicElement.querySelector('[id^="stories-container-"]');
-            if (!storiesContainer) return;
-            const stories = Array.from(storiesContainer.children).filter(el => el.classList && el.classList.contains('story-section'));
-            if (storyIndex <= 0 || storyIndex >= stories.length) return;
-            // Swap current with previous in array
-            const tmp = stories[storyIndex - 1];
-            stories[storyIndex - 1] = stories[storyIndex];
-            stories[storyIndex] = tmp;
-            // Re-append in new order (moves nodes, no cloning)
-            stories.forEach(node => storiesContainer.appendChild(node));
-            updateStoryNumbers(targetEpicElement);
-            setTimeout(generatePreview, 100);
-        }
+        // (moved to ./story-moves.js)
         
-        function moveStoryDownByEpic(epicName, storyIndex) {
-            // Find the EPIC section by name
-            const epicElements = document.querySelectorAll('.epic-section');
-            let targetEpicElement = null;
-            epicElements.forEach(epicEl => {
-                const epicId = epicEl.id.split('-')[1];
-                const epicNameEl = document.getElementById(`epic-name-${epicId}`);
-                if (epicNameEl && epicNameEl.value.trim() === epicName) {
-                    targetEpicElement = epicEl;
-                }
-            });
-            if (!targetEpicElement) return;
-
-            // Find the story element by index (static snapshot is fine)
-            const storyElements = targetEpicElement.querySelectorAll('.story-section');
-            if (storyIndex < 0 || storyIndex >= storyElements.length - 1) return;
-
-            const storyToMove = storyElements[storyIndex];
-            if (!storyToMove) return;
-
-            // Work within the same container and move after the next story-section sibling
-            const container = storyToMove.parentNode;
-            if (!container) return;
-
-            // Find the next sibling that is a story-section (skip non-story nodes)
-            let nextSibling = storyToMove.nextElementSibling;
-            while (nextSibling && !nextSibling.classList.contains('story-section')) {
-                nextSibling = nextSibling.nextElementSibling;
-            }
-            if (!nextSibling) return; // nothing to move past
-
-            const afterNext = nextSibling.nextElementSibling;
-            if (afterNext) {
-                container.insertBefore(storyToMove, afterNext);
-            } else {
-                container.appendChild(storyToMove);
-            }
-
-            // Update story numbers
-            updateStoryNumbers(targetEpicElement);
-            
-            // Regenerate preview after a short delay
-            setTimeout(generatePreview, 100);
-        }
+        // (moved to ./story-moves.js)
         
         function generatePreview() {
             if (isGeneratingPreview) return;
@@ -4999,7 +2605,7 @@
             storyCounters = {};
             
             // Clear date picker initialization tracking to allow new date pickers
-            initializedDatePickers.clear();
+            clearAllTracking();
             
             // Clear date picker initialization flags from any remaining elements
             document.querySelectorAll('[data-date-picker-initialized="true"]').forEach(element => {
@@ -5064,8 +2670,8 @@
                 }, 100);
             }
             
-            // Reset change counter
-            changeCounter = 0;
+            // Reset change counter (owned by ./timeline-changes.js)
+            resetTimelineChangeCounter();
             
             // Clear any pending timeline changes
             if (window.pendingTimelineChangesByIds) {
@@ -5308,515 +2914,9 @@
         }
         
         // Stats modal controls
-        function openStatsModal() {
-            try {
-            const teamData = collectFormData();
-                const stats = computeRoadmapStats(teamData);
-                const body = document.getElementById('statsModalBody');
-                body.innerHTML = renderStatsHtml(stats);
-                const modal = document.getElementById('statsModal');
-                modal.style.display = 'flex';
-                // Make stats available for interactive breakdown
-                window.__roadmapStats = stats;
-                
-                // Add tooltip functionality after DOM is updated
-                setTimeout(setupTooltips, 100);
-            } catch (e) {
-                
-            }
-        }
-        
-        function setupTooltips() {
-            const tooltipElements = document.querySelectorAll('[data-tooltip]');
-            tooltipElements.forEach(element => {
-                // Remove old listener if it exists to prevent duplicates
-                element.removeEventListener('click', toggleDelayBreakdown);
-                element.addEventListener('click', toggleDelayBreakdown);
-            });
-        }
-        
-        function toggleDelayBreakdown(e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const container = e.currentTarget || e.target.closest('[data-tooltip]');
-            if (!container) return;
-
-            const breakdownType = container.getAttribute('data-breakdown-type');
-            if (!breakdownType) return;
-            
-            const breakdownId = `${breakdownType}-breakdown`;
-
-            // Toggle only this specific breakdown
-            const existing = document.getElementById(breakdownId);
-            
-            // Find the chevron icon - the container itself should be the bar-chart-container
-            const barChartContainer = container.classList.contains('bar-chart-container') ? container : container.closest('.bar-chart-container');
-            const chevron = barChartContainer ? barChartContainer.querySelector('.expand-chevron') : null;
-            
-            if (existing) {
-                existing.remove();
-                // Rotate chevron back to collapsed state (pointing right)
-                if (chevron) {
-                    chevron.style.transform = 'rotate(0deg)';
-                }
-                return; // Just close it, don't reopen
-            }
-
-            // Rotate chevron to expanded state (pointing down)
-            if (chevron) {
-                chevron.style.transform = 'rotate(90deg)';
-            }
-
-            const stats = window.__roadmapStats || { delayBreakdown: {}, delayStories: {}, totalStories: 0, cancelled: 0 };
-            const activeStories = (stats.totalStories || 0) - (stats.cancelled || 0);
-
-            // Create breakdown container
-            const breakdown = document.createElement('div');
-            breakdown.id = breakdownId;
-            breakdown.__for = container;
-            breakdown.style.cssText = `
-                margin-top: 10px;
-                padding: 12px;
-                background: #f8f9fa;
-                border: 1px solid #e5e7eb;
-                border-radius: 6px;
-                font-size: 12px;
-                color: #374151;
-            `;
-            
-            if (breakdownType === 'delayed') {
-                breakdown.innerHTML = renderDelayBreakdown(stats, stats.totalStories);
-            } else if (breakdownType === 'ontime') {
-                breakdown.innerHTML = renderOntimeBreakdown(stats, stats.totalStories);
-            } else if (breakdownType === 'accelerated') {
-                breakdown.innerHTML = renderAcceleratedBreakdown(stats, stats.totalStories);
-            } else if (breakdownType === 'cancelled') {
-                breakdown.innerHTML = renderCancelledBreakdown(stats);
-            }
-
-            // Insert directly after the clicked container
-            container.parentNode.insertBefore(breakdown, container.nextSibling);
-
-            // Enable expand/collapse on rows
-            setupDelayBreakdownInteractions();
-        }
-
-        function renderOntimeBreakdown(stats, totalStories) {
-            const done = stats.onTimeDone || 0;
-            const notDone = stats.onTimeNotDone || 0;
-            const doneStories = (stats.onTimeStories && stats.onTimeStories.done) || [];
-            const notDoneStories = (stats.onTimeStories && stats.onTimeStories.notDone) || [];
-            
-            if (done === 0 && notDone === 0) {
-                return '<div style="color:#6b7280;">No on-time projects</div>';
-            }
-            
-            const donePct = totalStories ? ((done / totalStories) * 100).toFixed(1) : 0;
-            const notDonePct = totalStories ? ((notDone / totalStories) * 100).toFixed(1) : 0;
-            
-            return (
-                '<div class="delay-row" id="ontime-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
-                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
-                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151;">Done (' + done + ' / ' + donePct + '%)</span>' +
-                    '</div>' +
-                    '<div class="delay-row-details" id="ontime-done-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #28a745;">' +
-                        renderDelayDetails(doneStories) +
-                    '</div>' +
-                '</div>' +
-                '<div class="delay-row" id="ontime-notdone-row" style="margin-bottom: 8px; margin-left: 10px;">' +
-                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
-                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151;">Not Done (' + notDone + ' / ' + notDonePct + '%)</span>' +
-                    '</div>' +
-                    '<div class="delay-row-details" id="ontime-notdone-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #ffc107;">' +
-                        renderDelayDetails(notDoneStories) +
-                    '</div>' +
-                '</div>'
-            );
-        }
-        
-        function renderAcceleratedBreakdown(stats, totalStories) {
-            const acceleratedStories = stats.acceleratedStories || { done: [], notDone: [] };
-            
-            // Handle backward compatibility: if acceleratedStories is an array (old format), convert it
-            if (Array.isArray(acceleratedStories)) {
-                const doneStories = acceleratedStories.filter(s => s.isDone);
-                const notDoneStories = acceleratedStories.filter(s => !s.isDone);
-                acceleratedStories = { done: doneStories, notDone: notDoneStories };
-            }
-            
-            const done = acceleratedStories.done ? acceleratedStories.done.length : 0;
-            const notDone = acceleratedStories.notDone ? acceleratedStories.notDone.length : 0;
-            const doneStories = acceleratedStories.done || [];
-            const notDoneStories = acceleratedStories.notDone || [];
-            
-            if (done === 0 && notDone === 0) {
-                return '<div style="color:#6b7280;">No accelerated projects</div>';
-            }
-            
-            const donePct = totalStories ? ((done / totalStories) * 100).toFixed(1) : 0;
-            const notDonePct = totalStories ? ((notDone / totalStories) * 100).toFixed(1) : 0;
-            
-            return (
-                '<div class="delay-row" id="accelerated-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
-                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
-                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151;">Done (' + done + ' / ' + donePct + '%)</span>' +
-                    '</div>' +
-                    '<div class="delay-row-details" id="accelerated-done-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #28a745;">' +
-                        renderDelayDetails(doneStories) +
-                    '</div>' +
-                '</div>' +
-                '<div class="delay-row" id="accelerated-notdone-row" style="margin-bottom: 8px; margin-left: 10px;">' +
-                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
-                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151;">Not Done (' + notDone + ' / ' + notDonePct + '%)</span>' +
-                    '</div>' +
-                    '<div class="delay-row-details" id="accelerated-notdone-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #ffc107;">' +
-                        renderDelayDetails(notDoneStories) +
-                    '</div>' +
-                '</div>'
-            );
-        }
-
-        function renderCancelledBreakdown(stats) {
-            const cancelled = Array.isArray(stats.cancelledStories) ? stats.cancelledStories : [];
-            if (cancelled.length === 0) {
-                return '<div style="color:#6b7280;">No cancelled projects</div>';
-            }
-            const items = cancelled.map(s => {
-                const title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const epic = (s.epicName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const team = (s.teamName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return '<div style="font-size:12px; color:#374151; padding:2px 0;">' +
-                    (team ? '<span style="color:#6b7280;">[' + team + ']</span> ' : '') +
-                    (epic ? '<span style="color:#6b7280;">[' + epic + ']</span> ' : '') +
-                    title +
-                '</div>';
-            }).join('');
-            return '<div style="display:block; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #dc3545;">' + items + '</div>';
-        }
-        
-        function renderDelayBreakdown(stats, totalStories) {
-            const counts = stats.delayBreakdown || {};
-            const sorted = Object.keys(counts).map(n => parseInt(n, 10)).sort((a, b) => a - b);
-            if (sorted.length === 0) {
-                return '<div style="color:#6b7280;">No delays recorded</div>';
-            }
-            
-            const rows = sorted.map(delayCount => {
-                const value = counts[delayCount] || 0;
-                const pct = totalStories ? ((value / totalStories) * 100).toFixed(1) : 0;
-                const delayGroup = (stats.delayStories && stats.delayStories[delayCount]) || { done: [], notDone: [] };
-                const doneCount = delayGroup.done ? delayGroup.done.length : 0;
-                const notDoneCount = delayGroup.notDone ? delayGroup.notDone.length : 0;
-                const rowId = `delay-row-${delayCount}`;
-                const detailsId = `delay-details-${delayCount}`;
-                
-                return (
-                    '<div class="delay-row" id="' + rowId + '" style="margin-bottom: 8px; margin-left: 10px;">' +
-                        '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
-                            '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                            '<span style="font-size:13px; color:#374151;">' + delayCount + ' delay' + (delayCount > 1 ? 's' : '') + ' (' + value + ' / ' + pct + '%)</span>' +
-                        '</div>' +
-                        '<div class="delay-row-details" id="' + detailsId + '" style="display:none; margin-left: 20px;">' +
-                            renderDelaySubBreakdown(delayGroup, delayCount, value) +
-                        '</div>' +
-                    '</div>'
-                );
-            }).join('');
-            return rows;
-        }
-        
-        function renderDelaySubBreakdown(delayGroup, delayCount, totalCount) {
-            // Handle backward compatibility: if delayGroup is an array (old format), convert it
-            if (Array.isArray(delayGroup)) {
-                const doneStories = delayGroup.filter(s => s.isDone);
-                const notDoneStories = delayGroup.filter(s => !s.isDone);
-                delayGroup = { done: doneStories, notDone: notDoneStories };
-            }
-            
-            const doneStories = delayGroup.done || [];
-            const notDoneStories = delayGroup.notDone || [];
-            const doneCount = doneStories.length;
-            const notDoneCount = notDoneStories.length;
-            
-            const donePct = totalCount ? ((doneCount / totalCount) * 100).toFixed(1) : 0;
-            const notDonePct = totalCount ? ((notDoneCount / totalCount) * 100).toFixed(1) : 0;
-            
-            return (
-                '<div class="delay-row" id="delay-' + delayCount + '-done-row" style="margin-bottom: 8px; margin-left: 10px;">' +
-                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
-                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151;">Done (' + doneCount + ' / ' + donePct + '%)</span>' +
-                    '</div>' +
-                    '<div class="delay-row-details" id="delay-' + delayCount + '-done-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #28a745;">' +
-                        renderDelayDetails(doneStories) +
-                    '</div>' +
-                '</div>' +
-                '<div class="delay-row" id="delay-' + delayCount + '-notdone-row" style="margin-bottom: 8px; margin-left: 10px;">' +
-                    '<div class="delay-row-header" style="display:flex; align-items:center; cursor:pointer; padding: 4px 0;">' +
-                        '<span style="margin-right: 8px; color:#999;">▶</span>' +
-                        '<span style="font-size:13px; color:#374151;">Not Done (' + notDoneCount + ' / ' + notDonePct + '%)</span>' +
-                    '</div>' +
-                    '<div class="delay-row-details" id="delay-' + delayCount + '-notdone-details" style="display:none; margin-left: 20px; padding:8px; background:#ffffff; border-left: 2px solid #ffc107;">' +
-                        renderDelayDetails(notDoneStories) +
-                    '</div>' +
-                '</div>'
-            );
-        }
-
-        function compareByTeamEpicTitle(a, b) {
-            const ta = (a.teamName || '').toLowerCase();
-            const tb = (b.teamName || '').toLowerCase();
-            if (ta !== tb) return ta < tb ? -1 : 1;
-            const ea = (a.epicName || '').toLowerCase();
-            const eb = (b.epicName || '').toLowerCase();
-            if (ea !== eb) return ea < eb ? -1 : 1;
-            const sa = (a.title || '').toLowerCase();
-            const sb = (b.title || '').toLowerCase();
-            if (sa !== sb) return sa < sb ? -1 : 1;
-            return 0;
-        }
-
-        function renderDelayDetails(stories) {
-            if (!stories || !stories.length) return '<div style="color:#6b7280;">No items</div>';
-            const sorted = [...stories].sort(compareByTeamEpicTitle);
-            return sorted.map(s => {
-                const title = (s.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const epic = (s.epicName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const team = (s.teamName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return '<div style="font-size:12px; color:#374151; padding:2px 0;">' +
-                    (team ? '<span style="color:#6b7280;">[' + team + ']</span> ' : '') +
-                    (epic ? '<span style="color:#6b7280;">[' + epic + ']</span> ' : '') +
-                    title +
-                '</div>';
-            }).join('');
-        }
-
-        function setupDelayBreakdownInteractions() {
-            const rows = document.querySelectorAll('[id$="-breakdown"] .delay-row');
-            rows.forEach(row => {
-                const details = row.querySelector('.delay-row-details');
-                const header = row.querySelector('.delay-row-header');
-                const arrow = header ? header.querySelector('span:first-child') : null;
-                
-                // Remove any existing click handler to prevent duplicates
-                if (header && header._toggleHandler) {
-                    header.removeEventListener('click', header._toggleHandler);
-                }
-                
-                const toggle = () => {
-                    if (!details) return;
-                    const isOpen = details.style.display !== 'none';
-                    details.style.display = isOpen ? 'none' : 'block';
-                    if (arrow) {
-                        arrow.textContent = isOpen ? '▶' : '▼';
-                    }
-                };
-                
-                // Store the handler reference for later removal
-                if (header) {
-                    header._toggleHandler = toggle;
-                    header.addEventListener('click', toggle);
-                }
-            });
-        }
-        function closeStatsModal() {
-            const modal = document.getElementById('statsModal');
-            if (modal) modal.style.display = 'none';
-        }
-
-        // Compute roadmap stats
-        function computeRoadmapStats(teamData) {
-            const result = {
-                totalEpics: 0,
-                totalStories: 0,
-                onTime: 0,
-                onTimeDone: 0,
-                onTimeNotDone: 0,
-                delayedOnce: 0,
-                delayedTwiceOrMore: 0,
-                accelerated: 0,
-                cancelled: 0,
-                totalDelayed: 0,
-                delayBreakdown: {}, // Track exact delay counts
-                delayStories: {},
-                acceleratedStories: { done: [], notDone: [] },
-                onTimeStories: { done: [], notDone: [] },
-                cancelledStories: []
-            };
-            if (!teamData || !Array.isArray(teamData.epics)) return result;
-            result.totalEpics = teamData.epics.length;
-            for (const epic of teamData.epics) {
-                if (!Array.isArray(epic.stories)) continue;
-                for (const story of epic.stories) {
-                    result.totalStories++;
-                    if (story.isCancelled) {
-                        result.cancelled++;
-                        const teamName = (teamData && teamData.teamName) ? teamData.teamName : '';
-                        result.cancelledStories.push({ title: story.title, epicName: epic.name, teamName });
-                        continue;
-                    }
-                    const changes = story.roadmapChanges?.changes || [];
-                    
-                    // Count only ACTUAL delays (new date > prev date)
-                    let actualDelayCount = 0;
-                    let hasAcceleration = false;
-                    
-                    if (Array.isArray(changes) && changes.length > 0) {
-                        for (const change of changes) {
-                            if (change.prevEndDate && change.newEndDate) {
-                                // Parse dates properly - they might be in DD/MM/YY or ISO format
-                                const roadmapYear = teamData.roadmapYear || new Date().getFullYear();
-                                const prevISO = DateUtility.parseTextValue(change.prevEndDate, true, roadmapYear);
-                                const newISO = DateUtility.parseTextValue(change.newEndDate, true, roadmapYear);
-                                
-                                if (prevISO && newISO) {
-                                    if (newISO > prevISO) {
-                                        actualDelayCount++; // Actual delay
-                                    } else if (newISO < prevISO) {
-                                        hasAcceleration = true; // Pulled forward
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    if (actualDelayCount === 0 && !hasAcceleration) {
-                        // No timeline changes at all
-                        result.onTime++;
-                        const isDone = story.isDone || false;
-                        if (isDone) {
-                            result.onTimeDone++;
-                            result.onTimeStories.done.push({ title: story.title, epicName: epic.name });
-                        } else {
-                            result.onTimeNotDone++;
-                            result.onTimeStories.notDone.push({ title: story.title, epicName: epic.name });
-                        }
-                    } else if (hasAcceleration && actualDelayCount === 0) {
-                        // Only accelerations, no delays
-                        result.accelerated++;
-                        const acceleratedStory = { title: story.title, epicName: epic.name };
-                        if (story.isDone) {
-                            result.acceleratedStories.done.push(acceleratedStory);
-                        } else {
-                            result.acceleratedStories.notDone.push(acceleratedStory);
-                        }
-                    } else if (actualDelayCount > 0) {
-                        // Has at least one actual delay
-                        result.totalDelayed++;
-                        if (actualDelayCount === 1) {
-                            result.delayedOnce++;
-                        } else {
-                            result.delayedTwiceOrMore++;
-                        }
-                        
-                    // Track exact delay count for breakdown
-                    result.delayBreakdown[actualDelayCount] = (result.delayBreakdown[actualDelayCount] || 0) + 1;
-                    if (!result.delayStories[actualDelayCount]) {
-                        result.delayStories[actualDelayCount] = { done: [], notDone: [] };
-                    }
-                    const delayedStory = { title: story.title, epicName: epic.name };
-                    if (story.isDone) {
-                        result.delayStories[actualDelayCount].done.push(delayedStory);
-                    } else {
-                        result.delayStories[actualDelayCount].notDone.push(delayedStory);
-                    }
-                    }
-                }
-            }
-            return result;
-        }
-
-        function isDelayChange(change) {
-            // Consider a delay if newEndDate > prevEndDate or explicit type/description suggests delay
-            try {
-                if (!change) return false;
-                if (change.type && /delay|slip/i.test(change.type)) return true;
-                if (change.description && /delay|slip|pushed/i.test(change.description)) return true;
-                if (change.newEndDate && change.prevEndDate) {
-                    const n = Date.parse(change.newEndDate);
-                    const p = Date.parse(change.prevEndDate);
-                    if (!isNaN(n) && !isNaN(p) && n > p) return true;
-                }
-            } catch (_) {}
-            return false;
-        }
-
-        function renderStatsHtml(s) {
-            const pct = (num, den) => (den ? ((num / den) * 100).toFixed(1) : 0);
-            const activeStories = s.totalStories - s.cancelled;
-            
-            return (
-                '<div style="padding: 20px;">' +
-                    '<h3 style="margin: 0 0 20px 0; color: #333; text-align: center;">📊 Project Status Overview</h3>' +
-                    '<div style="margin-bottom: 20px; text-align: center; font-size: 14px; color: #666;">' +
-                        `${s.totalStories} Total Stories across ${s.totalEpics} EPICs` +
-                    '</div>' +
-                    '<div style="max-width: 600px; margin: 0 auto;">' +
-                        barChart('On-time Projects', s.onTime, s.totalStories, '#28a745', s, 'ontime') +
-                        barChart('Delayed Projects', s.totalDelayed, s.totalStories, '#dc3545', s, 'delayed') +
-                        barChart('Accelerated Projects', s.accelerated, s.totalStories, '#17a2b8', s, 'accelerated') +
-                        barChart('Cancelled', s.cancelled, s.totalStories, '#6c757d', s, 'cancelled') +
-                    '</div>' +
-                '</div>'
-            );
-        }
-        
-        function barChart(label, value, total, color, stats, breakdownType) {
-            const percentage = total ? ((value / total) * 100).toFixed(1) : 0;
-            
-            let tooltipContent = '';
-            let expandIcon = '';
-            let cursorStyle = 'default';
-            if (stats && breakdownType) {
-                tooltipContent = `data-tooltip="breakdown" data-breakdown-type="${breakdownType}"`;
-                cursorStyle = 'pointer';
-                // Add expand/collapse chevron icon on the LEFT
-                expandIcon = `<span class="expand-chevron" style="margin-right: 8px; font-size: 12px; color: #6b7280; transition: transform 0.2s ease; pointer-events: none;">▶</span>`;
-            }
-            
-            return (
-                '<div style="margin-bottom: 12px; padding: 8px 12px; border-radius: 6px; background: #f9fafb; cursor: ' + cursorStyle + '; transition: all 0.2s ease;" class="bar-chart-container" ' + tooltipContent + '>' +
-                    '<div style="display: flex; justify-content: space-between; align-items: center; pointer-events: none;">' +
-                        `<span style="font-size: 14px; font-weight: 500; color: #374151; display: flex; align-items: center;">${expandIcon}${label}</span>` +
-                        `<span style="font-size: 14px; font-weight: 600; color: ${color};">${value} (${percentage}%)</span>` +
-                    '</div>' +
-                '</div>'
-            );
-        }
-        
-        function getDelayBreakdown(stats) {
-            let result = 'Delay Breakdown:\\n';
-            
-            // Sort delay counts for better display
-            const sortedDelays = Object.keys(stats.delayBreakdown || {})
-                .map(Number)
-                .sort((a, b) => a - b);
-            
-            if (sortedDelays.length === 0) {
-                result += 'No delays recorded';
-            } else {
-                sortedDelays.forEach(delayCount => {
-                    const count = stats.delayBreakdown[delayCount];
-                    result += `${delayCount} delay${delayCount > 1 ? 's' : ''}: ${count}\\n`;
-                });
-            }
-            
-            return result;
-        }
-
-        function card(label, value) {
-            return (
-                '<div style="border:1px solid #e5e7eb; border-radius:8px; padding:12px; background:#fafafa;">' +
-                    `<div style="font-size:12px; color:#6b7280; margin-bottom:6px;">${label}</div>` +
-                    `<div style="font-size:20px; font-weight:600; color:#111827;">${value}</div>` +
-                '</div>'
-            );
-        }
+        // Stats modal (open/close, computeRoadmapStats, all render*Breakdown
+        // helpers, barChart/card primitives) moved to ./stats.js. Wired at
+        // the top of init().
 
 
         
@@ -5868,150 +2968,8 @@
         
         
         
-        function applyPendingTimelineChanges(callback) {
-            const hasIdBasedChanges = window.pendingTimelineChangesByIds && Object.keys(window.pendingTimelineChangesByIds).length > 0;
-            const hasStringBasedChanges = window.pendingTimelineChanges && Object.keys(window.pendingTimelineChanges).length > 0;
-            
-            if (!hasIdBasedChanges && !hasStringBasedChanges) {
-                if (callback) callback();
-                return;
-            }
-            
-            try {
-                // Find all stories and match them with timeline changes
-                const storyElements = document.querySelectorAll('.story-section');
-                
-                let matchCount = 0;
-                let pendingOperations = 0;
-                
-                storyElements.forEach((storyEl, index) => {
-                    const storyId = storyEl.id.replace('story-', '');
-                    const titleEl = document.getElementById(`story-title-${storyId}`);
-                    
-                    if (!titleEl) {
-                        return;
-                    }
-                    
-                    // Get story and epic IDs for ID-based matching
-                    const storyIdEl = document.getElementById(`story-id-${storyId}`);
-                    const actualStoryId = storyIdEl ? storyIdEl.value : '';
-                    
-                    const epicEl = storyEl.closest('.epic-section');
-                    const epicIdEl = epicEl ? epicEl.querySelector('input[id^="epic-id-"]') : null;
-                    const actualEpicId = epicIdEl ? epicIdEl.value : '';
-                    
-                    // Get story title and epic name for string-based matching (fallback)
-                    const storyTitle = titleEl.value;
-                    const epicTitleEl = epicEl ? epicEl.querySelector('input[id^="epic-name-"]') : null;
-                    const epicName = epicTitleEl ? epicTitleEl.value : '';
-                    const storyReference = `${epicName} - ${storyTitle}`;
-                    
-                    let changes = null;
-                    let matchType = '';
-                    
-                    // Try ID-based matching first (preferred)
-                    if (hasIdBasedChanges && actualEpicId && actualStoryId) {
-                        const idKey = `${actualEpicId}:${actualStoryId}`;
-                        if (window.pendingTimelineChangesByIds[idKey]) {
-                            changes = window.pendingTimelineChangesByIds[idKey];
-                            matchType = 'ID-based';
-                        }
-                    }
-                    
-                    // Fall back to string-based matching if no ID match found
-                    if (!changes && hasStringBasedChanges && window.pendingTimelineChanges[storyReference]) {
-                        changes = window.pendingTimelineChanges[storyReference];
-                        matchType = 'string-based';
-                    }
-                    
-                    // Apply timeline changes if found
-                    if (changes) {
-                        matchCount++;
-                        pendingOperations++;
-                        
-                        // Enable timeline changes checkbox
-                        const changesCheckbox = document.getElementById(`story-changes-${storyId}`);
-                        if (changesCheckbox) {
-                            changesCheckbox.checked = true;
-                            toggleChanges(storyId); // Show the changes section
-                            
-                            // Clear any existing timeline changes before importing new ones
-                            const container = document.getElementById(`changes-container-${storyId}`);
-                            if (container) {
-                                container.innerHTML = '';
-                            }
-                            
-                            // Wait for DOM elements to be created, then add the changes
-                            setTimeout(() => {
-                                changes.forEach((change, changeIndex) => {
-                                    addChange(storyId);
-                                    
-                                    // Find the most recently added change element
-                                    const changeContainers = document.querySelectorAll(`#changes-container-${storyId} > div[id^="change-${storyId}-change-"]`);
-                                    const latestContainer = changeContainers[changeContainers.length - 1];
-                                    
-                                    if (latestContainer) {
-                                        const fullChangeId = latestContainer.id.replace('change-', '');
-                                        
-                                        const dateEl = document.getElementById(`change-date-${fullChangeId}`);
-                                        const prevEl = document.getElementById(`change-prev-${fullChangeId}`);
-                                        const newEl = document.getElementById(`change-new-${fullChangeId}`);
-                                        const descEl = document.getElementById(`change-desc-${fullChangeId}`);
-                                        
-                                        if (dateEl) {
-                                            dateEl.value = change.date;
-                                        }
-                                        if (prevEl) {
-                                            prevEl.value = change.prevEndDate;
-                                        }
-                                        if (newEl) {
-                                            newEl.value = change.newEndDate;
-                                        }
-                                        if (descEl) {
-                                            descEl.value = change.description;
-                                        }
-                                    }
-                                });
-                                
-                                // Update button state after loading all changes
-                                updateChangeButton(storyId);
-                                
-                                // Mark this operation as complete
-                                pendingOperations--;
-                                if (pendingOperations === 0) {
-                                    // All timeline changes have been applied, call the callback
-                                    
-                                    // Clean up
-                                    delete window.pendingTimelineChanges;
-                                    delete window.pendingTimelineChangesByIds;
-                                    delete window.loadedEpicIds;
-                                    delete window.loadedStoryIds;
-                                    
-                                    if (callback) callback();
-                                }
-                            }, 100);
-                        } else {
-                            pendingOperations--;
-                            if (pendingOperations === 0 && callback) callback();
-                        }
-                    }
-                });
-                
-                // If no pending operations, call callback immediately
-                if (pendingOperations === 0) {
-                    // Clean up
-                    delete window.pendingTimelineChanges;
-                    delete window.pendingTimelineChangesByIds;
-                    delete window.loadedEpicIds;
-                    delete window.loadedStoryIds;
-                    
-                    if (callback) callback();
-                }
-                
-            } catch (error) {
-                if (callback) callback(); // Call callback even on error to prevent hanging
-            }
-        }
+        // applyPendingTimelineChanges moved to ./timeline-changes.js
+        // (returned from createTimelineChangeHandlers; bound as a local at top of init).
                 function loadTeamData(teamData) {
             // Clear existing EPICs first
             document.getElementById('epics-container').innerHTML = '';
@@ -6690,101 +3648,13 @@
             }
         }
         
-        async function exportHTML() {
-            const teamData = collectFormData();
-            const generator = new RoadmapGenerator(teamData.roadmapYear);
-            const html = generator.generateRoadmap(teamData, false, false); // standalone export with editing disabled
-            const blob = new Blob([html], { type: 'text/html' });
-            
-            // Generate default filename
-            const defaultFileName = `${teamData.teamName || 'MyTeam'}.Teya-Roadmap.${teamData.roadmapYear || 2025}.html`;
-            
-            // Try to use the File System Access API for native save dialog
-            if ('showSaveFilePicker' in window) {
-                try {
-                    const fileHandle = await window.showSaveFilePicker({
-                        suggestedName: defaultFileName,
-                        types: [{
-                            description: 'HTML Roadmap files',
-                            accept: {
-                                'text/html': ['.html']
-                            }
-                        }]
-                    });
-                    
-                    const writable = await fileHandle.createWritable();
-                    await writable.write(blob);
-                    await writable.close();
-                    
-                    return;
-                } catch (error) {
-                    if (error.name === 'AbortError') {
-                        // User cancelled the save dialog
-                        return;
-                    }
-                    // File System Access API failed, fall back to download
-                }
-            }
-            
-            // Fallback to download method for browsers that don't support File System Access API
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = defaultFileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
+        // exportHTML moved to ./export.js (createExportHTML).
 
         
-        function showFullscreen() {
-            // Generate fullscreen version only when needed
-            if (window.currentTeamData) {
-                const generator = new RoadmapGenerator(window.currentTeamData.roadmapYear);
-                const fullscreenHtml = generator.generateRoadmap(window.currentTeamData, false, false); // fullscreen preview with editing disabled
-                const fullscreenIframe = document.getElementById('fullscreen-preview');
-                fullscreenIframe.srcdoc = fullscreenHtml;
-            }
-            
-            const overlay = document.getElementById('fullscreen-overlay');
-            overlay.style.display = 'flex';
-            document.body.style.overflow = 'hidden'; // Prevent background scrolling
-        }
-        
-        function hideFullscreen() {
-            const overlay = document.getElementById('fullscreen-overlay');
-            overlay.style.display = 'none';
-            document.body.style.overflow = 'auto'; // Restore scrolling
-        }
-        
-        function toggleFullscreen() {
-            const previewPanel = document.querySelector('.preview-panel');
-            
-            if (!document.fullscreenElement) {
-                // Enter fullscreen
-                if (previewPanel.requestFullscreen) {
-                    previewPanel.requestFullscreen();
-                } else if (previewPanel.mozRequestFullScreen) {
-                    previewPanel.mozRequestFullScreen();
-                } else if (previewPanel.webkitRequestFullscreen) {
-                    previewPanel.webkitRequestFullscreen();
-                } else if (previewPanel.msRequestFullscreen) {
-                    previewPanel.msRequestFullscreen();
-                }
-            } else {
-                // Exit fullscreen
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.mozCancelFullScreen) {
-                    document.mozCancelFullScreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                }
-            }
-        }
+        // Fullscreen helpers (showFullscreen / hideFullscreen / toggleFullscreen)
+        // moved to ./fullscreen.js. Imported and re-exposed on window at the top
+        // of init(); hideFullscreen is also bound as a local for the Escape
+        // keydown handler below.
         
         // Keyboard shortcuts
         document.addEventListener('keydown', function(event) {
@@ -6842,92 +3712,11 @@
         });
         // Modal functions
         let currentEditingStory = null;
-        let modalFocusTrap = null;
 
-        function setupModalFocusTrap(modalId) {
-            const modal = document.getElementById(modalId);
-            if (!modal) return;
-
-            // Get all focusable elements within the modal
-            const getFocusableElements = () => {
-                const focusableSelectors = [
-                    'input:not([disabled]):not([type="hidden"]):not([tabindex="-1"])',
-                    'select:not([disabled]):not([tabindex="-1"])',
-                    'textarea:not([disabled]):not([tabindex="-1"])',
-                    'button:not([disabled]):not([tabindex="-1"])',
-                    'a[href]:not([tabindex="-1"])',
-                    '[tabindex]:not([tabindex="-1"])'
-                ];
-
-                return Array.from(modal.querySelectorAll(focusableSelectors.join(', ')))
-                    .filter(el => {
-                        // Additional visibility check
-                        const style = window.getComputedStyle(el);
-                        const rect = el.getBoundingClientRect();
-                        return (
-                            style.display !== 'none' &&
-                            style.visibility !== 'hidden' &&
-                            style.opacity !== '0' &&
-                            rect.width > 0 &&
-                            rect.height > 0 &&
-                            !(el.closest('[style*="display: none"]') || el.closest('[style*="display:none"]'))
-                        );
-                    });
-            };
-
-            const trapFocus = (e) => {
-                if (e.key === 'Escape') {
-                    e.preventDefault();
-                    // Close the appropriate modal
-                    if (modalId === 'editStoryModal') {
-                        closeEditModal();
-                    } else if (modalId === 'editMonthlyKTLOModal') {
-                        closeEditMonthlyKTLOModal();
-                    }
-                    return;
-                }
-
-                if (e.key !== 'Tab') return;
-
-                const focusableElements = getFocusableElements();
-                if (focusableElements.length === 0) return;
-
-                const firstElement = focusableElements[0];
-                const lastElement = focusableElements[focusableElements.length - 1];
-
-                if (e.shiftKey) {
-                    // Shift+Tab: going backwards
-                    if (document.activeElement === firstElement) {
-                        e.preventDefault();
-                        lastElement.focus();
-                    }
-                } else {
-                    // Tab: going forwards
-                    if (document.activeElement === lastElement) {
-                        e.preventDefault();
-                        firstElement.focus();
-                    }
-                }
-            };
-
-            // Set up the focus trap
-            modal.addEventListener('keydown', trapFocus);
-            
-            // Don't auto-focus any element - let user click to focus
-
-            return {
-                remove: () => {
-                    modal.removeEventListener('keydown', trapFocus);
-                }
-            };
-        }
-
-        function removeModalFocusTrap() {
-            if (modalFocusTrap) {
-                modalFocusTrap.remove();
-                modalFocusTrap = null;
-            }
-        }
+        // Modal focus trap is now in ./focus-trap.js. The factory is wired
+        // at the top of init() and exposes setupModalFocusTrap and
+        // removeModalFocusTrap on window. Active-trap state is tracked
+        // internally by the module, so callers no longer assign the result.
 
         function openEditStoryModal(storyData) {
             currentEditingStory = storyData;
@@ -7186,15 +3975,14 @@
             if (foundStory.hasTimelineChanges && foundStory.timelineChanges && foundStory.timelineChanges.length > 0) {
                 // Clear existing changes first
                 document.getElementById('editChangesContainer').innerHTML = '';
-                editChangeCounter = 0;
-                
+                // Reset the edit-change counter (now owned by ./timeline-changes.js)
+                resetEditChangeCounter();
                 // Sort timeline changes by date before displaying in modal
                 const sortedTimelineChanges = sortTimelineChangesByDate([...foundStory.timelineChanges]);
                 
                 // Add each timeline change in chronological order
                 sortedTimelineChanges.forEach(change => {
-                    addEditChange();
-                    const changeId = `edit-change-${editChangeCounter}`;
+                    const changeId = addEditChange();
                     document.getElementById(`${changeId}-date`).value = change.date || '';
                     document.getElementById(`${changeId}-desc`).value = change.description || '';
                     document.getElementById(`${changeId}-prev`).value = change.prevEndDate || '';
@@ -7206,7 +3994,7 @@
             } else {
                 // Clear any existing changes
                 document.getElementById('editChangesContainer').innerHTML = '';
-                editChangeCounter = 0;
+                resetEditChangeCounter();
                 
                 // Update button state after clearing changes
                 updateEditChangeButton();
@@ -7227,7 +4015,7 @@
                 if (element) {
                     element.dataset.datePickerInitialized = 'false';
                     if (element.id) {
-                        initializedDatePickers.delete(element.id);
+                        untrackDatePicker(element.id);
                     }
                 }
             });
@@ -7250,7 +4038,7 @@
                 document.querySelectorAll('#editChangesContainer input[id*="-date"], #editChangesContainer input[id*="-prev"], #editChangesContainer input[id*="-new"]').forEach(input => {
                     input.dataset.datePickerInitialized = 'false';
                     if (input.id) {
-                        initializedDatePickers.delete(input.id);
+                        untrackDatePicker(input.id);
                     }
                     initializeDatePicker(input, false);
                 });
@@ -7276,7 +4064,7 @@
             }
             
             // Set up focus trap
-            modalFocusTrap = setupModalFocusTrap('editStoryModal');
+            setupModalFocusTrap('editStoryModal');
             
             // Add Enter key listener for Save Changes
             const editStoryModal = document.getElementById('editStoryModal');
@@ -7443,96 +4231,13 @@
             }
         }
 
-        /**
-         * Clear Global flag in edit modal if any individual country is selected
-         */
-        function clearEditGlobalIfCountrySelected() {
-            const countryFlags = ['editFlagCroatia', 'editFlagCzechia', 'editFlagGermany', 'editFlagHungary', 'editFlagIceland', 'editFlagItaly',
-                                  'editFlagPortugal', 'editFlagSlovakia', 'editFlagSlovenia', 'editFlagSpain', 'editFlagUK', 'editFlagFrance'];
-            const anyCountrySelected = countryFlags.some(id => document.getElementById(id)?.checked);
-            if (anyCountrySelected) {
-                document.getElementById('editFlagGlobal').checked = false;
-            }
-        }
+        // Country-flag mutual-exclusion handlers are now in ./country-flags.js.
+        // The factory is wired at the top of init() and exposes the four
+        // functions on window for inline onchange="..." attributes.
 
-        /**
-         * Clear all country flags in edit modal if Global is selected
-         */
-        function clearEditCountriesIfGlobalSelected() {
-            const globalEl = document.getElementById('editFlagGlobal');
-            if (globalEl?.checked) {
-                const countryFlags = ['editFlagCroatia', 'editFlagCzechia', 'editFlagGermany', 'editFlagHungary', 'editFlagIceland', 'editFlagItaly',
-                                      'editFlagPortugal', 'editFlagSlovakia', 'editFlagSlovenia', 'editFlagSpain', 'editFlagUK', 'editFlagFrance'];
-                countryFlags.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.checked = false;
-                });
-            }
-        }
+        // Edit-modal timeline-change handlers are now in ./timeline-changes.js
+        // (createEditTimelineChangeHandlers). Wired at the top of init().
 
-        /**
-         * Clear Global flag in story form if any individual country is selected
-         */
-        function clearStoryGlobalIfCountrySelected(storyId) {
-            const countryFlags = ['croatia', 'czechia', 'germany', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk', 'france'];
-            const anyCountrySelected = countryFlags.some(country => document.getElementById(`story-flag-${country}-${storyId}`)?.checked);
-            if (anyCountrySelected) {
-                const globalEl = document.getElementById(`story-flag-global-${storyId}`);
-                if (globalEl) globalEl.checked = false;
-            }
-            debouncedGeneratePreview();
-        }
-
-        /**
-         * Clear all country flags in story form if Global is selected
-         */
-        function clearStoryCountriesIfGlobalSelected(storyId) {
-            const globalEl = document.getElementById(`story-flag-global-${storyId}`);
-            if (globalEl?.checked) {
-                const countryFlags = ['croatia', 'czechia', 'germany', 'hungary', 'iceland', 'italy', 'portugal', 'slovakia', 'slovenia', 'spain', 'uk', 'france'];
-                countryFlags.forEach(country => {
-                    const el = document.getElementById(`story-flag-${country}-${storyId}`);
-                    if (el) el.checked = false;
-                });
-            }
-            debouncedGeneratePreview();
-        }
-
-        function toggleEditTimelineChanges() {
-            const timelineChecked = document.getElementById('editTimelineChanges').checked;
-
-            const section = document.getElementById('editTimelineChangesSection');
-            
-            if (timelineChecked) {
-                section.style.display = 'block';
-                
-                // Automatically add one timeline change if none exist
-                const existingChanges = document.querySelectorAll('#editChangesContainer > div[id^="edit-change-"]');
-                if (existingChanges.length === 0) {
-                    addEditChange();
-                }
-                
-                // Reinitialize date pickers for any existing timeline changes
-                setTimeout(() => {
-                    document.querySelectorAll('#editChangesContainer input[id*="-date"], #editChangesContainer input[id*="-prev"], #editChangesContainer input[id*="-new"]').forEach(input => {
-                        input.dataset.datePickerInitialized = 'false';
-                        if (input.id) {
-                            initializedDatePickers.delete(input.id);
-                        }
-                        initializeDatePicker(input, false);
-                    });
-                }, 10);
-            } else {
-                section.style.display = 'none';
-                // Clear existing changes when hiding
-                document.getElementById('editChangesContainer').innerHTML = '';
-                editChangeCounter = 0;
-                // Update button state after clearing changes
-                updateEditChangeButton();
-            }
-        }
-
-        let editChangeCounter = 0;
 
 
 
@@ -7583,126 +4288,8 @@
             if (descriptionInput) descriptionInput.value = data.description;
         }
 
-        function addEditChange() {
-            const container = document.getElementById('editChangesContainer');
-            
-            // Check if we've reached the maximum of 5 changes (allowing for 4th delay)
-            const existingChanges = container.querySelectorAll('div[id^="edit-change-"]');
-            if (existingChanges.length >= 5) {
-                return; // Don't add more changes if limit is reached
-            }
-            
-            // Get current story end date for auto-population from edit modal
-            const currentEndDateElement = document.getElementById('editEnd');
-            const currentEndDate = currentEndDateElement ? currentEndDateElement.value : '';
-            
-            editChangeCounter++;
-            const changeId = `edit-change-${editChangeCounter}`;
-            
-            // Count existing changes to get the next number
-            const entryNumber = existingChanges.length + 1;
-
-            
-            const changeHtml = `
-                <div class="form-group" id="${changeId}" style="border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 4px; background-color: #f8f9fa;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <strong>Timeline #${entryNumber}</strong>
-                        <button type="button" class="danger" onclick="removeEditChange('${changeId}')" style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;" tabindex="-1">Remove</button>
-                    </div>
-                    
-                    <div class="inline-group">
-                        <div class="form-group">
-                            <label>Change Date:</label>
-                            <input type="text" id="${changeId}-date" placeholder="15/12/24" value="${getTodaysDateEuropean()}">
-                        </div>
-                        <div class="form-group">
-                            <label>Description:</label>
-                            <input type="text" id="${changeId}-desc" placeholder="Reason for change">
-                        </div>
-                    </div>
-                    
-                    <div class="inline-group">
-                        <div class="form-group">
-                            <label>Previous End Date:</label>
-                            <input type="text" id="${changeId}-prev" placeholder="31/03" style="margin-bottom: 1px;" value="${currentEndDate}">
-                        </div>
-                        <div class="form-group">
-                            <label>New End Date:</label>
-                            <input type="text" id="${changeId}-new" placeholder="15/04" style="margin-bottom: 1px;" value="${currentEndDate}">
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            container.insertAdjacentHTML('beforeend', changeHtml);
-            
-            // Initialize date pickers for the new timeline change fields in modal
-            setTimeout(() => {
-                const dateField = document.getElementById(`${changeId}-date`);
-                const prevField = document.getElementById(`${changeId}-prev`);
-                const newField = document.getElementById(`${changeId}-new`);
-                
-                // Clear any existing initialization flags first
-                [dateField, prevField, newField].forEach(field => {
-                    if (field) {
-                        field.dataset.datePickerInitialized = 'false';
-                        if (field.id) {
-                            initializedDatePickers.delete(field.id);
-                        }
-                    }
-                });
-                
-                if (dateField) initializeDatePicker(dateField, false);
-                if (prevField) initializeDatePicker(prevField, false);
-                if (newField) initializeDatePicker(newField, false);
-            }, 10);
-            
-            // Update the Add Change button state
-            updateEditChangeButton();
-        }
-
-                function removeEditChange(changeId) {
-            document.getElementById(changeId).remove();
-            
-            // Update the Add Change button state
-            updateEditChangeButton();
-        }
-        
-
-
-        // Utility function to sort timeline changes by date
-        function sortTimelineChangesByDate(timelineChanges) {
-            return timelineChanges.sort((a, b) => {
-                if (!a.date && !b.date) return 0;
-                if (!a.date) return 1; // Empty dates go to end
-                if (!b.date) return -1;
-                
-                const dateA = DateUtility.parseEuropeanDateForTimeline(a.date);
-                const dateB = DateUtility.parseEuropeanDateForTimeline(b.date);
-                return dateA - dateB;
-            });
-        }
-
-        function updateEditChangeButton() {
-            const container = document.getElementById('editChangesContainer');
-            const addButton = document.getElementById('add-edit-change-btn');
-            
-            if (!container || !addButton) return;
-            
-            const existingChanges = container.querySelectorAll('div[id^="edit-change-"]');
-            
-            if (existingChanges.length >= 5) {
-                addButton.disabled = true;
-                addButton.textContent = '+ Add Timeline Entry (Max 5 reached)';
-                addButton.style.opacity = '0.5';
-                addButton.style.cursor = 'not-allowed';
-            } else {
-                addButton.disabled = false;
-                addButton.textContent = '+ Add Timeline Entry';
-                addButton.style.opacity = '1';
-                addButton.style.cursor = 'pointer';
-            }
-        }
+        // (addEditChange/removeEditChange/sortTimelineChangesByDate/updateEditChangeButton
+        // moved to ./timeline-changes.js)
         // Monthly KTLO Edit Modal Functions
         let currentEditingMonth = null;
         
@@ -7726,7 +4313,7 @@
             document.getElementById('editMonthlyKTLOModal').style.display = 'flex';
             
             // Set up focus trap
-            modalFocusTrap = setupModalFocusTrap('editMonthlyKTLOModal');
+            setupModalFocusTrap('editMonthlyKTLOModal');
             
             // Add Enter key listener for Save Changes
             const editMonthlyKTLOModal = document.getElementById('editMonthlyKTLOModal');
@@ -8678,220 +5265,17 @@
             doc.head.appendChild(style);
         }
 
-        // KTLO Percentage Validation Functions
-        function validateKTLOPercentage(value) {
-            // Empty/blank values are allowed
-            if (value === '' || value === null || value === undefined) {
-                return true;
-            }
-            
-            // Convert to number and check if it's valid
-            const numValue = parseFloat(value);
-            
-            // Must be a valid number
-            if (isNaN(numValue)) {
-                return false;
-            }
-            
-            // Must be between 0 and 100
-            if (numValue < 0 || numValue > 100) {
-                return false;
-            }
-            
-            // Must be a multiple of 5
-            return numValue % 5 === 0;
-        }
-
-        function showKTLOValidationError(inputElement, message) {
-            // Add error class to input
-            inputElement.classList.add('ktlo-percentage-error');
-            
-            // Remove any existing error message
-            removeKTLOValidationError(inputElement);
-            
-            // Create and add error message
-            const errorSpan = document.createElement('span');
-            errorSpan.className = 'ktlo-percentage-error-message';
-            errorSpan.textContent = message;
-            
-            // Insert error message after the input element
-            inputElement.parentNode.appendChild(errorSpan);
-        }
-
-        function removeKTLOValidationError(inputElement) {
-            // Remove error class from input
-            inputElement.classList.remove('ktlo-percentage-error');
-            
-            // Remove error message
-            const errorMessage = inputElement.parentNode.querySelector('.ktlo-percentage-error-message');
-            if (errorMessage) {
-                errorMessage.remove();
-            }
-        }
-
-        function handleKTLOPercentageValidation(event) {
-            const inputElement = event.target;
-            const value = inputElement.value.trim();
-            
-            if (validateKTLOPercentage(value)) {
-                removeKTLOValidationError(inputElement);
-                return true;
-            } else {
-                showKTLOValidationError(inputElement, 'Value must be blank or a multiple of 5 between 0 and 100');
-                
-                // For blur events, prevent the user from leaving the field with invalid value
-                if (event.type === 'blur') {
-                    event.preventDefault();
-                    // Refocus the field after a short delay to allow the error message to show
-                    setTimeout(() => {
-                        inputElement.focus();
-                    }, 100);
-                }
-                return false;
-            }
-        }
-
-        // Initialize KTLO percentage validation when DOM is loaded
-        function initializeKTLOValidation() {
-            const ktloPercentageInputs = [
-                'ktlo-current-percentage',
-                'edit-ktlo-current-percentage', 
-                'editMonthlyKTLOPercentage'
-            ];
-            
-            ktloPercentageInputs.forEach(inputId => {
-                const inputElement = document.getElementById(inputId);
-                if (inputElement) {
-                    // Add blur event listener for validation when leaving field
-                    inputElement.addEventListener('blur', handleKTLOPercentageValidation);
-                    
-                    // Add input event listener for immediate feedback
-                    inputElement.addEventListener('input', handleKTLOPercentageValidation);
-                }
-            });
-        }
-
-        // Initialize validation when page loads
-        document.addEventListener('DOMContentLoaded', initializeKTLOValidation);
-        
-        // Also initialize immediately in case DOM is already loaded
-        if (document.readyState === 'loading') {
-            // Do nothing, DOMContentLoaded will fire
-        } else {
-            // DOM is already loaded
-            initializeKTLOValidation();
-        }
+        // KTLO percentage validation moved to ./ktlo-validation.js.
+        // initializeKTLOValidation is registered as a DOMContentLoaded
+        // handler at the top of init() since the legacy body would do
+        // the same.
 
         // Drag and Drop Functionality - entire builder panel
-        function initializeDragAndDrop() {
-            const builderPanel = document.querySelector('.builder-panel');
-            
-            if (!builderPanel) {
-                console.warn('Builder panel not found');
-                return;
-            }
 
-            // Builder panel drag events
-            builderPanel.addEventListener('dragenter', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
-                    builderPanel.classList.add('drag-over');
-                }
-            });
-
-            builderPanel.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                if (e.dataTransfer && e.dataTransfer.types.includes('Files')) {
-                    e.dataTransfer.dropEffect = 'copy';
-                }
-            });
-
-            builderPanel.addEventListener('dragleave', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Only remove drag-over if leaving the builder panel entirely
-                if (!builderPanel.contains(e.relatedTarget)) {
-                    builderPanel.classList.remove('drag-over');
-                }
-            });
-
-            builderPanel.addEventListener('drop', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                builderPanel.classList.remove('drag-over');
-                handleFileDrop(e);
-            });
-        }
-
-        function handleFileDrop(e) {
-            const files = e.dataTransfer.files;
-            
-            if (files.length === 0) {
-                return;
-            }
-
-            // Only process the first file
-            const file = files[0];
-            const fileName = file.name.toLowerCase();
-            
-            // Check file type
-            if (fileName.endsWith('.json')) {
-                // Handle JSON file - create synthetic event for existing handler
-                const syntheticEvent = {
-                    target: {
-                        files: [file],
-                        value: '' // Reset value to allow same file to be loaded again
-                    }
-                };
-                
-                try {
-                    handleFileLoad(syntheticEvent);
-                } catch (error) {
-                    console.error('Error handling dropped JSON file:', error);
-                    alert('Error loading JSON file: ' + error.message);
-                }
-                
-            } else {
-                alert('Unsupported file type. Please drop a .json file.');
-            }
-        }
 
         // Initialize drag and drop when page loads
-        document.addEventListener('DOMContentLoaded', initializeDragAndDrop);
         
-        // Also initialize immediately in case DOM is already loaded
-        if (document.readyState === 'loading') {
-            // Do nothing, DOMContentLoaded will fire
-        } else {
-            // DOM is already loaded
-            initializeDragAndDrop();
-        }
-        
-        // Builder Collapse Functionality
-        let isBuilderCollapsed = false;
-        
-        function toggleBuilderCollapse() {
-            const builderPanel = document.querySelector('.builder-panel');
-            const collapseBtn = document.getElementById('builderCollapseBtn');
-            
-            if (isBuilderCollapsed) {
-                // Expand builder
-                builderPanel.classList.remove('collapsed');
-                collapseBtn.textContent = '▲ Hide Builder';
-                isBuilderCollapsed = false;
-            } else {
-                // Collapse builder
-                builderPanel.classList.add('collapsed');
-                collapseBtn.textContent = '▼ Show Builder';
-                isBuilderCollapsed = true;
-            }
-        }
+        // Builder collapse moved to ./collapse.js (createBuilderCollapse).
         
         // Update document title based on team name
         function updateDocumentTitle() {
@@ -8915,283 +5299,23 @@
                 updateDocumentTitle();
             }
         });
-    </script>
     
-    <script>
-        // File Browser functionality
-        let selectedDirectoryHandle = null;
-        
-        // Save directory handle to localStorage (for persistence)
-        function saveDirectoryHandle(directoryHandle) {
-            try {
-                // Store directory information in localStorage
-                localStorage.setItem('roadmapDirectoryInfo', JSON.stringify({
-                    name: directoryHandle.name,
-                    savedAt: Date.now()
-                }));
-                
-                // Store the actual handle in a way that can be restored
-                // Note: Full persistence requires IndexedDB, but we can at least save the name
-            } catch (error) {
-                console.warn('Could not save directory info:', error);
-            }
-        }
-        
-        // Try to restore directory handle from localStorage
-        async function restoreDirectoryHandle() {
-            try {
-                const savedInfo = localStorage.getItem('roadmapDirectoryInfo');
-                if (!savedInfo) return false;
-                
-                const info = JSON.parse(savedInfo);
-                
-                // Show that we remember the directory, but need to re-select it
-                const fileList = document.getElementById('fileList');
-                const reminderDiv = document.createElement('div');
-                reminderDiv.className = 'directory-reminder';
-                reminderDiv.style.cssText = `
-                    text-align: center;
-                    color: #666;
-                    font-style: italic;
-                    padding: 15px;
-                    font-size: 12px;
-                    font-family: 'Courier New', monospace;
-                    border: 1px dashed #ccc;
-                    border-radius: 4px;
-                    margin: 10px 0;
-                `;
-                reminderDiv.innerHTML = `
-                    <div style="margin-bottom: 8px;">📁 Last used folder:</div>
-                    <div style="font-weight: bold; color: #333;">${info.name}</div>
-                    <div style="margin-top: 8px; font-size: 11px;">Click "Select Folder" to access it again</div>
-                `;
-                
-                fileList.appendChild(reminderDiv);
-                return true;
-                
-            } catch (error) {
-                console.warn('Could not restore directory info:', error);
-                return false;
-            }
-        }
-        
+;
+
+        // File Browser functionality. Directory selection is owned by the
+        // shared AppDir store (see /app/directory-store.js) — we just read
+        // from it and re-render the file list when it changes.
+
         // Toggle file browser collapse
-        function toggleFileBrowser() {
-            const panel = document.getElementById('fileBrowserPanel');
-            const toggle = document.getElementById('fileBrowserToggle');
-            const expandBtn = document.getElementById('expandFileBrowserBtn');
-            
-            if (panel.classList.contains('collapsed')) {
-                // Expand file browser
-                panel.classList.remove('collapsed');
-                toggle.textContent = '×';
-                expandBtn.classList.remove('visible');
-            } else {
-                // Collapse file browser
-                panel.classList.add('collapsed');
-                toggle.textContent = '×';
-                expandBtn.classList.add('visible');
-            }
-        }
-        
-        // Handle fallback directory selection
-        function handleFallbackDirectorySelection(event) {
-            const files = event.target.files;
-            if (files && files.length > 0) {
-                window._fallbackDirectoryFiles = files;
-                loadDirectoryFiles();
-                
-                // Show directory path
-                const fileList = document.getElementById('fileList');
-                const pathDiv = document.createElement('div');
-                pathDiv.className = 'directory-path';
-                pathDiv.textContent = `📁 ${files[0].webkitRelativePath.split('/')[0]}/`;
-                fileList.insertBefore(pathDiv, fileList.firstChild);
-            }
-        }
         
         // Update file browser button visibility based on panel state
-        function updateFileBrowserButtonVisibility() {
-            const panel = document.getElementById('fileBrowserPanel');
-            const expandBtn = document.getElementById('expandFileBrowserBtn');
-            
-            if (panel && expandBtn) {
-                if (panel.classList.contains('collapsed')) {
-                    expandBtn.classList.add('visible');
-                } else {
-                    expandBtn.classList.remove('visible');
-                }
-            }
-        }
         
-        // Select directory using File System Access API
-        async function selectDirectory() {
-            try {
-                if ('showDirectoryPicker' in window) {
-                selectedDirectoryHandle = await window.showDirectoryPicker();
-                saveDirectoryHandle(selectedDirectoryHandle);
-                await loadDirectoryFiles();
-                const fileList = document.getElementById('fileList');
-                const pathDiv = document.createElement('div');
-                pathDiv.className = 'directory-path';
-                pathDiv.textContent = `📁 ${selectedDirectoryHandle.name}/`;
-                fileList.insertBefore(pathDiv, fileList.firstChild);
-                } else {
-                    // Fallback: use webkitdirectory input
-                    const input = document.getElementById('directoryFileInput');
-                    input.onchange = handleFallbackDirectorySelection;
-                    input.click();
-                }
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    return;
-                }
-                // If picker failed (permissions/policy), try fallback input
-                try {
-                    const input = document.getElementById('directoryFileInput');
-                    input.onchange = handleFallbackDirectorySelection;
-                    input.click();
-                } catch (e) {
-                console.error('Error selecting directory:', error);
-                alert('Error selecting directory: ' + error.message);
-                }
-            }
-        }
+        // Delegates to the shared folder picker in the top nav. Kept for any
+        // legacy callers that still invoke selectDirectory() directly.
         
         // Load and display files from selected directory
-        async function loadDirectoryFiles() {
-            const fileList = document.getElementById('fileList');
-            fileList.innerHTML = '';
-            
-            // Clear any existing directory reminder
-            const reminderDiv = document.querySelector('.directory-reminder');
-            if (reminderDiv) {
-                reminderDiv.remove();
-            }
-            
-            if (!selectedDirectoryHandle && !window._fallbackDirectoryFiles) {
-                fileList.innerHTML = '<div class="no-directory-message">Click "Select Folder" to browse your roadmap files</div>';
-                return;
-            }
-            
-            
-            
-            try {
-                const roadmapFiles = [];
-                if (selectedDirectoryHandle) {
-                    // Iterate via File System Access API
-                    for await (const [name, handle] of selectedDirectoryHandle.entries()) {
-                    if (handle.kind === 'file') {
-                        const isJson = name.toLowerCase().endsWith('.json');
-                            if (isJson) {
-                            try {
-                                const file = await handle.getFile();
-                                let teamName = 'Unknown Team';
-                                    const content = await file.text().catch(() => null);
-                                    if (content) {
-                                        try {
-                                        const roadmapData = JSON.parse(content);
-                                        teamName = roadmapData.teamData?.teamName || 'Unknown Team';
-                                        } catch (_) {
-                                        teamName = 'Invalid JSON';
-                                    }
-                                    }
-                                    roadmapFiles.push({ name, handle, teamName, size: file.size, lastModified: file.lastModified, fileType: 'json' });
-                            } catch (error) {
-                                console.warn(`Could not read roadmap file ${name}:`, error);
-                            }
-                            }
-                        }
-                    }
-                } else if (window._fallbackDirectoryFiles) {
-                    // Iterate fallback FileList
-                    for (const file of window._fallbackDirectoryFiles) {
-                        const name = file.name;
-                        if (name.toLowerCase().endsWith('.json')) {
-                            let teamName = 'Unknown Team';
-                            const content = await file.text().catch(() => null);
-                            if (content) {
-                                try {
-                                    const roadmapData = JSON.parse(content);
-                                    teamName = roadmapData.teamData?.teamName || 'Unknown Team';
-                                } catch (_) {
-                                    teamName = 'Invalid JSON';
-                                }
-                            }
-                            roadmapFiles.push({ name, handle: file, teamName, size: file.size, lastModified: file.lastModified, fileType: 'json' });
-                        }
-                    }
-                }
-                
-                // Sort files by team name
-                roadmapFiles.sort((a, b) => a.name.localeCompare(b.name));
-                
-                
-                
-                if (roadmapFiles.length === 0) {
-                    fileList.innerHTML = '<div class="no-directory-message">No roadmap (.json) files found in this folder</div>';
-                    return;
-                }
-                
-                // Display files
-                roadmapFiles.forEach(fileInfo => {
-                    const fileItem = document.createElement('div');
-                    fileItem.className = 'file-item';
-                    fileItem.onclick = () => openRoadmapFile(fileInfo.handle, fileInfo.fileType);
-                    
-                    const fileTypeText = 'JSON';
-                    const icon = '📋';
-                    
-                    fileItem.title = `${fileInfo.name}\nType: ${fileTypeText}\nTeam: ${fileInfo.teamName}\nSize: ${(fileInfo.size / 1024).toFixed(1)} KB\nModified: ${new Date(fileInfo.lastModified).toLocaleDateString('en-GB')}`;
-                    
-                    fileItem.innerHTML = `
-                        <div class="file-item-icon">${icon}</div>
-                        <div class="file-item-info">
-                            <div class="file-item-name">${fileInfo.name}</div>
-                        </div>
-                    `;
-                    
-                    fileList.appendChild(fileItem);
-                });
-                
-            } catch (error) {
-                console.error('Error loading directory files:', error);
-                fileList.innerHTML = '<div class="no-directory-message">Error loading files: ' + error.message + '</div>';
-            }
-        }
         
         // Open roadmap file - handle both JSON and Excel files
-        async function openRoadmapFile(fileHandle, fileType) {
-            try {
-                // Support FileSystemFileHandle (getFile) and File (fallback)
-                const file = (fileHandle && typeof fileHandle.getFile === 'function')
-                    ? await fileHandle.getFile()
-                    : fileHandle;
-                
-                if (fileType === 'json') {
-                    // Handle JSON files - load directly in current tab
-                    const content = await file.text();
-                    const roadmapData = JSON.parse(content);
-                    
-                    // Handle both new format (with metadata) and legacy format (direct teamData)
-                    const teamData = roadmapData.teamData || roadmapData;
-                    
-                    // Load directly in current tab (like the buttons do)
-                    loadTeamData(teamData);
-                    
-                    // Update filename display
-                    updateFilenameDisplay(file.name);
-                    
-                    setTimeout(() => {
-                        refreshAllDatePickers();
-                        generatePreview();
-                    }, 500);
-                }
-            } catch (error) {
-                console.error('Error opening roadmap file:', error);
-                    alert('Error opening roadmap file: ' + error.message);
-            }
-                }
         
         // Process Excel workbook directly without localStorage
         
@@ -9228,7 +5352,7 @@
                         // Collapse the builder if requested
                         if (loadedData._collapseBuilder) {
                             setTimeout(() => {
-                                if (!isBuilderCollapsed) {
+                                if (!isBuilderCollapsed()) {
                                     toggleBuilderCollapse();
                                 }
                             }, 100);
@@ -9277,37 +5401,96 @@
                 textBelowToggle.checked = false;
             }
             
-            if (!('showDirectoryPicker' in window)) {
-                const fileList = document.getElementById('fileList');
-                fileList.innerHTML = `
-                    <div class="no-directory-message" style="color: #dc3545;">
-                        <strong>This browser may not fully support folder selection</strong><br>
-                        Chrome or Edge recommended for best results.
-                    </div>
-                `;
-            } else {
-                // Try to restore directory info from localStorage
-                const restored = await restoreDirectoryHandle();
-                if (!restored) {
-                    // Show default message if no previous directory
-                    const fileList = document.getElementById('fileList');
-                    if (fileList.children.length === 0) {
-                        fileList.innerHTML = '<div class="no-directory-message">Click "Select Folder" to browse your roadmap files</div>';
-                    }
-                }
-            }
+            // The shared AppDir store drives the file list. Subscribe once
+            // and re-render whenever the selected folder (or its permission)
+            // changes. Works for the initial state too since AppDir emits
+            // synchronously on subscribe.
         });
         
-        // ==================== SEARCH FUNCTIONALITY ====================
-        
-        /**
-         * Open Search interface
-         */
-        function openIMOSearch() {
-            const roadmapYear = document.getElementById('roadmapYear').value || new Date().getFullYear();
-            window.open(`imo-search.html?year=${roadmapYear}`, '_blank');
-        }
-        
-    </script>
-</body>
-</html> 
+    
+        // === END legacy script body ===
+
+        // Expose function declarations to window so inline onclick="foo()"
+        // handlers in the view markup keep resolving. Phase 3 will migrate
+        // these to delegated addEventListener wiring and remove these.
+        // toggleShareDropdown, closeShareDropdown, toggleShareDropdownBottom,
+        // closeShareDropdownBottom, exportJPG, exportPDF are exposed at the top
+        // of init() via Object.assign(window, share, exportLib).
+if (typeof createEpicId === 'function') window.createEpicId = createEpicId;
+if (typeof createStoryId === 'function') window.createStoryId = createStoryId;
+if (typeof loadDefaultTemplate === 'function') window.loadDefaultTemplate = loadDefaultTemplate;
+if (typeof initializeBasicTemplate === 'function') window.initializeBasicTemplate = initializeBasicTemplate;
+if (typeof attemptInitialization === 'function') window.attemptInitialization = attemptInitialization;
+if (typeof initializeKTLOMonths === 'function') window.initializeKTLOMonths = initializeKTLOMonths;
+if (typeof switchKTLOMonth === 'function') window.switchKTLOMonth = switchKTLOMonth;
+if (typeof loadKTLOMonth === 'function') window.loadKTLOMonth = loadKTLOMonth;
+if (typeof saveCurrentKTLOData === 'function') window.saveCurrentKTLOData = saveCurrentKTLOData;
+if (typeof addEpic === 'function') window.addEpic = addEpic;
+if (typeof removeEpic === 'function') window.removeEpic = removeEpic;
+if (typeof toggleEpicCollapse === 'function') window.toggleEpicCollapse = toggleEpicCollapse;
+if (typeof toggleBTLCollapse === 'function') window.toggleBTLCollapse = toggleBTLCollapse;
+if (typeof toggleStoryCollapse === 'function') window.toggleStoryCollapse = toggleStoryCollapse;
+if (typeof updateStoryHeaderTitle === 'function') window.updateStoryHeaderTitle = updateStoryHeaderTitle;
+if (typeof debouncedGeneratePreview === 'function') window.debouncedGeneratePreview = debouncedGeneratePreview;
+if (typeof handleForceTextBelowToggle === 'function') window.handleForceTextBelowToggle = handleForceTextBelowToggle;
+if (typeof addAutoUpdateListeners === 'function') window.addAutoUpdateListeners = addAutoUpdateListeners;
+if (typeof addListenersToExistingElements === 'function') window.addListenersToExistingElements = addListenersToExistingElements;
+if (typeof addListenersToElement === 'function') window.addListenersToElement = addListenersToElement;
+if (typeof addStory === 'function') window.addStory = addStory;
+if (typeof removeStory === 'function') window.removeStory = removeStory;
+if (typeof addBTLStory === 'function') window.addBTLStory = addBTLStory;
+if (typeof updateBTLAddButton === 'function') window.updateBTLAddButton = updateBTLAddButton;
+if (typeof getTodaysDateEuropean === 'function') window.getTodaysDateEuropean = getTodaysDateEuropean;
+if (typeof getCurrentRoadmapYear === 'function') window.getCurrentRoadmapYear = getCurrentRoadmapYear;
+// addInfoEntry/removeInfoEntry/convertSingleInfoToMultiple come from the
+// info-entries factory and are exposed via Object.assign at the top of init().
+if (typeof addEditInfoEntry === 'function') window.addEditInfoEntry = addEditInfoEntry;
+if (typeof removeEditInfoEntry === 'function') window.removeEditInfoEntry = removeEditInfoEntry;
+if (typeof updateStoryNumbers === 'function') window.updateStoryNumbers = updateStoryNumbers;
+if (typeof generatePreview === 'function') window.generatePreview = generatePreview;
+if (typeof initializeIframeInteraction === 'function') window.initializeIframeInteraction = initializeIframeInteraction;
+if (typeof addAlignmentGuide === 'function') window.addAlignmentGuide = addAlignmentGuide;
+if (typeof collectFormData === 'function') window.collectFormData = collectFormData;
+if (typeof collectStoryData === 'function') window.collectStoryData = collectStoryData;
+if (typeof collectKTLOData === 'function') window.collectKTLOData = collectKTLOData;
+if (typeof collectBTLData === 'function') window.collectBTLData = collectBTLData;
+if (typeof updateFilenameDisplay === 'function') window.updateFilenameDisplay = updateFilenameDisplay;
+if (typeof newRoadmap === 'function') window.newRoadmap = newRoadmap;
+if (typeof closeNewRoadmapModal === 'function') window.closeNewRoadmapModal = closeNewRoadmapModal;
+if (typeof confirmNewRoadmap === 'function') window.confirmNewRoadmap = confirmNewRoadmap;
+if (typeof saveRoadmap === 'function') window.saveRoadmap = saveRoadmap;
+if (typeof loadRoadmap === 'function') window.loadRoadmap = loadRoadmap;
+if (typeof handleRoadmapLoad === 'function') window.handleRoadmapLoad = handleRoadmapLoad;
+if (typeof fixDatesOnLoad === 'function') window.fixDatesOnLoad = fixDatesOnLoad;
+if (typeof handleFileLoad === 'function') window.handleFileLoad = handleFileLoad;
+// Stats functions are exposed via Object.assign at the top of init().
+if (typeof updateIdCountersAfterImport === 'function') window.updateIdCountersAfterImport = updateIdCountersAfterImport;
+if (typeof loadTeamData === 'function') window.loadTeamData = loadTeamData;
+if (typeof roundToNearestFive === 'function') window.roundToNearestFive = roundToNearestFive;
+if (typeof loadKTLOData === 'function') window.loadKTLOData = loadKTLOData;
+if (typeof loadBTLData === 'function') window.loadBTLData = loadBTLData;
+if (typeof loadStoryData === 'function') window.loadStoryData = loadStoryData;
+if (typeof openEditStoryModal === 'function') window.openEditStoryModal = openEditStoryModal;
+if (typeof closeEditModal === 'function') window.closeEditModal = closeEditModal;
+if (typeof toggleEditStatusFields === 'function') window.toggleEditStatusFields = toggleEditStatusFields;
+if (typeof initializeEditKTLOMonths === 'function') window.initializeEditKTLOMonths = initializeEditKTLOMonths;
+if (typeof switchEditKTLOMonth === 'function') window.switchEditKTLOMonth = switchEditKTLOMonth;
+if (typeof loadEditKTLOMonth === 'function') window.loadEditKTLOMonth = loadEditKTLOMonth;
+if (typeof openEditMonthlyKTLOModal === 'function') window.openEditMonthlyKTLOModal = openEditMonthlyKTLOModal;
+if (typeof closeEditMonthlyKTLOModal === 'function') window.closeEditMonthlyKTLOModal = closeEditMonthlyKTLOModal;
+if (typeof saveMonthlyKTLOChanges === 'function') window.saveMonthlyKTLOChanges = saveMonthlyKTLOChanges;
+if (typeof findStoryInForm === 'function') window.findStoryInForm = findStoryInForm;
+if (typeof saveStoryChanges === 'function') window.saveStoryChanges = saveStoryChanges;
+if (typeof moveCurrentStoryUp === 'function') window.moveCurrentStoryUp = moveCurrentStoryUp;
+if (typeof moveCurrentStoryDown === 'function') window.moveCurrentStoryDown = moveCurrentStoryDown;
+if (typeof deleteCurrentStory === 'function') window.deleteCurrentStory = deleteCurrentStory;
+if (typeof setupMonthlyBoxPriming === 'function') window.setupMonthlyBoxPriming = setupMonthlyBoxPriming;
+if (typeof updateDocumentTitle === 'function') window.updateDocumentTitle = updateDocumentTitle;
+if (typeof checkForLoadedData === 'function') window.checkForLoadedData = checkForLoadedData;
+    } finally {
+        document.addEventListener = __origAdd;
+    }
+    for (const fn of __viewReady) {
+        try { fn.call(document, new Event('DOMContentLoaded')); } catch (e) { console.error(e); }
+    }
+}
