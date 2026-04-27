@@ -1,14 +1,16 @@
-// Manual save: writes the current state back to the JSON file in place.
-// Triggered explicitly by the user clicking the Save button - no auto-save.
+// Manual save: writes the current state back to the JSON file in place
+// (Chromium only) or downloads it as a file (any browser). Triggered
+// explicitly from the Save dropdown - no auto-save.
 //
-// Save requires a writable file/folder handle from the File System Access
-// API (Chromium-only). Without one, save() refuses and the UI keeps the
-// Save button disabled.
+// In-place save requires a writable file/folder handle from the File
+// System Access API. Without one, save() refuses. Download builds a
+// blob and triggers a browser download via <a download>; works
+// everywhere and never touches a file handle.
 //
-// Two write paths, in order:
+// In-place write paths, in order:
 //   1. Existing writable file handle (from showOpenFilePicker, the
-//      file-browser side panel, or the new-roadmap "Save As" dialog).
-//      Silent write in place.
+//      file-browser side panel, or the "Save As" dialog). Silent write
+//      in place.
 //   2. AppDir directory handle: synthesise a writable file handle via
 //      dirHandle.getFileHandle(filename, {create:true}) and write. Covers
 //      the new-roadmap and drag-drop cases where we have a folder but no
@@ -19,14 +21,16 @@ import { getState } from './state.js';
 let fileHandle = null;
 let dirHandle = null;
 let dirKind = null; // 'native' | 'fallback' | null
-const dirSubscribers = new Set();
 let statusEl = null;
 let saving = false;
 let lastErrorMessage = '';
 
 export function init({ statusElement }) {
     statusEl = statusElement;
-    setStatus(fileHandle ? 'saved' : 'idle');
+    // Always start in 'idle'. 'saved' is reserved for actual save success
+    // because the status setter dispatches roadmap:saved, which the builder
+    // reads to fire the confetti animation.
+    setStatus('idle');
     subscribeToAppDir();
 }
 
@@ -42,15 +46,12 @@ function subscribeToAppDir() {
         const isUsable = snap && snap.handle && snap.permission !== 'denied';
         dirHandle = isUsable ? snap.handle : null;
         dirKind = isUsable ? snap.kind : null;
-        // Reflect availability to subscribers (the UI uses this to enable/disable Save).
-        for (const cb of dirSubscribers) {
-            try { cb(canSave()); } catch (e) { console.error(e); }
-        }
     });
 }
 
-// True when at least one save path is viable. The save() call enforces
-// this too, but the UI uses it to disable the button.
+// True when at least one in-place save path is viable. Used by the
+// "Save file" flow to decide whether to write directly or first prompt
+// for a save destination.
 //
 // We always return true while a writable file handle is held because that
 // has a backing folder (the user picked one to get the handle in the first
@@ -62,23 +63,17 @@ export function canSave() {
 }
 
 // True when this browser can save edits back to disk at all (= has the
-// File System Access API). When false the UI should communicate that
-// saving is unsupported instead of prompting the user to pick a folder.
+// File System Access API). When false, "Save file" surfaces a popup
+// instructing the user to use Chrome/Edge or to download instead.
 export function canSaveInBrowser() {
     return Boolean(window.AppDir && window.AppDir.canSaveInBrowser);
 }
 
-// Subscribe to canSave() changes. Fires immediately with the current value
-// so callers can sync their UI without an extra read.
-export function onSaveAvailabilityChange(cb) {
-    dirSubscribers.add(cb);
-    try { cb(canSave()); } catch (e) { console.error(e); }
-    return () => dirSubscribers.delete(cb);
-}
-
 export function setFileHandle(handle) {
     fileHandle = handle;
-    setStatus(handle ? 'saved' : 'idle');
+    // 'idle', not 'saved': loading a file shouldn't fire roadmap:saved
+    // (which would trigger the post-save confetti animation).
+    setStatus('idle');
 }
 
 export function getFileHandle() {
@@ -155,6 +150,33 @@ export async function save({ suggestedName }) {
     } finally {
         saving = false;
     }
+}
+
+/**
+ * Trigger a browser download of the current state as a JSON file. Works
+ * in every browser; nothing is written to disk via the File System Access
+ * API, so this also covers the Safari/Firefox path.
+ *
+ * @param {{ suggestedName: string }} options
+ */
+export function download({ suggestedName }) {
+    const state = getState();
+    if (!state) return;
+    const json = JSON.stringify({
+        version: '1.0',
+        created: new Date().toISOString(),
+        teamData: state,
+    }, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = suggestedName || 'roadmap.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    setStatus('saved');
 }
 
 function setStatus(kind) {
