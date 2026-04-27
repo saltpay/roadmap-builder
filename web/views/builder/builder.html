@@ -29,18 +29,27 @@
                     <button onclick="toggleBuilderCollapse()" id="builderCollapseBtn" class="secondary builder-collapse-btn">▲ Hide Builder</button>
                 </div>
                 <div class="title-and-buttons">
-                    <h1 style="margin: 0; padding: 0; text-align: left;"><span id="roadmapIcon">🗺️</span> Roadmap Builder</h1>
+                    <div style="display: flex; align-items: baseline; gap: 16px; flex: 1 1 auto; min-width: 0;">
+                        <h1 style="margin: 0; padding: 0; text-align: left;"><span id="roadmapIcon">🗺️</span> Roadmap Builder</h1>
+                        <div class="title-meta" style="display: flex; align-items: baseline; gap: 16px; font-size: 12px; color: var(--text-muted); min-width: 0; flex: 1 1 auto;">
+                            <input type="hidden" id="roadmapYear" value="2025">
+                            <span id="currentFilenameDisplay" style="display: none; align-items: baseline; gap: 4px; min-width: 0; flex: 1 1 auto;">
+                                <label for="currentFilename" style="margin: 0; font-size: 12px; font-weight: 500; white-space: nowrap;">Filename:</label>
+                                <input type="text" id="currentFilename" class="plain-text-field" placeholder="Roadmap filename" readonly tabindex="-1" title="Filename is read-only - save writes back to the loaded file" style="width: auto; flex: 1 1 auto; font-size: 12px; min-width: 0;">
+                            </span>
+                        </div>
+                    </div>
                     <div class="top-action-buttons">
                     <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
-                    <button onclick="loadRoadmap()" class="secondary">📂 Load Roadmap</button>
-                    <button onclick="saveRoadmap()" class="secondary">💾 Save Roadmap</button>
+<button onclick="saveRoadmap()" class="secondary js-save-button" disabled title="Pick a folder first via Load roadmaps">💾 Save</button>
+                    <span id="saveStatus" class="save-status" data-status="idle"></span>
                     <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
-                    <div class="dropdown" style="display: inline-block; position: relative;">
-                        <button id="shareDropdownBtn" class="secondary" onclick="toggleShareDropdown(event)">🌐 Share ▼</button>
-                        <div id="shareDropdownMenu" class="dropdown-content">
-                            <a href="#" onclick="exportHTML(); closeShareDropdown(); return false;">HTML</a>
-                            <a href="#" onclick="exportJPG(); closeShareDropdown(); return false;">JPG</a>
-                            <a href="#" onclick="exportPDF(); closeShareDropdown(); return false;">PDF</a>
+                    <div style="display: inline-block; position: relative;">
+                        <button id="shareDropdownBtn" class="secondary" onclick="toggleShareDropdown(event)">🌐 Export</button>
+                        <div id="shareDropdownMenu" class="app-nav__folder-menu">
+                            <button type="button" class="app-nav__folder-menu-item" onclick="exportHTML(); closeShareDropdown();">HTML</button>
+                            <button type="button" class="app-nav__folder-menu-item" onclick="exportJPG(); closeShareDropdown();">JPG</button>
+                            <button type="button" class="app-nav__folder-menu-item" onclick="exportPDF(); closeShareDropdown();">PDF</button>
                         </div>
                     </div>
                 </div>
@@ -58,22 +67,6 @@
                     </div>
                     <div class="modal-footer" style="justify-content: flex-end;">
                         <button onclick="closeStatsModal()" class="secondary">Close</button>
-                    </div>
-                </div>
-            </div>
-            <div class="form-group" style="max-width: 70px;">
-                <label for="roadmapYear">Year:</label>
-                <input type="number" id="roadmapYear" placeholder="2025" value="2025" min="2020" max="2030">
-            </div>
-            <!-- Current Filename (editable) -->
-            <div id="currentFilenameDisplay" style="display: none;">
-                <div class="inline-group">
-                    <div class="form-group">
-                        <label for="currentFilename">Current Filename:</label>
-                        <input type="text" id="currentFilename" placeholder="Roadmap filename">
-                    </div>
-                    <div class="form-group" style="visibility: hidden;">
-                        <!-- Empty space to match inline-group layout -->
                     </div>
                 </div>
             </div>
@@ -203,32 +196,25 @@
             <!-- Action Buttons -->
             <div class="action-buttons">
                 <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
-                <button onclick="loadRoadmap()" class="secondary">📂 Load Roadmap</button>
-                <button onclick="saveRoadmap()" class="secondary">💾 Save Roadmap</button>
+                <button onclick="saveRoadmap()" class="secondary js-save-button" disabled title="Pick a folder first via Load roadmaps">💾 Save</button>
                 <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
-                <div class="dropdown" style="display: inline-block; position: relative;">
-                    <button id="shareDropdownBtnBottom" class="secondary" onclick="toggleShareDropdownBottom(event)">🌐 Share ▼</button>
-                    <div id="shareDropdownMenuBottom" class="dropdown-content">
-                        <a href="#" onclick="exportHTML(); closeShareDropdownBottom(); return false;">HTML</a>
-                        <a href="#" onclick="exportJPG(); closeShareDropdownBottom(); return false;">JPG</a>
-                        <a href="#" onclick="exportPDF(); closeShareDropdownBottom(); return false;">PDF</a>
+                <div style="display: inline-block; position: relative;">
+                    <button id="shareDropdownBtnBottom" class="secondary" onclick="toggleShareDropdownBottom(event)">🌐 Export</button>
+                    <div id="shareDropdownMenuBottom" class="app-nav__folder-menu">
+                        <button type="button" class="app-nav__folder-menu-item" onclick="exportHTML(); closeShareDropdownBottom();">HTML</button>
+                        <button type="button" class="app-nav__folder-menu-item" onclick="exportJPG(); closeShareDropdownBottom();">JPG</button>
+                        <button type="button" class="app-nav__folder-menu-item" onclick="exportPDF(); closeShareDropdownBottom();">PDF</button>
                     </div>
                 </div>
             </div>
-            <!-- Hidden file input for loading roadmaps (JSON only) -->
-            <input type="file" id="roadmapLoadInput" accept=".json" style="display: none;" onchange="handleRoadmapLoad(event)">
-            <!-- Legacy inputs kept for compatibility -->
-            <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="handleFileLoad(event)">
-            <!-- Fallback directory picker for browsers without File System Access API -->
-            <input type="file" id="directoryFileInput" style="display: none;" multiple webkitdirectory>
 
         </div>
             <!-- Preview Panel -->
-            <div class="preview-panel" onclick="showFullscreen()">
+            <div class="preview-panel">
                 <button class="fullscreen-button" onclick="event.stopPropagation(); toggleFullscreen()" title="Enter Fullscreen">
                     <span class="fullscreen-icon">⛶</span>
                 </button>
-                <iframe id="preview-area" src="about:blank"></iframe>
+                <div id="roadmap-mount" class="roadmap-root"></div>
             </div>
         </div>
     </div>

@@ -3,10 +3,13 @@
  * Consolidates repeated HTML generation, formatting, and styling logic
  */
 export class UIUtility {
-    // Color constants for roadmap styling
+    // Swimlane band colors. CSS variables (defined in roadmap-styles.css)
+    // so dark mode can override without touching the renderer. These get
+    // injected as inline styles by the generator, so the var() lookup
+    // happens at render time against whichever scheme is active.
     static COLORS = {
-        LIME_BACKGROUND: '#f4ffdd',
-        BROWN_BACKGROUND: '#f5e6d3'
+        LIME_BACKGROUND: 'var(--rm-swimlane-even)',
+        BROWN_BACKGROUND: 'var(--rm-swimlane-odd)',
     };
 
     /**
@@ -69,19 +72,19 @@ export class UIUtility {
             const trimmedBullet = bullet.trim();
             // Convert --- to spacing div instead of bullet point
             if (trimmedBullet === '---') {
-                return '</ul><div style="height: 12px;"></div><ul style="font-size: 9pt; margin: 0; padding-left: 12px; list-style-type: square; color: #333; display: block; visibility: visible;">';
+                return '</ul><div style="height: 12px;"></div><ul style="font-size: 9pt; margin: 0; padding-left: 12px; list-style-type: square; color: var(--rm-text); display: block; visibility: visible;">';
             }
-            
+
             // Format the bullet text and fix div tags that cause line breaks
             let formattedBullet = formatTextFn(bullet);
             // Convert div tags to span tags to prevent line breaks in bullets
             formattedBullet = formattedBullet.replace(/<div(\s[^>]*)?>/g, '<span$1>');
             formattedBullet = formattedBullet.replace(/<\/div>/g, '</span>');
-            
-            return `<li style="margin: 0 0 3px 0; padding: 0; display: list-item; visibility: visible; color: #333;">${formattedBullet}</li>`;
+
+            return `<li style="margin: 0 0 3px 0; padding: 0; display: list-item; visibility: visible; color: var(--rm-text);">${formattedBullet}</li>`;
         }).join('');
-        
-        return `<ul style="font-size: 9pt; margin: 0; padding-left: 12px; list-style-type: square; color: #333; display: block; visibility: visible;">${bulletItems}</ul>`;
+
+        return `<ul style="font-size: 9pt; margin: 0; padding-left: 12px; list-style-type: square; color: var(--rm-text); display: block; visibility: visible;">${bulletItems}</ul>`;
     }
 
     /**
