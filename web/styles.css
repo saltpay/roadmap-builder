@@ -636,6 +636,31 @@ input::placeholder, textarea::placeholder {
   opacity: 1;
 }
 
+/* Read-only display fields rendered as plain text (no box). The element
+   stays an <input> so JS that reads/writes .value keeps working. */
+input.plain-text-field {
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  cursor: default;
+  font-size: 14px;
+  color: var(--text-default);
+  pointer-events: none;
+}
+input.plain-text-field:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+input.plain-text-field[type="number"]::-webkit-inner-spin-button,
+input.plain-text-field[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input.plain-text-field[type="number"] {
+  -moz-appearance: textfield;
+}
+
 input[type="checkbox"], input[type="radio"] {
   accent-color: var(--primary);
   cursor: pointer;

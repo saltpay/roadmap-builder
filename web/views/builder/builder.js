@@ -140,7 +140,7 @@ export function init(_root) {
             });
         });
 
-        // The Current Filename input is read-only across the board: save
+        // The Filename input is read-only across the board: save
         // always writes back to the loaded file (single-file mode) or to
         // the file with that name in the picked folder (folder mode);
         // renaming via this input would either silently no-op or create
@@ -2660,7 +2660,7 @@ export function init(_root) {
             
             if (filename) {
                 filenameInput.value = filename;
-                displayDiv.style.display = 'block';
+                displayDiv.style.display = 'flex';
             } else {
                 filenameInput.value = '';
                 displayDiv.style.display = 'none';
