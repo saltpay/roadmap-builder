@@ -41,7 +41,13 @@
                     </div>
                     <div class="top-action-buttons">
                     <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
-<button onclick="saveRoadmap()" class="secondary js-save-button" disabled title="Pick a folder first via Load roadmaps">💾 Save</button>
+                    <div style="display: inline-block; position: relative;">
+                        <button id="saveDropdownBtn" class="secondary" onclick="toggleSaveDropdown(event)">💾 Save</button>
+                        <div id="saveDropdownMenu" class="app-nav__folder-menu">
+                            <button type="button" class="app-nav__folder-menu-item" onclick="saveRoadmapInPlace(); closeSaveDropdown();">📝 Save file</button>
+                            <button type="button" class="app-nav__folder-menu-item" onclick="downloadRoadmap(); closeSaveDropdown();">⬇️ Download</button>
+                        </div>
+                    </div>
                     <span id="saveStatus" class="save-status" data-status="idle"></span>
                     <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
                     <div style="display: inline-block; position: relative;">
@@ -196,7 +202,13 @@
             <!-- Action Buttons -->
             <div class="action-buttons">
                 <button onclick="newRoadmap()" class="secondary">🆕 New Roadmap</button>
-                <button onclick="saveRoadmap()" class="secondary js-save-button" disabled title="Pick a folder first via Load roadmaps">💾 Save</button>
+                <div style="display: inline-block; position: relative;">
+                    <button id="saveDropdownBtnBottom" class="secondary" onclick="toggleSaveDropdownBottom(event)">💾 Save</button>
+                    <div id="saveDropdownMenuBottom" class="app-nav__folder-menu">
+                        <button type="button" class="app-nav__folder-menu-item" onclick="saveRoadmapInPlace(); closeSaveDropdownBottom();">📝 Save file</button>
+                        <button type="button" class="app-nav__folder-menu-item" onclick="downloadRoadmap(); closeSaveDropdownBottom();">⬇️ Download</button>
+                    </div>
+                </div>
                 <button onclick="openStatsModal()" class="secondary">📊 Stats</button>
                 <div style="display: inline-block; position: relative;">
                     <button id="shareDropdownBtnBottom" class="secondary" onclick="toggleShareDropdownBottom(event)">🌐 Export</button>

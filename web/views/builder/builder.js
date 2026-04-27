@@ -22,6 +22,7 @@
 // globals set by the utilities (DateUtility, RoadmapGenerator, etc.).
 
 import * as share from './share.js';
+import * as saveDropdown from './save-dropdown.js';
 import { exportJPG, exportPDF, createExportHTML } from './export.js';
 import { toggleCollapse, collapseAllSections, createBuilderCollapse } from './collapse.js';
 import {
@@ -66,7 +67,7 @@ export function init(_root) {
     // Inline onclick="toggleShareDropdown(event)" etc. resolves names against
     // window. Slices that have been pulled out of the legacy body need their
     // exports re-attached here on every mount.
-    Object.assign(window, share, fullscreen, {
+    Object.assign(window, share, saveDropdown, fullscreen, {
         exportJPG, exportPDF,
         toggleCollapse, collapseAllSections,
     });
@@ -112,9 +113,8 @@ export function init(_root) {
             if (typeof window.fixDatesOnLoad === 'function') window.fixDatesOnLoad(teamData);
             window.loadTeamData(teamData);
             if (typeof window.updateFilenameDisplay === 'function') window.updateFilenameDisplay(name);
-            // fileHandle is null on Safari (server-side single-file mode); save
-            // routes that case through POST /api/save which the server points
-            // at the stored absolute path.
+            // fileHandle is null on Safari/Firefox (read-only fallback); save
+            // stays disabled in that case.
             save.setFileHandle(fileHandle && typeof fileHandle.createWritable === 'function' ? fileHandle : null);
             setTimeout(() => {
                 if (typeof window.refreshAllDatePickers === 'function') window.refreshAllDatePickers();
@@ -129,16 +129,6 @@ export function init(_root) {
         const mount = document.getElementById('roadmap-mount');
         const statusEl = document.getElementById('saveStatus');
         if (statusEl) save.init({ statusElement: statusEl });
-        // Save button(s) are disabled until the user picks a folder via the
-        // top-nav Load roadmaps button. AppDir state drives the toggle; the
-        // subscription fires once with the current value, so the initial
-        // enabled/disabled state is set without an extra read.
-        save.onSaveAvailabilityChange((available) => {
-            document.querySelectorAll('.js-save-button').forEach((btn) => {
-                btn.disabled = !available;
-                btn.title = available ? '' : 'Pick a folder first via Load roadmaps';
-            });
-        });
 
         // The Filename input is read-only across the board: save
         // always writes back to the loaded file (single-file mode) or to
@@ -147,11 +137,11 @@ export function init(_root) {
         // a new file, neither of which is what the user expects.
         // The `readonly` attribute is set in the HTML; nothing to wire here.
 
-        // On save success: pulse the Save button green and burst confetti
-        // out of it. The save module fires this event after each successful
-        // write (browser-handle path or server path).
+        // On save success: pulse the Save dropdown trigger green and burst
+        // confetti out of it. The save module fires this event after each
+        // successful in-place write or download.
         document.addEventListener('roadmap:saved', () => {
-            const buttons = document.querySelectorAll('.js-save-button');
+            const buttons = document.querySelectorAll('#saveDropdownBtn, #saveDropdownBtnBottom');
             let originRect = null;
             buttons.forEach((btn) => {
                 btn.classList.remove('is-just-saved');
@@ -2698,10 +2688,8 @@ export function init(_root) {
 
             // New roadmap = no associated file or folder yet. Clear:
             //   - save module's per-file handle (so path 1 doesn't fire)
-            //   - AppDir's folder/file selection (so path 2/3 don't fire
+            //   - AppDir's folder/file selection (so path 2 doesn't fire
             //     and the Save button auto-disables via canSave())
-            // The server has no per-selection state to clear (it's stateless
-            // and only acts on signed paths sent in each request).
             save.setFileHandle(null);
             if (window.AppDir && typeof window.AppDir.clear === 'function') {
                 window.AppDir.clear();
@@ -2717,9 +2705,10 @@ export function init(_root) {
                 try {
                     const result = await window.AppDir.selectSaveLocation(suggestedName);
                     if (result) {
-                        // Native handle (Chrome): hand it to save module so
-                        // path 1 fires for silent writes. Safari path goes
-                        // through path 3 / server using AppDir's __path.
+                        // Hand the writable handle to save module so path 1
+                        // fires for silent writes. Safari/Firefox return null
+                        // here (selectSaveLocation is Chromium-only); they get
+                        // a read-only editor with the Save button disabled.
                         if (result.fileHandle) save.setFileHandle(result.fileHandle);
                         if (typeof window.updateFilenameDisplay === 'function') {
                             window.updateFilenameDisplay(result.name);
@@ -2842,26 +2831,43 @@ export function init(_root) {
             }, 500);
         }
         
-        async function saveRoadmap() {
-            // Flush in-progress KTLO month edits into form state before serializing.
+        // Snapshot the form into the roadmap state and compute the filename
+        // both save flows use. Returns the suggestedName for the caller.
+        function prepareRoadmapForSave() {
+            // Flush in-progress KTLO month edits before serializing.
             saveCurrentKTLOData();
-
-            // Sync state from the form, then ask the save module to write.
-            // If a file handle was captured at load time (file-browser panel)
-            // or from a previous "Save As", the write happens silently.
-            // Otherwise the picker is shown once and the chosen handle sticks.
             const teamData = collectFormData();
             roadmapState.setState(teamData);
-
             const currentFilename = document.getElementById('currentFilename').value.trim();
-            const suggestedName = currentFilename
+            return currentFilename
                 ? (currentFilename.endsWith('.json') ? currentFilename : `${currentFilename}.json`)
                 : `${teamData.teamName || 'MyTeam'}.Teya-Roadmap.${teamData.roadmapYear || 2025}.json`;
+        }
 
-            // Confirmation: writing to the underlying JSON is destructive
-            // (overwrites the file in place), so make the user opt in. The
-            // message names the target file so they know what they're about
-            // to overwrite.
+        // "Save file": in-place write via the File System Access API.
+        // Chromium-only; fires an alert in other browsers.
+        async function saveRoadmapInPlace() {
+            if (!save.canSaveInBrowser()) {
+                window.alert('Saving in place is only supported in Chromium-based browsers (Chrome, Edge, Brave, Arc).\n\nUse "Download" to save a copy instead.');
+                return;
+            }
+
+            const suggestedName = prepareRoadmapForSave();
+
+            // No writable handle yet: prompt the user once via showSaveFilePicker.
+            // The chosen handle sticks for subsequent saves.
+            if (!save.canSave()) {
+                const result = await window.AppDir.selectSaveLocation(suggestedName);
+                if (!result || !result.fileHandle) return; // cancelled
+                save.setFileHandle(result.fileHandle);
+                if (typeof window.updateFilenameDisplay === 'function') {
+                    window.updateFilenameDisplay(result.name);
+                }
+                await save.save({ suggestedName });
+                return;
+            }
+
+            // Existing handle: confirm the overwrite before writing.
             const snap = window.AppDir?.get?.();
             const targetLabel = snap && snap.type === 'file' && snap.name
                 ? snap.name
@@ -2869,8 +2875,14 @@ export function init(_root) {
             if (!window.confirm(`Save changes to ${targetLabel}?\n\nThis will overwrite the file on disk.`)) {
                 return;
             }
-
             await save.save({ suggestedName });
+        }
+
+        // "Download": build a JSON blob and trigger a browser download.
+        // Works in every browser; does not touch the File System Access API.
+        function downloadRoadmap() {
+            const suggestedName = prepareRoadmapForSave();
+            save.download({ suggestedName });
         }
         
         // Load roadmap function - JSON only
@@ -3819,10 +3831,13 @@ export function init(_root) {
                 openStatsModal();
             }
             
-            // Cmd-S (Mac) or Ctrl-S (Windows/Linux) to save roadmap
+            // Cmd-S (Mac) or Ctrl-S (Windows/Linux) to save roadmap.
+            // Saves in place when available; falls back to a download
+            // otherwise so the shortcut works in every browser.
             if ((event.metaKey || event.ctrlKey) && event.key === 's') {
                 event.preventDefault();
-                saveRoadmap();
+                if (save.canSaveInBrowser()) saveRoadmapInPlace();
+                else downloadRoadmap();
             }
             
             // Cmd-L (Mac) or Ctrl-L (Windows/Linux) to load roadmap
@@ -5579,7 +5594,8 @@ if (typeof updateFilenameDisplay === 'function') window.updateFilenameDisplay = 
 if (typeof newRoadmap === 'function') window.newRoadmap = newRoadmap;
 if (typeof closeNewRoadmapModal === 'function') window.closeNewRoadmapModal = closeNewRoadmapModal;
 if (typeof confirmNewRoadmap === 'function') window.confirmNewRoadmap = confirmNewRoadmap;
-if (typeof saveRoadmap === 'function') window.saveRoadmap = saveRoadmap;
+if (typeof saveRoadmapInPlace === 'function') window.saveRoadmapInPlace = saveRoadmapInPlace;
+if (typeof downloadRoadmap === 'function') window.downloadRoadmap = downloadRoadmap;
 if (typeof loadRoadmap === 'function') window.loadRoadmap = loadRoadmap;
 if (typeof handleRoadmapLoad === 'function') window.handleRoadmapLoad = handleRoadmapLoad;
 if (typeof fixDatesOnLoad === 'function') window.fixDatesOnLoad = fixDatesOnLoad;
