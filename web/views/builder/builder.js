@@ -112,9 +112,8 @@ export function init(_root) {
             if (typeof window.fixDatesOnLoad === 'function') window.fixDatesOnLoad(teamData);
             window.loadTeamData(teamData);
             if (typeof window.updateFilenameDisplay === 'function') window.updateFilenameDisplay(name);
-            // fileHandle is null on Safari (server-side single-file mode); save
-            // routes that case through POST /api/save which the server points
-            // at the stored absolute path.
+            // fileHandle is null on Safari/Firefox (read-only fallback); save
+            // stays disabled in that case.
             save.setFileHandle(fileHandle && typeof fileHandle.createWritable === 'function' ? fileHandle : null);
             setTimeout(() => {
                 if (typeof window.refreshAllDatePickers === 'function') window.refreshAllDatePickers();
@@ -134,9 +133,12 @@ export function init(_root) {
         // subscription fires once with the current value, so the initial
         // enabled/disabled state is set without an extra read.
         save.onSaveAvailabilityChange((available) => {
+            const tooltip = save.canSaveInBrowser()
+                ? 'Pick a folder first via Load roadmaps'
+                : 'Saving back to disk requires Chrome or Edge';
             document.querySelectorAll('.js-save-button').forEach((btn) => {
                 btn.disabled = !available;
-                btn.title = available ? '' : 'Pick a folder first via Load roadmaps';
+                btn.title = available ? '' : tooltip;
             });
         });
 
@@ -2698,10 +2700,8 @@ export function init(_root) {
 
             // New roadmap = no associated file or folder yet. Clear:
             //   - save module's per-file handle (so path 1 doesn't fire)
-            //   - AppDir's folder/file selection (so path 2/3 don't fire
+            //   - AppDir's folder/file selection (so path 2 doesn't fire
             //     and the Save button auto-disables via canSave())
-            // The server has no per-selection state to clear (it's stateless
-            // and only acts on signed paths sent in each request).
             save.setFileHandle(null);
             if (window.AppDir && typeof window.AppDir.clear === 'function') {
                 window.AppDir.clear();
@@ -2717,9 +2717,10 @@ export function init(_root) {
                 try {
                     const result = await window.AppDir.selectSaveLocation(suggestedName);
                     if (result) {
-                        // Native handle (Chrome): hand it to save module so
-                        // path 1 fires for silent writes. Safari path goes
-                        // through path 3 / server using AppDir's __path.
+                        // Hand the writable handle to save module so path 1
+                        // fires for silent writes. Safari/Firefox return null
+                        // here (selectSaveLocation is Chromium-only); they get
+                        // a read-only editor with the Save button disabled.
                         if (result.fileHandle) save.setFileHandle(result.fileHandle);
                         if (typeof window.updateFilenameDisplay === 'function') {
                             window.updateFilenameDisplay(result.name);
