@@ -1498,6 +1498,10 @@ export function init(_root) {
          * Attach hover tooltips to the rotated team-name labels in the cross-team search roadmap.
          * Swimlane order matches the alphabetically-sorted team names produced by
          * transformStoriesToRoadmapData, so we can index into them directly.
+         *
+         * The tooltip is appended to document.body rather than rendered as a CSS
+         * pseudo-element on the label, because .epic-label is rotated -90deg and
+         * any descendant tooltip would inherit that rotation.
          */
         function attachTeamLabelTooltips(contentArea, sortedTeamNames, teamInfoMap) {
             if (!contentArea || !sortedTeamNames?.length) return;
@@ -1506,24 +1510,96 @@ export function init(_root) {
                 '.swimlane:not(.btl-swimlane):not(.special-swimlane)'
             );
 
+            const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+
+            const buildTooltipHtml = (teamName, info) => {
+                const rows = [];
+                if (info?.directorVP) rows.push(['Director / VP', info.directorVP, '🎯']);
+                if (info?.em) rows.push(['Engineering Manager', info.em, '⚙️']);
+                if (info?.pm) rows.push(['Product Manager', info.pm, '📋']);
+
+                const rowHtml = rows.map(([label, value, icon]) => `
+                    <div class="team-label-tooltip__row">
+                        <div class="team-label-tooltip__row-icon">${icon}</div>
+                        <div class="team-label-tooltip__row-text">
+                            <div class="team-label-tooltip__label">${escapeHtml(label)}</div>
+                            <div class="team-label-tooltip__value">${escapeHtml(value)}</div>
+                        </div>
+                    </div>
+                `).join('');
+
+                const descHtml = info?.description ? `
+                    <div class="team-label-tooltip__description">
+                        <div class="team-label-tooltip__label">About</div>
+                        <div class="team-label-tooltip__desc-text">${escapeHtml(info.description)}</div>
+                    </div>
+                ` : '';
+
+                const emptyState = !rows.length && !info?.description
+                    ? '<div class="team-label-tooltip__empty">No additional team details</div>'
+                    : '';
+
+                return `
+                    <div class="team-label-tooltip__header">
+                        <div class="team-label-tooltip__header-icon">👥</div>
+                        <div class="team-label-tooltip__header-text">${escapeHtml(teamName)}</div>
+                    </div>
+                    <div class="team-label-tooltip__body">
+                        ${rowHtml}
+                        ${descHtml}
+                        ${emptyState}
+                    </div>
+                `;
+            };
+
+            let activeTooltip = null;
+            const removeTooltip = () => {
+                if (activeTooltip) {
+                    activeTooltip.remove();
+                    activeTooltip = null;
+                }
+            };
+
+            const showTooltip = (label, teamName) => {
+                removeTooltip();
+                const tooltip = document.createElement('div');
+                tooltip.className = 'team-label-tooltip';
+                tooltip.innerHTML = buildTooltipHtml(teamName, teamInfoMap?.[teamName]);
+                document.body.appendChild(tooltip);
+
+                const rect = label.getBoundingClientRect();
+                const tipRect = tooltip.getBoundingClientRect();
+                const margin = 12;
+
+                let left = rect.right + margin;
+                if (left + tipRect.width > window.innerWidth - 8) {
+                    left = rect.left - tipRect.width - margin;
+                }
+                if (left < 8) left = 8;
+
+                let top = rect.top + rect.height / 2 - tipRect.height / 2;
+                if (top < 8) top = 8;
+                if (top + tipRect.height > window.innerHeight - 8) {
+                    top = window.innerHeight - tipRect.height - 8;
+                }
+
+                tooltip.style.left = `${left}px`;
+                tooltip.style.top = `${top}px`;
+                requestAnimationFrame(() => tooltip.classList.add('team-label-tooltip--visible'));
+                activeTooltip = tooltip;
+            };
+
             swimlanes.forEach((swimlane, index) => {
                 const teamName = sortedTeamNames[index];
                 if (!teamName) return;
-
                 const label = swimlane.querySelector('.epic-label');
                 if (!label) return;
 
-                const info = teamInfoMap?.[teamName];
-                const lines = [`Team: ${teamName}`];
-                if (info) {
-                    if (info.directorVP) lines.push(`Director/VP: ${info.directorVP}`);
-                    if (info.em) lines.push(`EM: ${info.em}`);
-                    if (info.pm) lines.push(`PM: ${info.pm}`);
-                    if (info.description) lines.push(`Description: ${info.description}`);
-                }
-
-                label.setAttribute('title', lines.join('\n'));
                 label.style.cursor = 'help';
+                label.addEventListener('mouseenter', () => showTooltip(label, teamName));
+                label.addEventListener('mouseleave', removeTooltip);
             });
         }
 
