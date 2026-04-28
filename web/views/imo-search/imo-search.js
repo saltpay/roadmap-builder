@@ -1506,6 +1506,9 @@ export function init(_root) {
         function attachTeamLabelTooltips(contentArea, sortedTeamNames, teamInfoMap) {
             if (!contentArea || !sortedTeamNames?.length) return;
 
+            // Drop any orphaned tooltip from a previous render before wiring up new labels.
+            document.querySelectorAll('.team-label-tooltip').forEach(el => el.remove());
+
             const swimlanes = contentArea.querySelectorAll(
                 '.swimlane:not(.btl-swimlane):not(.special-swimlane)'
             );
@@ -1562,31 +1565,36 @@ export function init(_root) {
                 }
             };
 
-            const showTooltip = (label, teamName) => {
+            // Position tooltip relative to cursor: prefer bottom-right of pointer,
+            // flip horizontally / vertically when it would overflow the viewport.
+            const positionTooltipAtCursor = (tooltip, mouseX, mouseY) => {
+                const tipRect = tooltip.getBoundingClientRect();
+                const offset = 16;
+                const pad = 8;
+
+                let left = mouseX + offset;
+                if (left + tipRect.width > window.innerWidth - pad) {
+                    left = mouseX - tipRect.width - offset;
+                }
+                if (left < pad) left = pad;
+
+                let top = mouseY + offset;
+                if (top + tipRect.height > window.innerHeight - pad) {
+                    top = mouseY - tipRect.height - offset;
+                }
+                if (top < pad) top = pad;
+
+                tooltip.style.left = `${left}px`;
+                tooltip.style.top = `${top}px`;
+            };
+
+            const showTooltip = (teamName, mouseX, mouseY) => {
                 removeTooltip();
                 const tooltip = document.createElement('div');
                 tooltip.className = 'team-label-tooltip';
                 tooltip.innerHTML = buildTooltipHtml(teamName, teamInfoMap?.[teamName]);
                 document.body.appendChild(tooltip);
-
-                const rect = label.getBoundingClientRect();
-                const tipRect = tooltip.getBoundingClientRect();
-                const margin = 12;
-
-                let left = rect.right + margin;
-                if (left + tipRect.width > window.innerWidth - 8) {
-                    left = rect.left - tipRect.width - margin;
-                }
-                if (left < 8) left = 8;
-
-                let top = rect.top + rect.height / 2 - tipRect.height / 2;
-                if (top < 8) top = 8;
-                if (top + tipRect.height > window.innerHeight - 8) {
-                    top = window.innerHeight - tipRect.height - 8;
-                }
-
-                tooltip.style.left = `${left}px`;
-                tooltip.style.top = `${top}px`;
+                positionTooltipAtCursor(tooltip, mouseX, mouseY);
                 requestAnimationFrame(() => tooltip.classList.add('team-label-tooltip--visible'));
                 activeTooltip = tooltip;
             };
@@ -1598,7 +1606,10 @@ export function init(_root) {
                 if (!label) return;
 
                 label.style.cursor = 'help';
-                label.addEventListener('mouseenter', () => showTooltip(label, teamName));
+                label.addEventListener('mouseenter', e => showTooltip(teamName, e.clientX, e.clientY));
+                label.addEventListener('mousemove', e => {
+                    if (activeTooltip) positionTooltipAtCursor(activeTooltip, e.clientX, e.clientY);
+                });
                 label.addEventListener('mouseleave', removeTooltip);
             });
         }
