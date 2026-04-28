@@ -424,7 +424,123 @@
             opacity: 1;
             visibility: visible;
         }
-        
+
+        /* Rich team-label tooltip (shown on hover of rotated swimlane labels) */
+        .team-label-tooltip {
+            position: fixed;
+            z-index: 10000;
+            pointer-events: none;
+            min-width: 260px;
+            max-width: 360px;
+            background: var(--rm-surface, #ffffff);
+            color: var(--rm-text, #1f2937);
+            border: 1px solid var(--rm-border, #cbd5e1);
+            border-radius: 10px;
+            box-shadow:
+                0 12px 32px rgba(15, 23, 42, 0.18),
+                0 4px 8px rgba(15, 23, 42, 0.08);
+            font-family: Figtree, sans-serif;
+            font-size: 13px;
+            line-height: 1.4;
+            opacity: 0;
+            transform: translateY(4px) scale(0.98);
+            transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+            overflow: hidden;
+        }
+
+        .team-label-tooltip--visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        .team-label-tooltip__header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #007cba 0%, #005a87 100%);
+            color: #ffffff;
+        }
+
+        .team-label-tooltip__header-icon {
+            font-size: 18px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .team-label-tooltip__header-text {
+            font-weight: 700;
+            font-size: 15px;
+            letter-spacing: 0.2px;
+            word-break: break-word;
+        }
+
+        .team-label-tooltip__body {
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .team-label-tooltip__row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .team-label-tooltip__row-icon {
+            font-size: 14px;
+            line-height: 1.2;
+            flex-shrink: 0;
+            margin-top: 2px;
+            opacity: 0.85;
+        }
+
+        .team-label-tooltip__row-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .team-label-tooltip__label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--rm-text-faint, #94a3b8);
+            font-weight: 600;
+        }
+
+        .team-label-tooltip__value {
+            font-size: 13px;
+            color: var(--rm-text-strong, #111827);
+            font-weight: 500;
+            word-break: break-word;
+        }
+
+        .team-label-tooltip__description {
+            border-top: 1px solid var(--rm-border-disabled, #e5e7eb);
+            padding-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .team-label-tooltip__desc-text {
+            font-size: 12.5px;
+            color: var(--rm-text-muted, #4b5563);
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .team-label-tooltip__empty {
+            font-size: 12px;
+            color: var(--rm-text-faint, #94a3b8);
+            font-style: italic;
+        }
+
         /* Override any page styles for bullets specifically */
         .results-container .task-bullets {
             font-size: 9pt !important;
