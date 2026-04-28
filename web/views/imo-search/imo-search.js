@@ -1444,6 +1444,7 @@ export function init(_root) {
                 setTimeout(() => {
                     addStoryClickHandlers(stories);
                     insertStatsButtonNearHeader();
+                    attachTeamLabelTooltips(contentArea, uniqueTeamNames, teamInfoMap);
                 }, 100);
                 
             } catch (error) {
@@ -1493,6 +1494,39 @@ export function init(_root) {
         /**
          * Clean roadmap HTML by removing unwanted sections
          */
+        /**
+         * Attach hover tooltips to the rotated team-name labels in the cross-team search roadmap.
+         * Swimlane order matches the alphabetically-sorted team names produced by
+         * transformStoriesToRoadmapData, so we can index into them directly.
+         */
+        function attachTeamLabelTooltips(contentArea, sortedTeamNames, teamInfoMap) {
+            if (!contentArea || !sortedTeamNames?.length) return;
+
+            const swimlanes = contentArea.querySelectorAll(
+                '.swimlane:not(.btl-swimlane):not(.special-swimlane)'
+            );
+
+            swimlanes.forEach((swimlane, index) => {
+                const teamName = sortedTeamNames[index];
+                if (!teamName) return;
+
+                const label = swimlane.querySelector('.epic-label');
+                if (!label) return;
+
+                const info = teamInfoMap?.[teamName];
+                const lines = [`Team: ${teamName}`];
+                if (info) {
+                    if (info.directorVP) lines.push(`Director/VP: ${info.directorVP}`);
+                    if (info.em) lines.push(`EM: ${info.em}`);
+                    if (info.pm) lines.push(`PM: ${info.pm}`);
+                    if (info.description) lines.push(`Description: ${info.description}`);
+                }
+
+                label.setAttribute('title', lines.join('\n'));
+                label.style.cursor = 'help';
+            });
+        }
+
         function cleanRoadmapHtml(html) {
             let cleaned = html;
             
