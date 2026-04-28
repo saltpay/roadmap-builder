@@ -15,6 +15,7 @@
             <div class="app-nav__links">
                 ${LINKS.map(l => `<a href="${l.path}" class="app-nav__link" data-spa-link>${l.label}</a>`).join('')}
             </div>
+            <button type="button" id="appNavTheme" class="app-nav__theme" title="Toggle dark mode" aria-pressed="false"></button>
             <div class="app-nav__folder-wrap" style="position: relative;">
                 <button type="button" id="appNavFolder" class="app-nav__folder" title="Open a roadmap file or folder"></button>
                 <div id="appNavFolderMenu" class="app-nav__folder-menu">
@@ -27,6 +28,23 @@
 
     const folderBtn = nav.querySelector('#appNavFolder');
     const menuEl = nav.querySelector('#appNavFolderMenu');
+    const themeBtn = nav.querySelector('#appNavTheme');
+
+    function renderTheme() {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        themeBtn.textContent = isDark ? '☀️' : '🌙';
+        themeBtn.title = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+        themeBtn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+    }
+
+    themeBtn.addEventListener('click', () => {
+        const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        try { localStorage.setItem('roadmap-theme', next); } catch (_e) { /* ignore */ }
+        renderTheme();
+    });
+
+    renderTheme();
 
     function updateActive(path) {
         nav.querySelectorAll('.app-nav__link').forEach(a => {

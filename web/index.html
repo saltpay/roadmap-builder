@@ -8,6 +8,20 @@
     <meta http-equiv="Expires" content="0">
     <title>🗺️ Roadmap Builder</title>
 
+    <script>
+        // Apply persisted theme before any styles paint so the user never sees
+        // a flash of the wrong palette. Default is light; auto-detection of
+        // the OS preference is intentionally disabled.
+        (function () {
+            try {
+                var t = localStorage.getItem('roadmap-theme');
+                document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/roadmap-styles.css">
 
@@ -180,6 +194,28 @@
         .app-nav__folder-menu-item:hover {
             background: #f3f4f6 !important;
         }
+
+        .app-nav__theme {
+            align-self: center !important;
+            appearance: none !important;
+            -webkit-appearance: none !important;
+            background: transparent !important;
+            color: #ffffff !important;
+            border: 1px solid rgba(255, 255, 255, 0.5) !important;
+            border-radius: 999px !important;
+            width: 30px !important;
+            height: 30px !important;
+            padding: 0 !important;
+            margin-right: 8px !important;
+            cursor: pointer !important;
+            font-size: 14px !important;
+            line-height: 1 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: background 120ms ease, border-color 120ms ease !important;
+        }
+        .app-nav__theme:hover { background: rgba(255, 255, 255, 0.12) !important; }
     </style>
 </head>
 <body>

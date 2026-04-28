@@ -96,8 +96,7 @@
   --focus-ring: 0 0 0 3px var(--primary-ring);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+:root[data-theme="dark"] {
     --surface-0: #0f172a;
     --surface-1: #111827;
     --surface-2: #1e293b;
@@ -119,7 +118,6 @@
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.45), 0 2px 4px -2px rgb(0 0 0 / 0.3);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.3);
     --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.55), 0 8px 10px -6px rgb(0 0 0 / 0.3);
-  }
 }
 
 /* ---------------- Baseline ---------------- */
