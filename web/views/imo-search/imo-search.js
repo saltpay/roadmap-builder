@@ -1265,7 +1265,8 @@ export function init(_root) {
 
                 // Store results and display
                 currentResults = matchingStories;
-                displaySearchResults(matchingStories, searchLabel);
+                const teamInfoMap = buildTeamInfoMap(roadmapFiles);
+                displaySearchResults(matchingStories, searchLabel, null, teamInfoMap);
 
                 // Enable stats button
                 document.getElementById('searchStatsBtn').disabled = false;
@@ -1289,7 +1290,8 @@ export function init(_root) {
                 // Use temporary variable instead of saving to localStorage
                 searchTempForceTextBelow = toggle.checked;
                 // Regenerate the search results to apply placement
-                displaySearchResults(currentResults, lastSearchQuery);
+                const teamInfoMap = buildTeamInfoMap(lastRoadmapFiles);
+                displaySearchResults(currentResults, lastSearchQuery, null, teamInfoMap);
                 
                 // Restore checkbox state after regeneration
                 setTimeout(() => {
@@ -1302,9 +1304,33 @@ export function init(_root) {
         }
         
         /**
+         * Build a map of team information from roadmap files
+         */
+        function buildTeamInfoMap(roadmapFiles) {
+            const teamInfoMap = {};
+            if (!roadmapFiles) return teamInfoMap;
+            
+            for (const roadmap of roadmapFiles) {
+                const teamData = roadmap.teamData;
+                if (!teamData) continue;
+                
+                const teamName = teamData.teamName || roadmap.fileName;
+                teamInfoMap[teamName] = {
+                    teamName: teamName,
+                    directorVP: teamData.directorVP || '',
+                    em: teamData.em || '',
+                    pm: teamData.pm || '',
+                    description: teamData.description || ''
+                };
+            }
+            
+            return teamInfoMap;
+        }
+        
+        /**
          * Display search results using roadmap format
          */
-        function displaySearchResults(stories, searchQuery, searchRange = null) {
+        function displaySearchResults(stories, searchQuery, searchRange = null, teamInfoMap = null) {
             try {
                 // Only reset search force text below checkbox for new searches (not regenerations)
                 if (searchQuery !== lastSearchQuery) {
@@ -1372,6 +1398,23 @@ export function init(_root) {
                 // Clean up the HTML (remove BTL sections, etc.)
                 const cleanedHtml = cleanRoadmapHtml(roadmapHtml);
                 
+                // Build team names with tooltips
+                const uniqueTeamNames = Array.from(new Set(stories.map(s => s.teamName))).sort();
+                const teamNamesHtml = uniqueTeamNames.map(teamName => {
+                    const teamInfo = teamInfoMap && teamInfoMap[teamName];
+                    if (teamInfo) {
+                        const tooltipParts = [];
+                        tooltipParts.push(`Team: ${teamName}`);
+                        if (teamInfo.directorVP) tooltipParts.push(`Director/VP: ${teamInfo.directorVP}`);
+                        if (teamInfo.em) tooltipParts.push(`EM: ${teamInfo.em}`);
+                        if (teamInfo.pm) tooltipParts.push(`PM: ${teamInfo.pm}`);
+                        if (teamInfo.description) tooltipParts.push(`Description: ${teamInfo.description}`);
+                        const tooltipText = tooltipParts.join('\n');
+                        return `<span class="team-name-tooltip" data-tooltip="${tooltipText.replace(/"/g, '&quot;')}">${teamName}</span>`;
+                    }
+                    return teamName;
+                }).join(', ');
+                
                 // Display in results container with an inline Stats button above the roadmap
                 const contentArea = document.getElementById('contentArea');
                 const queryLabelSafe = (searchQuery || '').toString();
@@ -1382,7 +1425,7 @@ export function init(_root) {
                             <div class="search-summary" style="color: #666; font-size: 14px; margin: 5px 0;">
                                 Found <strong>${stories.length}</strong> ${stories.length === 1 ? 'story' : 'stories'} 
                                 across <strong>${new Set(stories.map(s => s.teamName)).size}</strong> ${new Set(stories.map(s => s.teamName)).size === 1 ? 'team' : 'teams'} 
-                                for "<strong>${queryLabelSafe}</strong>": (${Array.from(new Set(stories.map(s => s.teamName))).sort().join(', ')})
+                                for "<strong>${queryLabelSafe}</strong>": (${teamNamesHtml})
                             </div>
                             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
                                 <label style="display: flex; align-items: center; gap: 5px; font-weight: normal; font-size: 14px;">
@@ -2128,7 +2171,8 @@ export function init(_root) {
                 }
 
                 // Display the filtered results
-                displaySearchResults(filteredStories, 'Filtered Results', searchRange);
+                const teamInfoMap = buildTeamInfoMap(lastRoadmapFiles);
+                displaySearchResults(filteredStories, 'Filtered Results', searchRange, teamInfoMap);
                 currentResults = filteredStories;
                 document.getElementById('searchStatsBtn').disabled = false;
             } catch (e) {
@@ -2283,7 +2327,8 @@ export function init(_root) {
                 
                 // Store results and display
                 currentResults = matchingStories;
-                displaySearchResults(matchingStories, queryLabel, { startDate, endDate });
+                const teamInfoMap = buildTeamInfoMap(roadmapFiles);
+                displaySearchResults(matchingStories, queryLabel, { startDate, endDate }, teamInfoMap);
                 
                 // Enable header stats button
                 document.getElementById('searchStatsBtn').disabled = false;
@@ -2347,7 +2392,8 @@ export function init(_root) {
                 
                 // Store results and display
                 currentResults = matchingStories;
-                displaySearchResults(matchingStories, `Title: "${searchQuery}"`);
+                const teamInfoMap = buildTeamInfoMap(roadmapFiles);
+                displaySearchResults(matchingStories, `Title: "${searchQuery}"`, null, teamInfoMap);
                 
                 // Enable stats button
                 document.getElementById('searchStatsBtn').disabled = false;
@@ -2405,7 +2451,8 @@ export function init(_root) {
                 }
 
                 currentResults = filteredStories;
-                displaySearchResults(filteredStories, `Leadership: "${query}"`);
+                const teamInfoMap = buildTeamInfoMap(roadmapFiles);
+                displaySearchResults(filteredStories, `Leadership: "${query}"`, null, teamInfoMap);
                 
                 // Enable stats button
                 document.getElementById('searchStatsBtn').disabled = false;
@@ -2484,7 +2531,8 @@ export function init(_root) {
                 }
 
                 currentResults = filteredStories;
-                displaySearchResults(filteredStories, `Director/VP ID: "${query}"`);
+                const teamInfoMap = buildTeamInfoMap(roadmapFiles);
+                displaySearchResults(filteredStories, `Director/VP ID: "${query}"`, null, teamInfoMap);
                 
                 // Enable stats button
                 document.getElementById('searchStatsBtn').disabled = false;
@@ -2602,7 +2650,8 @@ export function init(_root) {
                 }
 
                 currentResults = filteredStories;
-                displaySearchResults(filteredStories, `Countries: ${countriesLabel}`);
+                const teamInfoMap = buildTeamInfoMap(roadmapFiles);
+                displaySearchResults(filteredStories, `Countries: ${countriesLabel}`, null, teamInfoMap);
                 
                 // Enable stats button
                 document.getElementById('searchStatsBtn').disabled = false;
