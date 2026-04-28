@@ -372,6 +372,59 @@
             padding: 0;
         }
         
+        /* Team name tooltip styles */
+        .team-name-tooltip {
+            position: relative;
+            cursor: help;
+            text-decoration: underline;
+            text-decoration-style: dotted;
+            text-decoration-color: #007cba;
+        }
+        
+        .team-name-tooltip::before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            background-color: #333;
+            color: white;
+            font-size: 13px;
+            line-height: 1.4;
+            white-space: pre-line;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            z-index: 1000;
+            min-width: 200px;
+            max-width: 350px;
+            pointer-events: none;
+        }
+        
+        .team-name-tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: -1px;
+            border: 5px solid transparent;
+            border-top-color: #333;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+        }
+        
+        .team-name-tooltip:hover::before,
+        .team-name-tooltip:hover::after {
+            opacity: 1;
+            visibility: visible;
+        }
+        
         /* Override any page styles for bullets specifically */
         .results-container .task-bullets {
             font-size: 9pt !important;
@@ -706,5 +759,12 @@
             }
             .bar-chart-container:hover .expand-chevron {
                 color: var(--text-default);
+            }
+            .team-name-tooltip::before {
+                background-color: var(--surface-2);
+                color: var(--text-default);
+            }
+            .team-name-tooltip::after {
+                border-top-color: var(--surface-2);
             }
         }
