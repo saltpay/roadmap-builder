@@ -1320,7 +1320,8 @@ export function init(_root) {
                     directorVP: teamData.directorVP || '',
                     em: teamData.em || '',
                     pm: teamData.pm || '',
-                    description: teamData.description || ''
+                    description: teamData.description || '',
+                    fileName: roadmap.fileName || ''
                 };
             }
             
@@ -1409,6 +1410,7 @@ export function init(_root) {
                         if (teamInfo.em) tooltipParts.push(`EM: ${teamInfo.em}`);
                         if (teamInfo.pm) tooltipParts.push(`PM: ${teamInfo.pm}`);
                         if (teamInfo.description) tooltipParts.push(`Description: ${teamInfo.description}`);
+                        if (teamInfo.fileName) tooltipParts.push(`File: ${teamInfo.fileName}`);
                         const tooltipText = tooltipParts.join('\n');
                         return `<span class="team-name-tooltip" data-tooltip="${tooltipText.replace(/"/g, '&quot;')}">${teamName}</span>`;
                     }
@@ -1522,6 +1524,7 @@ export function init(_root) {
                 if (info?.directorVP) rows.push(['Director / VP', info.directorVP, '🎯']);
                 if (info?.em) rows.push(['Engineering Manager', info.em, '⚙️']);
                 if (info?.pm) rows.push(['Product Manager', info.pm, '📋']);
+                if (info?.fileName) rows.push(['File', info.fileName, '📄']);
 
                 const rowHtml = rows.map(([label, value, icon]) => `
                     <div class="team-label-tooltip__row">
