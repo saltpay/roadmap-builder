@@ -415,7 +415,10 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="secondary" onclick="closeStoryDetailsModal()">Close</button>
+                <button type="button" id="storyEditBtn" class="primary" onclick="enterStoryEditMode()" style="display: none;">Edit</button>
+                <button type="button" id="storySaveBtn" class="primary" onclick="saveStoryChanges()" style="display: none;">Save Changes</button>
+                <button type="button" id="storyDiscardBtn" class="secondary" onclick="discardStoryEdits()" style="display: none;">Discard</button>
+                <button type="button" id="storyCloseBtn" class="secondary" onclick="closeStoryDetailsModal()">Close</button>
             </div>
         </div>
     </div>

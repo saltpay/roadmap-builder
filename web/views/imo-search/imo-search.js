@@ -1110,15 +1110,16 @@ export function init(_root) {
         function addStoryClickHandlers(storiesData) {
             // Find all story items in the rendered roadmap
             const storyItems = document.querySelectorAll('.story-item, .ktlo-story');
-            
+
             storyItems.forEach((storyElement, index) => {
                 // Extract story identification from data attributes
                 const epicName = storyElement.dataset.epicName;
                 const storyTitle = storyElement.dataset.storyTitle;
                 const storyIndex = storyElement.dataset.storyIndex;
-                
+                const storyId = storyElement.dataset.jsonStoryId;
+
                 // Find matching story data
-                const storyData = findStoryData(storiesData, epicName, storyTitle, storyIndex);
+                const storyData = findStoryData(storiesData, epicName, storyTitle, storyIndex, storyId);
                 
                 if (storyData) {
                     // Add click handler
@@ -1143,13 +1144,23 @@ export function init(_root) {
          * @param {string} storyIndex - Story index
          * @returns {Object|null} - Story data object or null if not found
          */
-        function findStoryData(storiesData, epicName, storyTitle, storyIndex) {
+        function findStoryData(storiesData, epicName, storyTitle, storyIndex, storyId) {
             return storiesData.find(story => {
-                // Match by epic name and story title (most reliable)
+                // Primary: match by storyId (unique per file, immune to title formatting)
+                if (storyId && story.storyId && story.storyId === storyId) {
+                    return true;
+                }
+
+                // Match by epic name and story title (builder view)
                 if (story.epicName === epicName && story.title === storyTitle) {
                     return true;
                 }
-                
+
+                // In cross-team search, data-epic-name is the team name (one epic per team)
+                if (story.teamName === epicName && story.title === storyTitle) {
+                    return true;
+                }
+
                 // Fallback: match by title only for unique titles
                 if (story.title === storyTitle) {
                     const titleMatches = storiesData.filter(s => s.title === storyTitle);
