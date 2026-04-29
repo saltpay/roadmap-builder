@@ -1783,7 +1783,7 @@ export function init(_root) {
         // Apply additional filters based on other filled inputs (AND semantics)
         function applyAdditionalFilters(stories, roadmapFiles, options = {}) {
             let result = Array.isArray(stories) ? stories.slice() : [];
-            const opts = Object.assign({ skipDirector: false, skipIMO: false, skipPriority: false, skipTitle: false, skipDate: false, skipStatus: false, skipProductRoadmap: false }, options);
+            const opts = Object.assign({ skipDirector: false, skipDirectorVPId: false, skipCountryFlag: false, skipIMO: false, skipPriority: false, skipTitle: false, skipDate: false, skipStatus: false, skipProductRoadmap: false }, options);
 
             try {
                 // Director/VP filter (team-level)
@@ -1792,6 +1792,24 @@ export function init(_root) {
                     const matchingRoadmaps = IMOUtility.filterRoadmapsByDirector(roadmapFiles, directorQuery);
                     const allowedTeams = new Set(matchingRoadmaps.map(f => (f.teamData && f.teamData.teamName) || ''));
                     result = result.filter(story => allowedTeams.has(story.teamName));
+                }
+
+                // Director/VP ID filter (story-level, partial match)
+                const directorVPIdQuery = document.getElementById('directorVPIdSearchInput')?.value.trim();
+                if (!opts.skipDirectorVPId && directorVPIdQuery) {
+                    const queryLower = directorVPIdQuery.toLowerCase();
+                    result = result.filter(story =>
+                        story.directorVPId && story.directorVPId.toLowerCase().includes(queryLower)
+                    );
+                }
+
+                // Country flag filter (story-level, story must have at least one of the selected flags)
+                const selectedCountries = getSelectedCountryFlags();
+                if (!opts.skipCountryFlag && selectedCountries.length > 0) {
+                    result = result.filter(story =>
+                        Array.isArray(story.countryFlags) &&
+                        selectedCountries.some(country => story.countryFlags.includes(country))
+                    );
                 }
 
                 // IMO/Project ID filter (direct search, no query parsing)
@@ -2120,7 +2138,8 @@ export function init(_root) {
                 checkbox.setAttribute('data-state', 'none');
                 checkbox.textContent = '';
             }
-            
+
+            updateSearchButtonStates();
             applyStatusFilters();
         }
 
@@ -2329,30 +2348,32 @@ export function init(_root) {
         }
 
         /**
-         * Update search button enabled states
+         * Returns true if any search filter has a value set.
          */
-        function updateSearchButtonStates() {
-            const imoSearchBtn = document.getElementById('imoSearchBtn');
-            const titleSearchBtn = document.getElementById('titleSearchBtn');
-            const dateRangeSearchBtn = document.getElementById('dateRangeSearchBtn');
-            const directorVPIdSearchBtn = document.getElementById('directorVPIdSearchBtn');
-            const countryFlagSearchBtn = document.getElementById('countryFlagSearchBtn');
-
-            const hasDirectory = !!selectedDirectory;
-            const hasImoInput = document.getElementById('searchInput').value.trim().length > 0;
-            const hasTitleInput = document.getElementById('titleSearchInput').value.trim().length > 0;
-            const hasDirectorVPIdInput = document.getElementById('directorVPIdSearchInput').value.trim().length > 0;
+        function hasAnyFilterSet() {
+            const hasImoInput = document.getElementById('searchInput')?.value.trim().length > 0;
+            const hasTitleInput = document.getElementById('titleSearchInput')?.value.trim().length > 0;
+            const hasDirectorVPIdInput = document.getElementById('directorVPIdSearchInput')?.value.trim().length > 0;
             const hasCountryFlagInput = getSelectedCountryFlags().length > 0;
             const hasPriorityInput = (document.getElementById('prioritySelect')?.value || '').length > 0;
-            const hasStartDate = document.getElementById('startDateInput').value.length > 0;
-            const hasEndDate = document.getElementById('endDateInput').value.length > 0;
-            const hasAnyDate = hasStartDate || hasEndDate;
+            const hasStartDate = document.getElementById('startDateInput')?.value.length > 0;
+            const hasEndDate = document.getElementById('endDateInput')?.value.length > 0;
+            const hasStatusFilter = Object.values(statusFilterStates).some(s => s !== 'none');
+            const hasAdvancedFilter = (document.getElementById('advancedFilterExpression')?.value.trim() || '').length > 0;
+            const hasProductRoadmap = !!document.getElementById('filterProductRoadmapOnly')?.checked;
+            return hasImoInput || hasTitleInput || hasDirectorVPIdInput || hasCountryFlagInput
+                || hasPriorityInput || hasStartDate || hasEndDate
+                || hasStatusFilter || hasAdvancedFilter || hasProductRoadmap;
+        }
 
-            imoSearchBtn.disabled = !hasDirectory || (!hasImoInput && !hasPriorityInput);
-            titleSearchBtn.disabled = !hasDirectory || !hasTitleInput;
-            dateRangeSearchBtn.disabled = !hasDirectory || !hasAnyDate;
-            directorVPIdSearchBtn.disabled = !hasDirectory || !hasDirectorVPIdInput;
-            countryFlagSearchBtn.disabled = !hasDirectory || !hasCountryFlagInput;
+        /**
+         * Update search button enabled state
+         */
+        function updateSearchButtonStates() {
+            const combinedSearchBtn = document.getElementById('combinedSearchBtn');
+            if (combinedSearchBtn) {
+                combinedSearchBtn.disabled = !selectedDirectory || !hasAnyFilterSet();
+            }
         }
 
         /**
@@ -2373,6 +2394,95 @@ export function init(_root) {
                 setCurrentYearRange();
             } else {
                 helpElement.textContent = 'Range: Stories must start on or after start date AND end on or before end date.';
+            }
+        }
+
+        /**
+         * Build a human-readable label summarising every active filter.
+         */
+        function buildCombinedSearchLabel() {
+            const parts = [];
+            const imoQuery = document.getElementById('searchInput')?.value.trim();
+            if (imoQuery) parts.push(`IMO: "${imoQuery}"`);
+            const priority = document.getElementById('prioritySelect')?.value;
+            if (priority) parts.push(`Priority: ${priority}`);
+            const titleQuery = document.getElementById('titleSearchInput')?.value.trim();
+            if (titleQuery) parts.push(`Title: "${titleQuery}"`);
+            const directorVPIdQuery = document.getElementById('directorVPIdSearchInput')?.value.trim();
+            if (directorVPIdQuery) parts.push(`Director/VP ID: "${directorVPIdQuery}"`);
+            const countries = getSelectedCountryFlags();
+            if (countries.length) parts.push(`Countries: ${countries.join(', ')}`);
+            const startDate = document.getElementById('startDateInput')?.value;
+            const endDate = document.getElementById('endDateInput')?.value;
+            const searchMode = document.getElementById('searchModeSelect')?.value || 'exact';
+            if (startDate || endDate) {
+                const modeLabel = searchMode === 'exact' ? 'Exact'
+                    : searchMode === 'exact-7days' ? 'Exact +/- 7 Days'
+                    : searchMode === 'current-year' ? 'Current Year'
+                    : 'Range';
+                if (startDate && endDate) parts.push(`${modeLabel}: ${startDate} to ${endDate}`);
+                else if (startDate) parts.push(`${modeLabel} Start: ${startDate}`);
+                else parts.push(`${modeLabel} End: ${endDate}`);
+            }
+            return parts.length ? parts.join(' + ') : 'All Stories';
+        }
+
+        /**
+         * Single search entry point: applies every filled filter cumulatively (AND).
+         */
+        async function performCombinedSearch() {
+            try {
+                if (!selectedDirectory) {
+                    alert('Please select a directory first');
+                    return;
+                }
+                if (!hasAnyFilterSet()) {
+                    alert('Please enter at least one search criterion');
+                    return;
+                }
+
+                const label = buildCombinedSearchLabel();
+                showLoadingState(`Searching for ${label}...`);
+
+                const roadmapFiles = await IMOUtility.scanRoadmapDirectory(selectedDirectory);
+                if (roadmapFiles.length === 0) {
+                    showMessage('No roadmap JSON files found in the selected directory', 'warning');
+                    return;
+                }
+
+                const allStories = IMOUtility.aggregateStoriesAcrossTeams(roadmapFiles);
+                lastSearchStories = allStories.slice();
+                lastRoadmapFiles = roadmapFiles;
+
+                const matchingStories = applyAdditionalFilters(allStories, roadmapFiles, {});
+
+                // Build searchRange so the roadmap header can show the date filter
+                const startDate = document.getElementById('startDateInput')?.value;
+                const endDate = document.getElementById('endDateInput')?.value;
+                const searchMode = document.getElementById('searchModeSelect')?.value || 'exact';
+                const searchRange = (startDate || endDate)
+                    ? { startDate: startDate || 'N/A', endDate: endDate || 'N/A', mode: searchMode }
+                    : null;
+
+                if (matchingStories.length === 0) {
+                    showMessage(`No stories matched: ${label}`, 'info');
+                    currentResults = [];
+                    return;
+                }
+
+                currentResults = matchingStories;
+                const teamInfoMap = buildTeamInfoMap(roadmapFiles);
+                displaySearchResults(matchingStories, label, searchRange, teamInfoMap);
+
+                document.getElementById('searchStatsBtn').disabled = false;
+            } catch (error) {
+                showMessage('Search error: ' + error.message, 'error');
+            }
+        }
+
+        function handleCombinedSearchKeyPress(event) {
+            if (event.key === 'Enter') {
+                performCombinedSearch();
             }
         }
 
@@ -2687,23 +2797,50 @@ export function init(_root) {
             return flags;
         }
 
+        const SEARCH_FLAG_COUNTRY_IDS = [
+            'searchFlagCzechia', 'searchFlagHungary', 'searchFlagIceland',
+            'searchFlagItaly', 'searchFlagPortugal', 'searchFlagSlovakia',
+            'searchFlagSlovenia', 'searchFlagCroatia', 'searchFlagSpain',
+            'searchFlagUK', 'searchFlagGermany', 'searchFlagFrance',
+        ];
+
         /**
          * Clear all country flag checkboxes
          */
         function clearCountryFlagCheckboxes() {
-            document.getElementById('searchFlagGlobal').checked = false;
-            document.getElementById('searchFlagCzechia').checked = false;
-            document.getElementById('searchFlagHungary').checked = false;
-            document.getElementById('searchFlagIceland').checked = false;
-            document.getElementById('searchFlagItaly').checked = false;
-            document.getElementById('searchFlagPortugal').checked = false;
-            document.getElementById('searchFlagSlovakia').checked = false;
-            document.getElementById('searchFlagSlovenia').checked = false;
-            document.getElementById('searchFlagCroatia').checked = false;
-            document.getElementById('searchFlagSpain').checked = false;
-            document.getElementById('searchFlagUK').checked = false;
-            document.getElementById('searchFlagGermany').checked = false;
-            document.getElementById('searchFlagFrance').checked = false;
+            const globalEl = document.getElementById('searchFlagGlobal');
+            if (globalEl) globalEl.checked = false;
+            SEARCH_FLAG_COUNTRY_IDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.checked = false;
+            });
+        }
+
+        // Mutual exclusion: Global vs individual countries (matches builder semantics)
+        function clearSearchGlobalIfCountrySelected() {
+            const anyCountrySelected = SEARCH_FLAG_COUNTRY_IDS.some(id => document.getElementById(id)?.checked);
+            if (anyCountrySelected) {
+                const globalEl = document.getElementById('searchFlagGlobal');
+                if (globalEl) globalEl.checked = false;
+            }
+        }
+
+        function clearSearchCountriesIfGlobalSelected() {
+            const globalEl = document.getElementById('searchFlagGlobal');
+            if (!globalEl?.checked) return;
+            SEARCH_FLAG_COUNTRY_IDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.checked = false;
+            });
+        }
+
+        function handleSearchFlagChange(country) {
+            if (country.code === 'global') {
+                clearSearchCountriesIfGlobalSelected();
+            } else {
+                clearSearchGlobalIfCountrySelected();
+            }
+            updateSearchButtonStates();
         }
 
         async function performCountryFlagSearch() {
@@ -2795,7 +2932,9 @@ export function init(_root) {
                 if (searchContainer) {
                     searchContainer.innerHTML = renderCountryFlagsHTML({
                         id: c => `searchFlag${c.name}`,
-                        onChange: () => 'updateSearchButtonStates()',
+                        onChange: c => c.code === 'global'
+                            ? `handleSearchFlagChange({code:'global'})`
+                            : `handleSearchFlagChange({code:'${c.code}'})`,
                         visuallyHiddenLegend: true
                     });
                 }
@@ -2824,6 +2963,18 @@ export function init(_root) {
             }
             if (document.getElementById('startDateInput')) {
                 document.getElementById('startDateInput').addEventListener('change', updateSearchButtonStates);
+            }
+            if (document.getElementById('endDateInput')) {
+                document.getElementById('endDateInput').addEventListener('change', updateSearchButtonStates);
+            }
+            if (document.getElementById('prioritySelect')) {
+                document.getElementById('prioritySelect').addEventListener('change', updateSearchButtonStates);
+            }
+            if (document.getElementById('filterProductRoadmapOnly')) {
+                document.getElementById('filterProductRoadmapOnly').addEventListener('change', updateSearchButtonStates);
+            }
+            if (document.getElementById('advancedFilterExpression')) {
+                document.getElementById('advancedFilterExpression').addEventListener('input', updateSearchButtonStates);
             }
             
             // Focus on search input if directory is already selected
@@ -2941,12 +3092,19 @@ if (typeof updateSearchModeHelp === 'function') window.updateSearchModeHelp = up
 if (typeof performDateRangeSearch === 'function') window.performDateRangeSearch = performDateRangeSearch;
 if (typeof performIMOSearch === 'function') window.performIMOSearch = performIMOSearch;
 if (typeof performTitleSearch === 'function') window.performTitleSearch = performTitleSearch;
+if (typeof performCombinedSearch === 'function') window.performCombinedSearch = performCombinedSearch;
+if (typeof handleCombinedSearchKeyPress === 'function') window.handleCombinedSearchKeyPress = handleCombinedSearchKeyPress;
+if (typeof hasAnyFilterSet === 'function') window.hasAnyFilterSet = hasAnyFilterSet;
+if (typeof buildCombinedSearchLabel === 'function') window.buildCombinedSearchLabel = buildCombinedSearchLabel;
 if (typeof handleDirectorSearchKeyPress === 'function') window.handleDirectorSearchKeyPress = handleDirectorSearchKeyPress;
 if (typeof performDirectorSearch === 'function') window.performDirectorSearch = performDirectorSearch;
 if (typeof handleDirectorVPIdSearchKeyPress === 'function') window.handleDirectorVPIdSearchKeyPress = handleDirectorVPIdSearchKeyPress;
 if (typeof performDirectorVPIdSearch === 'function') window.performDirectorVPIdSearch = performDirectorVPIdSearch;
 if (typeof getSelectedCountryFlags === 'function') window.getSelectedCountryFlags = getSelectedCountryFlags;
 if (typeof clearCountryFlagCheckboxes === 'function') window.clearCountryFlagCheckboxes = clearCountryFlagCheckboxes;
+if (typeof handleSearchFlagChange === 'function') window.handleSearchFlagChange = handleSearchFlagChange;
+if (typeof clearSearchGlobalIfCountrySelected === 'function') window.clearSearchGlobalIfCountrySelected = clearSearchGlobalIfCountrySelected;
+if (typeof clearSearchCountriesIfGlobalSelected === 'function') window.clearSearchCountriesIfGlobalSelected = clearSearchCountriesIfGlobalSelected;
 if (typeof performCountryFlagSearch === 'function') window.performCountryFlagSearch = performCountryFlagSearch;
     } finally {
         document.addEventListener = __origAdd;
