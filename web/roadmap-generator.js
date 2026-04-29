@@ -848,9 +848,9 @@ export class RoadmapGenerator {
         return `
             <div class="story-item${cancelledClass}${transferredClass}${proposedClass}${continuesClass}${zoomClass}${positionClass}"
              style="--start: ${startGrid}; --end: ${endGrid};"
-             data-epic-name="${this.formatText(epicName)}"
-             data-epic-id="${this.formatText(epicId)}"
-             data-story-title="${this.formatText(story.title)}"
+             data-epic-name="${(epicName || '').replace(/"/g, '&quot;')}"
+             data-epic-id="${(epicId || '').replace(/"/g, '&quot;')}"
+             data-story-title="${(story.title || '').replace(/"/g, '&quot;')}"
              data-story-index="${storyIndex}"
              data-story-id="${storyId}"
              data-json-story-id="${this.formatText(story.storyId || '')}">
@@ -1238,7 +1238,7 @@ export class RoadmapGenerator {
         <div class="story-track">
             <div class="ktlo-story${zoomClass}" 
                  data-epic-name="KTLO" 
-                 data-story-title="${this.formatText(ktloData.story.title)}" 
+                 data-story-title="${(ktloData.story.title || '').replace(/"/g, '&quot;')}" 
                  data-story-index="0"
                  data-story-id="">
                 ${editIconHTML}
