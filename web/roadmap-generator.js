@@ -802,6 +802,9 @@ export class RoadmapGenerator {
 
         // Hover popover listing all milestone events (replaces the old side text box)
         const popoverHTML = this.generateStoryMilestonePopover(story);
+
+        // Hover-revealed milestone track on row 2 of the story-track grid
+        const milestonesTrackHTML = this.generateStoryMilestonesTrack(story, startGrid, endGrid);
         
         // Add continuation year indicator for stories that continue past roadmap year or start before search range
         let continuationYearHTML = '';
@@ -876,6 +879,7 @@ export class RoadmapGenerator {
             </div>` : ''}
                                 <div class="task-title">${this.getStoryTitleWithStartInfo(story)}</div>
             ${bulletsHTML}
+            ${milestonesTrackHTML}
         </div>`;
     }
 
@@ -887,6 +891,28 @@ export class RoadmapGenerator {
     // Helper function to parse date strings and compare them
     isEarlyDelivery(prevEndDate, newEndDate) {
         return getDateUtility().isEarlyDelivery(prevEndDate, newEndDate);
+    }
+
+    // Compute precise grid position for a milestone date (per-day, not 4-position).
+    // Returns null if date can't be parsed.
+    milestoneDateToGrid(dateStr) {
+        if (!dateStr) return null;
+        try {
+            let isoDate = dateStr;
+            if (dateStr.match(/^\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?$/)) {
+                isoDate = this.convertEuropeanToISO(dateStr);
+            }
+            const date = this.parseDateSafe(isoDate);
+            if (!date || isNaN(date.getTime())) return null;
+            const monthName = this.getMonthName(date.getMonth() + 1);
+            const monthStartCol = this.monthToGrid(monthName);
+            const day = date.getDate();
+            // Each month spans 10 grid units. Map day 1->0, day 31->10.
+            const offset = ((day - 1) / 30) * 10;
+            return monthStartCol + offset;
+        } catch (e) {
+            return null;
+        }
     }
 
     // Collect all milestone events from a story's roadmapChanges into a flat array
@@ -994,11 +1020,30 @@ export class RoadmapGenerator {
         return events;
     }
 
+    // True when the user has enabled "Force all text boxes below stories" via the
+    // builder toggle, the search toggle, or persisted localStorage. Drives the
+    // milestone popover's vertical placement (below the bar instead of above).
+    isForceTextBelow() {
+        if (typeof document !== 'undefined') {
+            const builderToggle = document.getElementById('force-text-below-toggle');
+            if (builderToggle && builderToggle.checked) return true;
+            const searchToggle = document.getElementById('search-force-text-below-toggle');
+            if (searchToggle && searchToggle.checked) return true;
+        }
+        try {
+            return getConfigUtility().shouldForceTextBelow();
+        } catch (e) {
+            return false;
+        }
+    }
+
     // Generate a hover popover that lists all milestone events chronologically with notes.
     // Triggered by hovering the story bar itself - no on-bar markers.
     generateStoryMilestonePopover(story) {
         const events = this.collectStoryMilestones(story);
         if (events.length === 0) return '';
+
+        const placementClass = this.isForceTextBelow() ? ' milestone-popover--below' : '';
 
         const rowsHTML = events.map(ev => {
             const subtitle = ev.subtitle ? `<div class="milestone-popover-subtitle">${ev.subtitle}</div>` : '';
@@ -1013,7 +1058,46 @@ export class RoadmapGenerator {
                     </div>`;
         }).join('');
 
-        return `<div class="milestone-popover" role="tooltip">${rowsHTML}</div>`;
+        return `<div class="milestone-popover${placementClass}" role="tooltip">${rowsHTML}</div>`;
+    }
+
+    // Generate a hover-revealed horizontal track placed below the story bar in the
+    // story-track grid. The track spans the union of story bounds and event dates,
+    // with each event rendered as a pin at its actual calendar position. The story's
+    // own start/end positions are marked with ticks for context.
+    generateStoryMilestonesTrack(story, storyStartGrid, storyEndGrid) {
+        const events = this.collectStoryMilestones(story);
+        if (events.length === 0) return '';
+
+        const positioned = events.map(ev => ({ ev, grid: this.milestoneDateToGrid(ev.date) }));
+        const validGrids = positioned.map(p => p.grid).filter(g => g !== null);
+
+        let trackStart = storyStartGrid;
+        let trackEnd = storyEndGrid;
+        if (validGrids.length > 0) {
+            trackStart = Math.min(trackStart, ...validGrids);
+            trackEnd = Math.max(trackEnd, ...validGrids);
+        }
+        trackStart = Math.max(1, Math.floor(trackStart));
+        trackEnd = Math.min(121, Math.ceil(trackEnd));
+        if (trackEnd <= trackStart) trackEnd = trackStart + 1;
+
+        const trackWidth = trackEnd - trackStart;
+        const pctOf = (grid) => Math.max(0, Math.min(100, ((grid - trackStart) / trackWidth) * 100));
+        const storyStartPct = pctOf(storyStartGrid);
+        const storyEndPct = pctOf(storyEndGrid);
+
+        const pinsHTML = positioned.map(({ ev, grid }, idx) => {
+            const percent = grid === null ? storyStartPct : pctOf(grid);
+            return `<span class="milestone-pin milestone-${ev.type}" style="left: ${percent}%; --milestone-color: ${ev.color};" data-milestone-index="${idx}"><span class="milestone-pin-glyph">${ev.glyph}</span></span>`;
+        }).join('');
+
+        return `<div class="story-milestones-track" style="--track-start: ${trackStart}; --track-end: ${trackEnd};">
+                    <span class="milestones-line"></span>
+                    <span class="milestones-tick milestones-tick-start" style="left: ${storyStartPct}%;"></span>
+                    <span class="milestones-tick milestones-tick-end" style="left: ${storyEndPct}%;"></span>
+                    ${pinsHTML}
+                </div>`;
     }
 
     // Generate BTL date added text box
