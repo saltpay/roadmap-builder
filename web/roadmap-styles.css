@@ -337,35 +337,37 @@ body {
 }
 
 /* KTLO Zoom States */
+/* z-index 200 keeps the hovered story (and its milestone popover/track) above
+   the KTLO monthly boxes, whose highest z-index is 155 (January hover). */
 .ktlo-story.story-zoom-large:hover {
     transform: translateX(-4px) scale(1.20);
-    z-index: 100;
+    z-index: 200;
 }
 
 .ktlo-story.story-zoom-medium:hover {
     transform: translateX(-4px) scale(1.15);
-    z-index: 100;
+    z-index: 200;
 }
 
 .ktlo-story.story-zoom-small:hover {
     transform: translateX(-4px) scale(1.05);
-    z-index: 100;
+    z-index: 200;
 }
 
 /* Story States - Graduated Zoom Levels */
 .story-zoom-large:hover {
     transform: scale(1.20);
-    z-index: 100;
+    z-index: 200;
 }
 
 .story-zoom-medium:hover {
     transform: scale(1.15);
-    z-index: 100;
+    z-index: 200;
 }
 
 .story-zoom-small:hover {
     transform: scale(1.05);
-    z-index: 100;
+    z-index: 200;
 }
 
 .story-positioned-january {
@@ -398,6 +400,19 @@ body {
 
 .story-positioned-october.story-zoom-small:hover {
     transform: translateX(1px) scale(1.05);
+}
+
+/* Focus dim effect: when any story bar is hovered (or synchronized via JS),
+   fade non-focused stories and KTLO monthly boxes so attention follows the
+   active item. Uses :has() so a single rule covers regular hover and the
+   external .story-hover/.textbox-hover triggers. The hovered element itself
+   is excluded so it stays at full opacity. */
+.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover) .story-item:not(:hover):not(.story-hover),
+.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover) .ktlo-story:not(:hover):not(.story-hover),
+.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover) .monthly-box-content,
+.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover) .roadmap-text:not(.textbox-hover) {
+    opacity: 0.35;
+    transition: opacity 0.2s ease;
 }
 
 /* Cancelled Stories */
@@ -856,12 +871,12 @@ body {
 /* Synchronized hover classes - using higher specificity instead of !important */
 .roadmap-container .story-hover {
     transform: scale(1.15);
-    z-index: 100;
+    z-index: 200;
 }
 
 .roadmap-container .textbox-hover {
     transform: scale(1.3);
-    z-index: 100;
+    z-index: 200;
     box-shadow: var(--rm-hover-shadow);
 }
 
@@ -1096,7 +1111,7 @@ body .roadmap-container input[data-date-picker-initialized] {
    events fall before/after the story span. Hidden until bar hover. */
 .story-milestones-track {
     position: absolute;
-    top: calc(100% + 2px);
+    top: calc(100% + 16px);
     left: calc((var(--track-start) - var(--start)) / (var(--end) - var(--start)) * 100%);
     width: calc((var(--track-end) - var(--track-start)) / (var(--end) - var(--start)) * 100%);
     height: 16px;
@@ -1117,7 +1132,7 @@ body .roadmap-container input[data-date-picker-initialized] {
     left: 0;
     right: 0;
     height: 2px;
-    background-color: var(--rm-text-faintest);
+    background-color: var(--rm-text-strong);
     border-radius: 1px;
     transform: translateY(-50%);
 }
@@ -1127,7 +1142,7 @@ body .roadmap-container input[data-date-picker-initialized] {
     top: 50%;
     width: 2px;
     height: 10px;
-    background-color: var(--rm-text-faint);
+    background-color: var(--rm-text-strong);
     transform: translate(-50%, -50%);
     border-radius: 1px;
 }
@@ -1214,10 +1229,12 @@ body .roadmap-container input[data-date-picker-initialized] {
 }
 
 /* Below variant: applied when "Force all text boxes below stories" is on.
-   Sits beneath the story bar (under the milestones track) instead of above. */
+   Sits beneath the story bar (under the milestones track) instead of above.
+   Offset must clear the milestones track: track top 16px + track height 16px
+   + breathing room. */
 .milestone-popover--below {
     bottom: auto;
-    top: calc(100% + 24px);
+    top: calc(100% + 44px);
 }
 
 .milestone-popover--below::after {
