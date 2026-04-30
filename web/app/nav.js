@@ -16,7 +16,10 @@
                 ${LINKS.map(l => `<a href="${l.path}" class="app-nav__link" data-spa-link>${l.label}</a>`).join('')}
             </div>
             <button type="button" id="appNavTheme" class="app-nav__theme" title="Toggle dark mode" aria-pressed="false"></button>
-            <button type="button" id="appNavStatusStyle" class="app-nav__theme" title="Toggle experimental features" aria-pressed="false"></button>
+            <button type="button" id="appNavStatusStyle" class="app-nav__theme app-nav__beta" title="Toggle experimental features" aria-pressed="false">
+                <span class="app-nav__beta-icon">🧪</span>
+                <span class="app-nav__beta-label" id="appNavStatusStyleLabel">Beta off</span>
+            </button>
             <div class="app-nav__folder-wrap" style="position: relative;">
                 <button type="button" id="appNavFolder" class="app-nav__folder" title="Open a roadmap file or folder"></button>
                 <div id="appNavFolderMenu" class="app-nav__folder-menu">
@@ -48,14 +51,14 @@
 
     renderTheme();
 
+    const statusStyleLabel = nav.querySelector('#appNavStatusStyleLabel');
+
     function renderStatusStyle() {
         const isExperimental = document.documentElement.getAttribute('data-status-style') !== 'side';
-        // Test tube signals "experimental features"; the hover/track layout is
-        // currently the only experiment behind this switch.
-        statusStyleBtn.textContent = '🧪';
+        if (statusStyleLabel) statusStyleLabel.textContent = isExperimental ? 'Beta on' : 'Beta off';
         statusStyleBtn.title = isExperimental
-            ? 'Experimental features: on (click to disable)'
-            : 'Experimental features: off (click to enable)';
+            ? 'Beta features enabled (click to disable)'
+            : 'Beta features disabled (click to enable)';
         statusStyleBtn.setAttribute('aria-pressed', isExperimental ? 'true' : 'false');
     }
 
