@@ -902,12 +902,18 @@ export function init(_root) {
         function handleForceTextBelowToggle() {
             const toggle = document.getElementById('force-text-below-toggle');
             if (toggle) {
-                // Use temporary variable instead of saving to localStorage
                 tempForceTextBelow = toggle.checked;
-                // Regenerate the preview to apply placement
+                window.tempForceTextBelow = tempForceTextBelow;
                 generatePreview();
             }
         }
+
+        // Event delegation so the handler works regardless of element lifecycle
+        document.addEventListener('change', (e) => {
+            if (e.target && e.target.id === 'force-text-below-toggle') {
+                handleForceTextBelowToggle();
+            }
+        });
 
         // (originalStoryOrders, storeOriginalStoryOrder, reorderStoriesInUI,
         // restoreOriginalStoryOrder, showSortingNotification moved to ./sorting.js)
@@ -3123,6 +3129,7 @@ export function init(_root) {
                 if (textBelowToggle) textBelowToggle.checked = false;
                 // Reset temporary force text below variable
                 tempForceTextBelow = false;
+                window.tempForceTextBelow = false;
                 // Persist cleared state
                 getConfigUtility().setSortStories(false);
                 getConfigUtility().setSortByStart(false);
