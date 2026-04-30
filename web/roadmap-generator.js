@@ -1538,18 +1538,18 @@ export class RoadmapGenerator {
                 // Global force: when enabled, always position below and align with story start
                 // Check localStorage, main form temporary variable, and search results temporary variable
                 const forceBelowFromConfig = (typeof getConfigUtility === 'function' && getConfigUtility().shouldForceTextBelow());
-                const forceBelowFromTemp = (typeof tempForceTextBelow !== 'undefined' && tempForceTextBelow);
-                const forceBelowFromSearch = (typeof searchTempForceTextBelow !== 'undefined' && searchTempForceTextBelow);
+                const forceBelowFromTemp = !!(window.tempForceTextBelow);
+                const forceBelowFromSearch = !!(window.searchTempForceTextBelow);
                 const forceBelowGlobal = forceBelowFromConfig || forceBelowFromTemp || forceBelowFromSearch;
                 if (forceBelowGlobal) {
                     shouldPositionBelowFinal = true;
                 }
-                
+
                 if (shouldPositionBelowFinal) {
                     // Position below story, align start with story start when forced; otherwise small indent
                     const forceBelowFromConfig = (typeof getConfigUtility === 'function' && getConfigUtility().shouldForceTextBelow());
-                    const forceBelowFromTemp = (typeof tempForceTextBelow !== 'undefined' && tempForceTextBelow);
-                    const forceBelowFromSearch = (typeof searchTempForceTextBelow !== 'undefined' && searchTempForceTextBelow);
+                    const forceBelowFromTemp = !!(window.tempForceTextBelow);
+                    const forceBelowFromSearch = !!(window.searchTempForceTextBelow);
                     const forceBelowGlobal = forceBelowFromConfig || forceBelowFromTemp || forceBelowFromSearch;
                     changeStartGrid = forceBelowGlobal ? storyStartGrid : (storyStartGrid + 1);
                     changeEndGrid = changeStartGrid + textBoxWidth;
