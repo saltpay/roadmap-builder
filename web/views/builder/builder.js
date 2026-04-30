@@ -130,6 +130,37 @@ export function init(_root) {
         const statusEl = document.getElementById('saveStatus');
         if (statusEl) save.init({ statusElement: statusEl });
 
+        // Dirty tracking: any user input/change inside the SPA mount marks
+        // the form as having unsaved changes. We rely on Event.isTrusted to
+        // distinguish real user gestures from programmatic events fired
+        // during loadTeamData (those would otherwise mark dirty during a
+        // fresh load). Inline title edits dispatch synthetic events, so
+        // those mark dirty explicitly via onCommit below.
+        const appRoot = document.getElementById('app') || document.body;
+        if (!appRoot.dataset.dirtyTrackerAttached) {
+            appRoot.dataset.dirtyTrackerAttached = 'true';
+            const onUserEdit = (e) => {
+                if (!e.isTrusted) return;
+                if (location.pathname !== '/builder') return;
+                save.markDirty();
+            };
+            appRoot.addEventListener('input', onUserEdit);
+            appRoot.addEventListener('change', onUserEdit);
+        }
+        // Expose for the router and other guards.
+        window.hasUnsavedBuilderChanges = save.isDirty;
+
+        // Browser-level navigation (refresh, close tab) - native confirm.
+        if (!window.__builderBeforeUnloadAttached) {
+            window.__builderBeforeUnloadAttached = true;
+            window.addEventListener('beforeunload', (e) => {
+                if (save.isDirty()) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
+        }
+
         // The Filename input is read-only across the board: save
         // always writes back to the loaded file (single-file mode) or to
         // the file with that name in the picked folder (folder mode);
@@ -160,6 +191,10 @@ export function init(_root) {
         if (mount) {
             enableTitleEditing(mount, {
                 onCommit: ({ storyEl, nextTitle }) => {
+                    // Inline-edit dispatches synthetic input events to drive
+                    // collectFormData; those skip the dirty tracker because
+                    // isTrusted is false, so we mark dirty here directly.
+                    save.markDirty();
                     // Propagate the change into the form input so the next
                     // collectFormData() picks it up. KTLO has its own input;
                     // BTL and EPIC stories use the per-story dynamic input
@@ -1023,8 +1058,8 @@ export function init(_root) {
                 }
             });
             
-            // Story checkboxes (status, timeline changes)
-            document.querySelectorAll('[id^="story-done-"], [id^="story-cancelled-"], [id^="story-atrisk-"], [id^="story-newstory-"], [id^="story-transferredout-"], [id^="story-changes-"]').forEach(element => {
+            // Story checkboxes (status, timeline changes, visibility)
+            document.querySelectorAll('[id^="story-done-"], [id^="story-cancelled-"], [id^="story-atrisk-"], [id^="story-newstory-"], [id^="story-transferredout-"], [id^="story-changes-"], [id^="story-hide-from-search-"]').forEach(element => {
                 element.addEventListener('change', debouncedGeneratePreview);
             });
             
@@ -1217,7 +1252,13 @@ export function init(_root) {
                         <input type="checkbox" id="story-transferredout-${storyId}" onchange="handleTransferredOutChange('${storyId}')">
                         <label for="story-transferredout-${storyId}">Out</label>
                     </div>
-                    
+
+                    <!-- Row 3: Visibility -->
+                    <div class="checkbox-group" style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ddd;">
+                        <input type="checkbox" id="story-hide-from-search-${storyId}">
+                        <label for="story-hide-from-search-${storyId}" title="When checked, this story will not appear in cross-team IMO/timeline search results">Hide from cross-team search</label>
+                    </div>
+
                     <!-- Done Section -->
                     <div id="done-section-${storyId}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
                         <h5>Story Complete</h5>
@@ -2281,6 +2322,14 @@ export function init(_root) {
             story.isTransferredOut = transferredOutEl ? transferredOutEl.checked : false;
             story.isTransferredIn = transferredInEl ? transferredInEl.checked : false;
             story.isProposed = proposedEl ? proposedEl.checked : false;
+
+            // Visibility flag for cross-team search (default false = visible)
+            const hideFromSearchEl = document.getElementById(`story-hide-from-search-${storyId}`);
+            if (hideFromSearchEl && hideFromSearchEl.checked) {
+                story.hideFromSearch = true;
+            } else {
+                delete story.hideFromSearch;
+            }
             
             // Collect done info (regardless of timeline changes checkbox)
             const doneDateEl = document.getElementById(`done-date-${storyId}`);
@@ -3210,13 +3259,17 @@ export function init(_root) {
                                             const epicId = epicEl.id.split('-')[1];
                                             storeOriginalStoryOrder(epicId);
                                         });
-                                        
+
                                         collapseAllSections();
                                         // Refresh date pickers to sync with loaded data
                                         refreshAllDatePickers();
                                         generatePreview();
                                         // Update document title with loaded team name
                                         updateDocumentTitle();
+                                        // Programmatic loads dispatch input events on
+                                        // many fields; reset the dirty tracker now
+                                        // that the form matches the loaded source.
+                                        save.markClean();
                                     }, 100);
                                 }
                             }, 10 + (storyIndex * 5)); // Stagger each story by 5ms
@@ -3257,6 +3310,7 @@ export function init(_root) {
                     generatePreview();
                     // Update document title with loaded team name
                     updateDocumentTitle();
+                    save.markClean();
                 }, 100);
             }
         }
@@ -3547,7 +3601,10 @@ export function init(_root) {
                 if (transferredOutEl) transferredOutEl.checked = story.isTransferredOut || story.isHandedOver || false;
                 if (transferredInEl) transferredInEl.checked = story.isTransferredIn || false;
                 if (proposedEl) proposedEl.checked = story.isProposed || false;
-            
+
+                const hideFromSearchEl = document.getElementById(`story-hide-from-search-${storyId}`);
+                if (hideFromSearchEl) hideFromSearchEl.checked = story.hideFromSearch === true;
+
                 // Load timeline changes with error checking
                 if (story.hasRoadmapChanges && story.roadmapChanges) {
                     // Load timeline changes if they exist
@@ -3967,6 +4024,7 @@ export function init(_root) {
             document.getElementById('editTransferredIn').checked = foundStory.isTransferredIn || false;
             document.getElementById('editProposed').checked = foundStory.isProposed || false;
             document.getElementById('editTimelineChanges').checked = foundStory.hasTimelineChanges || false;
+            document.getElementById('editHideFromSearch').checked = foundStory.hideFromSearch === true;
             
             // Set status information
             document.getElementById('editDoneDate').value = foundStory.doneDate || '';
@@ -4767,7 +4825,10 @@ export function init(_root) {
                     
                     // Get Include in Product Roadmap flag
                     const includeInProductRoadmapEl = document.getElementById(`story-include-product-roadmap-${storyId}`);
-                    
+
+                    // Get Hide From Cross-Team Search flag
+                    const hideFromSearchEl = document.getElementById(`story-hide-from-search-${storyId}`);
+
                     // Get Comments field
                     const commentsEl = document.getElementById(`story-comments-${storyId}`);
                     
@@ -4783,6 +4844,7 @@ export function init(_root) {
                         comments: commentsEl ? commentsEl.value : '',
                         countryFlags: storyCountryFlags.length > 0 ? storyCountryFlags : undefined,
                         includeInProductRoadmap: includeInProductRoadmapEl ? includeInProductRoadmapEl.checked : false,
+                        hideFromSearch: hideFromSearchEl ? hideFromSearchEl.checked : false,
                         isDone: doneEl ? doneEl.checked : false,
                         isCancelled: cancelledEl ? cancelledEl.checked : false,
                         isAtRisk: atRiskEl ? atRiskEl.checked : false,
@@ -4978,6 +5040,10 @@ export function init(_root) {
                 // Update Include in Product Roadmap
                 const includeInProductRoadmapEl = document.getElementById(`story-include-product-roadmap-${storyId}`);
                 if (includeInProductRoadmapEl) includeInProductRoadmapEl.checked = document.getElementById('editIncludeInProductRoadmap').checked;
+
+                // Update Hide From Cross-Team Search
+                const hideFromSearchEl = document.getElementById(`story-hide-from-search-${storyId}`);
+                if (hideFromSearchEl) hideFromSearchEl.checked = document.getElementById('editHideFromSearch').checked;
                 
                 // Update checkboxes
                 const doneEl = document.getElementById(`story-done-${storyId}`);

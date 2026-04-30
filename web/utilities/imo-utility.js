@@ -68,13 +68,18 @@ export class IMOUtility {
      */
     static extractStoriesFromRoadmap(teamData, teamName) {
         const stories = [];
-        
+
+        // Stories flagged with hideFromSearch are excluded from cross-team search.
+        // Missing/false values keep the legacy behaviour, so older roadmaps stay visible.
+        const isVisible = story =>
+            story && typeof story === 'object' && story.title && story.title.trim() && story.hideFromSearch !== true;
+
         // Extract stories from epics
         if (teamData.epics && Array.isArray(teamData.epics)) {
             teamData.epics.forEach(epic => {
                 if (epic.stories && Array.isArray(epic.stories)) {
                     epic.stories.forEach(story => {
-                        if (story && typeof story === 'object' && story.title && story.title.trim()) {
+                        if (isVisible(story)) {
                             stories.push({
                                 ...story,
                                 teamName: teamName,
@@ -86,11 +91,11 @@ export class IMOUtility {
                 }
             });
         }
-        
+
         // Extract BTL stories
         if (teamData.btlStories && teamData.btlStories.stories && Array.isArray(teamData.btlStories.stories)) {
             teamData.btlStories.stories.forEach(story => {
-                if (story && typeof story === 'object' && story.title && story.title.trim()) {
+                if (isVisible(story)) {
                     stories.push({
                         ...story,
                         teamName: teamName,
@@ -100,7 +105,7 @@ export class IMOUtility {
                 }
             });
         }
-        
+
         return stories;
     }
     
