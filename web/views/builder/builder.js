@@ -950,6 +950,13 @@ export function init(_root) {
             }
         });
 
+        // The nav status-style toggle changes how status events are rendered
+        // (hover bar vs. side text box). Both layouts produce different markup,
+        // so regenerate the preview when the user flips it.
+        document.addEventListener('roadmap-status-style-changed', () => {
+            generatePreview();
+        });
+
         // (originalStoryOrders, storeOriginalStoryOrder, reorderStoriesInUI,
         // restoreOriginalStoryOrder, showSortingNotification moved to ./sorting.js)
         // (moved to ./ktlo-sections.js)

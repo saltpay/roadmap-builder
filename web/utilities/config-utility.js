@@ -372,6 +372,26 @@ export class ConfigUtility {
             }
         } catch (e) {}
     }
+
+    // Status event rendering style: 'hover' (track + popover under the bar)
+    // or 'side' (legacy text box rendered to the right of / below the bar).
+    static getStatusStyle() {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                const stored = localStorage.getItem('roadmap-status-style');
+                if (stored === 'side') return 'side';
+            }
+        } catch (e) {}
+        return 'hover';
+    }
+
+    static setStatusStyle(style) {
+        try {
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('roadmap-status-style', style === 'side' ? 'side' : 'hover');
+            }
+        } catch (e) {}
+    }
 }
 
 // Phase 2 will remove this. Inline scripts in views still resolve `ConfigUtility`
