@@ -1295,11 +1295,19 @@ export function init(_root) {
         /**
          * Handle force text below toggle in search results
          */
+        // Event delegation for the dynamically-rendered search toggle
+        document.addEventListener('change', (e) => {
+            if (e.target && e.target.id === 'search-force-text-below-toggle') {
+                handleSearchForceTextBelowToggle();
+            }
+        });
+
         function handleSearchForceTextBelowToggle() {
             const toggle = document.getElementById('search-force-text-below-toggle');
             if (toggle) {
                 // Use temporary variable instead of saving to localStorage
                 searchTempForceTextBelow = toggle.checked;
+                window.searchTempForceTextBelow = searchTempForceTextBelow;
                 // Regenerate the search results to apply placement
                 const teamInfoMap = buildTeamInfoMap(lastRoadmapFiles);
                 displaySearchResults(currentResults, lastSearchQuery, null, teamInfoMap);
@@ -1350,9 +1358,10 @@ export function init(_root) {
                     if (searchToggle) {
                         searchToggle.checked = false;
                         searchTempForceTextBelow = false;
+                        window.searchTempForceTextBelow = false;
                     }
                 }
-                
+
                 // Update lastSearchQuery for next comparison
                 lastSearchQuery = searchQuery;
                 
