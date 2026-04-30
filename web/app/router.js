@@ -95,6 +95,7 @@ async function render() {
 
     if (window.__updateNav) window.__updateNav(route);
     window.scrollTo(0, 0);
+    lastRenderedPath = normalizePath(location.pathname);
 }
 
 function navigate(target, { replace = false } = {}) {
@@ -106,12 +107,40 @@ function navigate(target, { replace = false } = {}) {
     const here = location.pathname + location.search + location.hash;
     const there = url.pathname + url.search + url.hash;
     if (here === there) return;
+    // Prompt before discarding unsaved builder edits when navigating to a
+    // different SPA route. The builder view registers
+    // window.hasUnsavedBuilderChanges; other views leave it undefined.
+    if (
+        normalizePath(location.pathname) !== normalizePath(url.pathname) &&
+        typeof window.hasUnsavedBuilderChanges === 'function' &&
+        window.hasUnsavedBuilderChanges() &&
+        !confirm('You have unsaved changes. Leave anyway?')
+    ) {
+        return;
+    }
     if (replace) history.replaceState({}, '', url);
     else history.pushState({}, '', url);
     render();
 }
 
-window.addEventListener('popstate', render);
+// Browser back/forward changes the URL before popstate fires, so we can't
+// cancel - but we can confirm and push state forward again to "undo" the
+// navigation if the user wants to keep their unsaved work.
+let lastRenderedPath = normalizePath(location.pathname);
+window.addEventListener('popstate', () => {
+    const target = normalizePath(location.pathname);
+    if (
+        target !== lastRenderedPath &&
+        typeof window.hasUnsavedBuilderChanges === 'function' &&
+        window.hasUnsavedBuilderChanges() &&
+        !confirm('You have unsaved changes. Leave anyway?')
+    ) {
+        history.pushState({}, '', lastRenderedPath + location.search + location.hash);
+        return;
+    }
+    lastRenderedPath = target;
+    render();
+});
 
 document.addEventListener('click', (e) => {
     if (e.defaultPrevented) return;

@@ -380,6 +380,11 @@
                         <input type="checkbox" id="editTransferredOut" name="transferredout" onchange="toggleEditStatusFields()">
                         <label for="editTransferredOut">Out</label>
                     </div>
+                    <!-- Row 3: Visibility -->
+                    <div class="checkbox-group" style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ddd;">
+                        <input type="checkbox" id="editHideFromSearch" name="hidefromsearch">
+                        <label for="editHideFromSearch" title="When checked, this story will not appear in cross-team IMO/timeline search results">Hide from cross-team search</label>
+                    </div>
                     <div id="editStatusFields" style="margin-top: 10px;">
                         <div id="editDoneFields" class="border-card" style="display: none;">
                             <h5>Story Complete</h5>
@@ -501,7 +506,7 @@
                     <button type="button" class="btn-modal danger" style="padding: 6px 8px; font-size: 14px; cursor: pointer;" onclick="deleteCurrentStory()" title="Delete story" tabindex="-1">🗑️</button>
                 </div>
                 <div class="flex-modal-footer">
-                    <button type="button" class="primary" onclick="saveStoryChanges()" tabindex="-1">Save Changes</button>
+                    <button type="button" class="primary" onclick="saveStoryChanges()" tabindex="-1">OK</button>
                 </div>
             </div>
         </div>
