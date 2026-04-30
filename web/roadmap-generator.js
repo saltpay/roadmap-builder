@@ -800,11 +800,12 @@ export class RoadmapGenerator {
         // Add edit icon only in embedded mode (builder view)
         const editIconHTML = getUIUtility().generateEditIconHTML(embedded, epicName, story.title, storyIndex, (text) => this.formatText(text));
 
-        // Hover popover listing all milestone events (replaces the old side text box)
-        const popoverHTML = this.generateStoryMilestonePopover(story);
-
-        // Hover-revealed milestone track on row 2 of the story-track grid
-        const milestonesTrackHTML = this.generateStoryMilestonesTrack(story, startGrid, endGrid);
+        // Hover popover and milestone track are only used by the hover layout.
+        // When the user has switched to the legacy side placement, status
+        // events are rendered as a roadmap-text box by generateEpic instead.
+        const useSideStatusStyle = this.isStatusStyleSide();
+        const popoverHTML = useSideStatusStyle ? '' : this.generateStoryMilestonePopover(story);
+        const milestonesTrackHTML = useSideStatusStyle ? '' : this.generateStoryMilestonesTrack(story, startGrid, endGrid);
         
         // Add continuation year indicator for stories that continue past roadmap year or start before search range
         let continuationYearHTML = '';
@@ -1020,6 +1021,23 @@ export class RoadmapGenerator {
         return events;
     }
 
+    // True when the user has chosen the legacy "side" status placement (status
+    // events rendered as a text box to the right of the story) instead of the
+    // hover-revealed track + popover. Reads from the documentElement attribute
+    // first (synced live by the nav toggle) then falls back to localStorage.
+    isStatusStyleSide() {
+        if (typeof document !== 'undefined') {
+            const attr = document.documentElement.getAttribute('data-status-style');
+            if (attr === 'side') return true;
+            if (attr === 'hover') return false;
+        }
+        try {
+            return getConfigUtility().getStatusStyle() === 'side';
+        } catch (e) {
+            return false;
+        }
+    }
+
     // True when the user has enabled "Force all text boxes below stories" via the
     // builder toggle, the search toggle, or persisted localStorage. Drives the
     // milestone popover's vertical placement (below the bar instead of above).
@@ -1098,6 +1116,292 @@ export class RoadmapGenerator {
                     <span class="milestones-tick milestones-tick-end" style="left: ${storyEndPct}%;"></span>
                     ${pinsHTML}
                 </div>`;
+    }
+
+    // Legacy "side" placement: compute the same story start/end positioning the
+    // hover layout uses, then place a roadmap-text box to the right of the bar
+    // (or below it when there isn't room) and call generateRoadmapChanges. This
+    // mirrors the rendering used before the hover bar refactor (commit e408af0).
+    generateSideStatusTextBox(story, epicName, storyIndex, backgroundColor) {
+        const rc = story.roadmapChanges;
+        const hasChanges = rc && rc.changes && rc.changes.length > 0;
+        const hasDoneInfo = rc && rc.doneInfo && (rc.doneInfo.date || rc.doneInfo.notes);
+        const hasCancelInfo = rc && rc.cancelInfo && (rc.cancelInfo.date || rc.cancelInfo.notes);
+        const hasAtRiskInfo = rc && rc.atRiskInfo && (rc.atRiskInfo.date || rc.atRiskInfo.notes);
+        const hasNewStoryInfo = rc && rc.newStoryInfo && (rc.newStoryInfo.date || rc.newStoryInfo.notes);
+        const hasInfoInfo = rc && rc.infoInfo && (
+            (Array.isArray(rc.infoInfo) && rc.infoInfo.length > 0) ||
+            (!Array.isArray(rc.infoInfo) && (rc.infoInfo.date || rc.infoInfo.notes))
+        );
+        const hasTransferredOutInfo = rc && rc.transferredOutInfo && (rc.transferredOutInfo.date || rc.transferredOutInfo.notes);
+        const hasTransferredInInfo = rc && rc.transferredInInfo && (rc.transferredInInfo.date || rc.transferredInInfo.notes);
+        const hasProposedInfo = rc && rc.proposedInfo && (rc.proposedInfo.date || rc.proposedInfo.notes);
+        if (!hasChanges && !hasDoneInfo && !hasCancelInfo && !hasAtRiskInfo && !hasNewStoryInfo && !hasInfoInfo && !hasTransferredOutInfo && !hasTransferredInInfo && !hasProposedInfo) {
+            return '';
+        }
+        if (!this.shouldDisplayStory(story)) return '';
+
+        const storyId = getUIUtility().generateStoryId(epicName, storyIndex);
+
+        let totalItems = 0;
+        if (hasChanges) totalItems += rc.changes.length;
+        if (hasDoneInfo) totalItems += 1;
+        if (hasCancelInfo) totalItems += 1;
+        if (hasAtRiskInfo) totalItems += 1;
+        if (hasNewStoryInfo) totalItems += 1;
+        if (hasInfoInfo) totalItems += Array.isArray(rc.infoInfo) ? rc.infoInfo.length : 1;
+        if (hasTransferredOutInfo) totalItems += 1;
+        if (hasTransferredInInfo) totalItems += 1;
+        if (hasProposedInfo) totalItems += 1;
+        const textBoxWidth = getConfigUtility().calculateTextBoxWidth(totalItems);
+
+        let storyStartGrid;
+        if (story.startDate) {
+            try {
+                let isoStartDate = story.startDate;
+                if (story.startDate.match(/^\d{1,2}[\/\-]\d{1,2}([\/\-]\d{2,4})?$/)) {
+                    isoStartDate = this.convertEuropeanToISO(story.startDate);
+                }
+                const startDate = this.parseDateSafe(isoStartDate);
+                if (startDate && !isNaN(startDate.getTime())) {
+                    if (startDate.getFullYear() < this.roadmapYear) {
+                        story._originalStartDate = story.startDate;
+                        story.startDate = `01/01/${this.roadmapYear}`;
+                        const jan1IsoDate = `${this.roadmapYear}-01-01`;
+                        const isStartOfMonth = getDateUtility().isStartOfMonth(jan1IsoDate);
+                        storyStartGrid = isStartOfMonth
+                            ? this.monthToGrid('JAN')
+                            : getDateUtility().dateToGrid(jan1IsoDate, this.monthToGrid.bind(this));
+                        story._startsInPreviousYear = true;
+                        story._actualStartYear = startDate.getFullYear();
+                    } else {
+                        const isStartOfMonth = getDateUtility().isStartOfMonth(isoStartDate);
+                        const isEndOfPreviousMonth = getDateUtility().isEndOfPreviousMonth(isoStartDate);
+                        if (isStartOfMonth) {
+                            const monthName = this.getMonthName(startDate.getMonth() + 1);
+                            storyStartGrid = this.monthToGrid(monthName);
+                        } else if (isEndOfPreviousMonth) {
+                            const previousMonthName = getDateUtility().getPreviousMonthName(isoStartDate);
+                            storyStartGrid = this.monthToGrid(previousMonthName);
+                        } else {
+                            storyStartGrid = getDateUtility().dateToGrid(isoStartDate, this.monthToGrid.bind(this));
+                            const dayOfMonth = startDate.getDate();
+                            if (dayOfMonth >= 11 && dayOfMonth <= 21) {
+                                storyStartGrid -= 2;
+                            } else if (dayOfMonth >= 22 && dayOfMonth <= 26) {
+                                storyStartGrid -= 5;
+                            } else if (dayOfMonth >= 27 && dayOfMonth <= 31) {
+                                const currentMonth = startDate.getMonth() + 1;
+                                const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+                                storyStartGrid = this.monthToGrid(this.getMonthName(nextMonth));
+                            } else if (dayOfMonth >= 4 && dayOfMonth <= 10) {
+                                storyStartGrid -= 1;
+                            }
+                        }
+                    }
+                } else {
+                    storyStartGrid = this.getGridPosition(story.startDate);
+                }
+            } catch (e) {
+                storyStartGrid = this.getGridPosition(story.startDate);
+            }
+        } else {
+            storyStartGrid = this.monthToGrid(story.startMonth);
+        }
+
+        let storyEndGrid;
+        let actualEndGrid;
+        const effectiveEndValue = this.getEffectiveEndDate(story);
+        const effectiveEndIsDate = this.isEffectiveEndDateADate(story);
+        if (effectiveEndIsDate) {
+            const parsedEndDate = this.parseDateSafe(effectiveEndValue);
+            const isEndOfMonth = getDateUtility().isEndOfMonth(effectiveEndValue);
+            const isEndOfPreviousMonth = getDateUtility().isEndOfPreviousMonth(effectiveEndValue);
+            if (isEndOfMonth) {
+                const monthName = this.getMonthName(parsedEndDate.getMonth() + 1);
+                storyEndGrid = this.getGridPosition(monthName) + 10;
+                actualEndGrid = storyEndGrid;
+            } else if (isEndOfPreviousMonth) {
+                const previousMonthName = getDateUtility().getPreviousMonthName(effectiveEndValue);
+                storyEndGrid = this.getGridPosition(previousMonthName) + 10;
+                actualEndGrid = storyEndGrid;
+            } else if (parsedEndDate && getDateUtility().isValidDate(parsedEndDate)) {
+                storyEndGrid = getDateUtility().dateToGrid(effectiveEndValue, this.monthToGrid.bind(this));
+                actualEndGrid = this.getGridPosition(effectiveEndValue);
+            } else {
+                storyEndGrid = this.getGridPosition(effectiveEndValue);
+                actualEndGrid = storyEndGrid;
+            }
+        } else {
+            storyEndGrid = this.getGridPosition(effectiveEndValue) + 10;
+            actualEndGrid = storyEndGrid;
+        }
+
+        let endsBetweenOct4AndDec31 = false;
+        if (effectiveEndIsDate) {
+            const parsed = this.parseDateSafe(effectiveEndValue);
+            if (parsed && !isNaN(parsed.getTime()) && parsed.getFullYear() === this.roadmapYear) {
+                const m = parsed.getMonth();
+                const d = parsed.getDate();
+                if (m > 9 || (m === 9 && d >= 4)) endsBetweenOct4AndDec31 = true;
+            }
+        }
+        const continuesNextYear = this.storyContinuesNextYear(story);
+        const visualStoryEndGrid = continuesNextYear ? (this.getGridPosition('DEC') + 10) : storyEndGrid;
+
+        let shouldPositionBelowFinal = false;
+        if (continuesNextYear || endsBetweenOct4AndDec31) {
+            shouldPositionBelowFinal = true;
+        } else {
+            const buffer = 2;
+            const combinedWidth = visualStoryEndGrid + buffer + textBoxWidth;
+            if (getConfigUtility().exceedsMaxGrid(combinedWidth)) {
+                shouldPositionBelowFinal = true;
+            }
+        }
+        const forceBelowGlobal = this.isForceTextBelow();
+        if (forceBelowGlobal) shouldPositionBelowFinal = true;
+
+        let changeStartGrid;
+        let changeEndGrid;
+        if (shouldPositionBelowFinal) {
+            changeStartGrid = forceBelowGlobal ? storyStartGrid : (storyStartGrid + 1);
+            changeEndGrid = changeStartGrid + textBoxWidth;
+            if (getConfigUtility().exceedsMaxGrid(changeEndGrid)) {
+                const overflow = changeEndGrid - getConfigUtility().getMaxGrid();
+                changeStartGrid = Math.max(1, changeStartGrid - overflow);
+                changeEndGrid = changeStartGrid + textBoxWidth;
+            }
+        } else {
+            const buffer = 2;
+            changeStartGrid = actualEndGrid + buffer;
+            changeEndGrid = changeStartGrid + textBoxWidth;
+        }
+
+        return this.generateRoadmapChanges(
+            rc.changes, changeStartGrid, changeEndGrid,
+            rc.doneInfo, rc.cancelInfo, rc.atRiskInfo, rc.newStoryInfo,
+            rc.infoInfo, rc.transferredOutInfo, rc.transferredInInfo, rc.proposedInfo,
+            shouldPositionBelowFinal, storyStartGrid, backgroundColor, storyId
+        );
+    }
+
+    // Legacy roadmap-text box that lists timeline changes and status events
+    // chronologically next to the story bar. Used only when the user has the
+    // "side" status placement enabled; the default hover layout omits this.
+    generateRoadmapChanges(changes, startGrid, endGrid, doneInfo = null, cancelInfo = null, atRiskInfo = null, newStoryInfo = null, infoInfo = null, transferredOutInfo = null, transferredInInfo = null, proposedInfo = null, positionBelow = false, storyStartGrid = null, backgroundColor = null, storyId = null) {
+        const isLeftOfStory = storyStartGrid !== null && endGrid <= storyStartGrid;
+        const leftSideStyle = isLeftOfStory ? 'top: 4px; ' : '';
+        const allTextBoxStyle = 'position: relative; left: -3px; ';
+        const statusBoxStyle = '';
+
+        if ((!changes || changes.length === 0) && !doneInfo && !cancelInfo && !atRiskInfo && !newStoryInfo && !infoInfo && !transferredOutInfo && !transferredInInfo && !proposedInfo) return '';
+
+        const allItems = [];
+
+        if (changes && changes.length > 0) {
+            changes.forEach(change => {
+                const isEarly = this.isEarlyDelivery(change.prevEndDate, change.newEndDate);
+                const prevDateEU = this.formatDateEuropean(change.prevEndDate);
+                const newDateEU = this.formatDateEuropean(change.newEndDate);
+                const dateDisplay = isEarly ? `${newDateEU} <- ${prevDateEU}` : `${prevDateEU} -> ${newDateEU}`;
+                const formattedDescription = this.formatText(change.description);
+                allItems.push({
+                    date: change.date,
+                    html: `
+                        <div class="roadmap-column" style="${allTextBoxStyle}${leftSideStyle}">
+                            <div style="font-weight: bold; font-size: 12px; margin-bottom: 3px; display: flex; align-items: center; height: 16px;"><span style="margin-right: 3px; font-size: 16px; display: inline-block; vertical-align: top;">🕐</span><span style="font-size: 12px; font-weight: bold; color: ${isEarly ? '#28a745' : 'red'}; margin-left: 1px;">${this.formatDateEuropean(change.date)}</span></div>
+                            <div class="roadmap-description"><span style="font-size: 10px; font-weight: normal; color: ${isEarly ? '#28a745' : 'red'}; margin-bottom: 1px; display: block;">${dateDisplay}</span>${formattedDescription}</div>
+                        </div>`
+                });
+            });
+        }
+
+        const generateStatusColumn = (icon, iconColor, date, notes, dateColor = null, notesClass = 'roadmap-description') => {
+            const displayDateColor = dateColor || iconColor;
+            const iconSize = icon === '💡' ? '12px' : (icon === '➡️' && date.startsWith('In:') ? '13px' : (icon === '➡️' ? '12px' : (icon === '🌟' ? '12px' : (icon === 'ℹ️' ? '14px' : '16px'))));
+            const marginBottom = '3px';
+            const iconVerticalOffset = icon === 'ℹ️' ? 'transform: translateY(1px);' : '';
+            const iconBackground = icon === '💡' ? 'background-color: #005a8b; border-radius: 1px; padding: 2px 0px 0px 1px; color: #fff; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: flex-start;' : '';
+            const iconTextColor = icon === '💡' ? '#fff' : iconColor;
+            return `<div class="roadmap-column" style="${allTextBoxStyle}${statusBoxStyle}${leftSideStyle}">
+                        <div style="font-weight: bold; font-size: 12px; margin-bottom: ${marginBottom}; display: flex; align-items: center; height: 16px;"><span style="margin-right: 3px; font-size: ${iconSize}; display: inline-block; vertical-align: top; color: ${iconTextColor}; ${iconBackground}${iconVerticalOffset}">${icon}</span><span style="font-size: 12px; font-weight: bold; color: ${displayDateColor}; margin-left: 1px;">${this.formatDateEuropean(date)}</span></div>
+                        <div class="${notesClass}">${this.formatText(notes)}</div>
+                    </div>`;
+        };
+
+        if (doneInfo && (doneInfo.date || doneInfo.notes)) {
+            allItems.push({
+                date: doneInfo.date,
+                html: `<div class="roadmap-column" style="${allTextBoxStyle}${statusBoxStyle}${leftSideStyle}">
+                        <div style="font-weight: bold; font-size: 12px; margin-bottom: 3px; display: flex; align-items: center; height: 16px;"><span style="margin-right: 3px; font-size: 16px; display: inline-block; vertical-align: top; color: #28a745;">✓</span><span style="font-size: 12px; font-weight: bold; color: #28a745; margin-left: 1px;">${this.formatDateEuropean(doneInfo.date)}</span></div>
+                        <div class="roadmap-description">${this.formatText(doneInfo.notes)}</div>
+                    </div>`
+            });
+        }
+
+        if (cancelInfo && (cancelInfo.date || cancelInfo.notes)) {
+            allItems.push({ date: cancelInfo.date, html: generateStatusColumn('✖', '#dc3545', cancelInfo.date, cancelInfo.notes) });
+        }
+
+        if (atRiskInfo && (atRiskInfo.date || atRiskInfo.notes)) {
+            allItems.push({
+                date: atRiskInfo.date,
+                html: `<div class="roadmap-column" style="${allTextBoxStyle}${statusBoxStyle}${leftSideStyle}">
+                        <div style="font-weight: bold; font-size: 12px; margin-bottom: 3px; display: flex; align-items: center; height: 16px;"><span style="margin-right: 3px; font-size: 16px; display: inline-block; vertical-align: top; color: black;">❗</span><span style="font-size: 12px; font-weight: bold; color: black; margin-left: 1px;">${this.formatDateEuropean(atRiskInfo.date)}</span></div>
+                        <div class="atrisk-notes" style="transform: translateY(0.25px);">${this.formatText(atRiskInfo.notes)}</div>
+                    </div>`
+            });
+        }
+
+        if (newStoryInfo && (newStoryInfo.date || newStoryInfo.notes)) {
+            allItems.push({ date: newStoryInfo.date, html: generateStatusColumn('🌟', 'black', newStoryInfo.date, newStoryInfo.notes) });
+        }
+
+        if (infoInfo) {
+            if (Array.isArray(infoInfo)) {
+                infoInfo.forEach(entry => {
+                    if (entry && (entry.date || entry.notes)) {
+                        allItems.push({ date: entry.date, html: generateStatusColumn('ℹ️', '#007cba', entry.date, entry.notes) });
+                    }
+                });
+            } else if (infoInfo.date || infoInfo.notes) {
+                allItems.push({ date: infoInfo.date, html: generateStatusColumn('ℹ️', '#007cba', infoInfo.date, infoInfo.notes) });
+            }
+        }
+
+        if (transferredInInfo && (transferredInInfo.date || transferredInInfo.notes)) {
+            allItems.push({ date: transferredInInfo.date, html: generateStatusColumn('➡️', '#007cba', `In: ${transferredInInfo.date}`, transferredInInfo.notes, 'black') });
+        }
+
+        if (transferredOutInfo && (transferredOutInfo.date || transferredOutInfo.notes)) {
+            allItems.push({ date: transferredOutInfo.date, html: generateStatusColumn('➡️', '#007cba', `Out: ${transferredOutInfo.date}`, transferredOutInfo.notes, 'black') });
+        }
+
+        if (proposedInfo && (proposedInfo.date || proposedInfo.notes)) {
+            allItems.push({ date: proposedInfo.date, html: generateStatusColumn('💡', '#007cba', proposedInfo.date, proposedInfo.notes) });
+        }
+
+        allItems.sort((a, b) => getDateUtility().compareDates(a.date, b.date));
+        const allItemsHTML = allItems.map(item => item.html).join('');
+
+        const effectiveBelow = this.isForceTextBelow() ? true : positionBelow;
+        const gridRow = effectiveBelow ? 2 : 1;
+        const marginStyle = effectiveBelow ? '' : 'margin-top: 1px; ';
+        const textBoxWidth = endGrid - startGrid;
+        const zoomLevel = getConfigUtility().getZoomLevel(textBoxWidth, startGrid, endGrid);
+        const zoomClass = ` story-zoom-${zoomLevel}`;
+        const belowClass = effectiveBelow ? ' roadmap-text-below' : '';
+        const backgroundStyle = backgroundColor ? `background-color: ${backgroundColor}; ` : '';
+
+        return `
+        <div class="roadmap-text roadmap-text-simple${zoomClass}${belowClass}"
+             style="--start: ${startGrid}; --end: ${endGrid}; grid-row: ${gridRow}; ${marginStyle}${backgroundStyle}"
+             data-story-id="${storyId || ''}">
+            <div class="roadmap-columns">
+                ${allItemsHTML}
+            </div>
+        </div>`;
     }
 
     // Generate BTL date added text box
@@ -1367,11 +1671,16 @@ export class RoadmapGenerator {
                 return getDateUtility().compareDateOrMonth(aEnd, bEnd, this.roadmapYear);
             }) : epic.stories;
         
+        const useSideStatusStyle = this.isStatusStyleSide();
         storiesToProcess.forEach((story, storyIndex) => {
             const storyHTML = this.generateStory(story, epic.name, storyIndex, embedded, backgroundColor, epic.epicId || '');
-            // Roadmap status events (done, info, at-risk, etc.) are rendered as date-anchored
-            // markers inside the story bar via generateStoryMilestones - no side text box.
-            tracksHTML += `<div class="story-track">${storyHTML}</div>`;
+            // In hover mode, status events live inside the story bar (popover + track).
+            // In side mode, render the legacy roadmap-text box positioned beside or below
+            // the story bar.
+            const sideStatusHTML = useSideStatusStyle
+                ? this.generateSideStatusTextBox(story, epic.name, storyIndex, backgroundColor)
+                : '';
+            tracksHTML += `<div class="story-track">${storyHTML}${sideStatusHTML}</div>`;
         });
 
         return `

@@ -16,6 +16,7 @@
                 ${LINKS.map(l => `<a href="${l.path}" class="app-nav__link" data-spa-link>${l.label}</a>`).join('')}
             </div>
             <button type="button" id="appNavTheme" class="app-nav__theme" title="Toggle dark mode" aria-pressed="false"></button>
+            <button type="button" id="appNavStatusStyle" class="app-nav__theme" title="Toggle experimental features" aria-pressed="false"></button>
             <div class="app-nav__folder-wrap" style="position: relative;">
                 <button type="button" id="appNavFolder" class="app-nav__folder" title="Open a roadmap file or folder"></button>
                 <div id="appNavFolderMenu" class="app-nav__folder-menu">
@@ -29,6 +30,7 @@
     const folderBtn = nav.querySelector('#appNavFolder');
     const menuEl = nav.querySelector('#appNavFolderMenu');
     const themeBtn = nav.querySelector('#appNavTheme');
+    const statusStyleBtn = nav.querySelector('#appNavStatusStyle');
 
     function renderTheme() {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -45,6 +47,27 @@
     });
 
     renderTheme();
+
+    function renderStatusStyle() {
+        const isExperimental = document.documentElement.getAttribute('data-status-style') !== 'side';
+        // Test tube signals "experimental features"; the hover/track layout is
+        // currently the only experiment behind this switch.
+        statusStyleBtn.textContent = '🧪';
+        statusStyleBtn.title = isExperimental
+            ? 'Experimental features: on (click to disable)'
+            : 'Experimental features: off (click to enable)';
+        statusStyleBtn.setAttribute('aria-pressed', isExperimental ? 'true' : 'false');
+    }
+
+    statusStyleBtn.addEventListener('click', () => {
+        const next = document.documentElement.getAttribute('data-status-style') === 'side' ? 'hover' : 'side';
+        document.documentElement.setAttribute('data-status-style', next);
+        try { localStorage.setItem('roadmap-status-style', next); } catch (_e) { /* ignore */ }
+        renderStatusStyle();
+        document.dispatchEvent(new CustomEvent('roadmap-status-style-changed', { detail: { style: next } }));
+    });
+
+    renderStatusStyle();
 
     function updateActive(path) {
         nav.querySelectorAll('.app-nav__link').forEach(a => {
