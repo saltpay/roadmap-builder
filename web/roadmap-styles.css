@@ -337,35 +337,37 @@ body {
 }
 
 /* KTLO Zoom States */
+/* z-index 200 keeps the hovered story (and its milestone popover/track) above
+   the KTLO monthly boxes, whose highest z-index is 155 (January hover). */
 .ktlo-story.story-zoom-large:hover {
     transform: translateX(-4px) scale(1.20);
-    z-index: 100;
+    z-index: 200;
 }
 
 .ktlo-story.story-zoom-medium:hover {
     transform: translateX(-4px) scale(1.15);
-    z-index: 100;
+    z-index: 200;
 }
 
 .ktlo-story.story-zoom-small:hover {
     transform: translateX(-4px) scale(1.05);
-    z-index: 100;
+    z-index: 200;
 }
 
 /* Story States - Graduated Zoom Levels */
 .story-zoom-large:hover {
     transform: scale(1.20);
-    z-index: 100;
+    z-index: 200;
 }
 
 .story-zoom-medium:hover {
     transform: scale(1.15);
-    z-index: 100;
+    z-index: 200;
 }
 
 .story-zoom-small:hover {
     transform: scale(1.05);
-    z-index: 100;
+    z-index: 200;
 }
 
 .story-positioned-january {
@@ -398,6 +400,19 @@ body {
 
 .story-positioned-october.story-zoom-small:hover {
     transform: translateX(1px) scale(1.05);
+}
+
+/* Focus dim effect: when any story bar is hovered (or synchronized via JS),
+   fade non-focused stories and KTLO monthly boxes so attention follows the
+   active item. Uses :has() so a single rule covers regular hover and the
+   external .story-hover/.textbox-hover triggers. The hovered element itself
+   is excluded so it stays at full opacity. */
+.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover) .story-item:not(:hover):not(.story-hover),
+.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover) .ktlo-story:not(:hover):not(.story-hover),
+.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover) .monthly-box-content,
+.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover) .roadmap-text:not(.textbox-hover) {
+    opacity: 0.35;
+    transition: opacity 0.2s ease;
 }
 
 /* Cancelled Stories */
@@ -856,12 +871,12 @@ body {
 /* Synchronized hover classes - using higher specificity instead of !important */
 .roadmap-container .story-hover {
     transform: scale(1.15);
-    z-index: 100;
+    z-index: 200;
 }
 
 .roadmap-container .textbox-hover {
     transform: scale(1.3);
-    z-index: 100;
+    z-index: 200;
     box-shadow: var(--rm-hover-shadow);
 }
 
@@ -1080,4 +1095,210 @@ body .roadmap-container input[data-date-picker-initialized] {
     position: relative;
 }
 
- 
+/* ============================================================
+   Story Milestones (hover-revealed track + popover)
+   Replaces the old roadmap-text side boxes for status events.
+   ============================================================ */
+
+.story-item {
+    overflow: visible;
+}
+
+/* Milestone track - lives inside .story-item, absolutely positioned
+   below the bar. Spans the union of story bar bounds and event date
+   positions; widths are computed relative to the story-item's grid
+   columns, so the track can extend beyond the bar's visual edges when
+   events fall before/after the story span. Hidden until bar hover. */
+.story-milestones-track {
+    position: absolute;
+    top: calc(100% + 16px);
+    left: calc((var(--track-start) - var(--start)) / (var(--end) - var(--start)) * 100%);
+    width: calc((var(--track-end) - var(--track-start)) / (var(--end) - var(--start)) * 100%);
+    height: 16px;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 50;
+    transition: opacity 0.15s ease;
+}
+
+.story-item:hover .story-milestones-track {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.milestones-line {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--rm-text-strong);
+    border-radius: 1px;
+    transform: translateY(-50%);
+}
+
+.milestones-tick {
+    position: absolute;
+    top: 50%;
+    width: 2px;
+    height: 10px;
+    background-color: var(--rm-text-strong);
+    transform: translate(-50%, -50%);
+    border-radius: 1px;
+}
+
+.milestone-pin {
+    --milestone-color: var(--rm-text-subtle);
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: var(--milestone-color);
+    color: #fff;
+    border: 2px solid var(--rm-surface);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 60;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.milestone-pin:hover {
+    transform: translate(-50%, -50%) scale(1.25);
+    z-index: 70;
+}
+
+.milestone-pin-glyph {
+    font-size: 9px;
+    line-height: 1;
+    font-weight: bold;
+}
+
+.milestone-done .milestone-pin-glyph,
+.milestone-info .milestone-pin-glyph,
+.milestone-cancel .milestone-pin-glyph,
+.milestone-atrisk .milestone-pin-glyph,
+.milestone-transferred-in .milestone-pin-glyph,
+.milestone-transferred-out .milestone-pin-glyph {
+    color: #fff;
+}
+
+/* Popover - hidden by default, appears on story-item hover */
+.milestone-popover {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 10px);
+    transform: translateX(-50%);
+    min-width: 180px;
+    max-width: 320px;
+    background-color: var(--rm-surface);
+    color: var(--rm-text);
+    border: 1px solid var(--rm-border);
+    border-radius: 8px;
+    box-shadow: var(--rm-hover-shadow);
+    padding: 8px 10px;
+    z-index: 400;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    text-align: left;
+    white-space: normal;
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+.story-item:hover .milestone-popover {
+    opacity: 1;
+    visibility: visible;
+}
+
+.milestone-popover::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--rm-surface);
+    filter: drop-shadow(0 1px 0 var(--rm-border));
+}
+
+/* Below variant: applied when "Force all text boxes below stories" is on.
+   Sits beneath the story bar (under the milestones track) instead of above.
+   Offset must clear the milestones track: track top 16px + track height 16px
+   + breathing room. */
+.milestone-popover--below {
+    bottom: auto;
+    top: calc(100% + 44px);
+}
+
+.milestone-popover--below::after {
+    top: auto;
+    bottom: 100%;
+    border-top-color: transparent;
+    border-bottom-color: var(--rm-surface);
+    filter: drop-shadow(0 -1px 0 var(--rm-border));
+}
+
+.milestone-popover-row {
+    --milestone-color: var(--rm-text-subtle);
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+    padding: 4px 0;
+    border-top: 1px solid var(--rm-surface-muted);
+}
+
+.milestone-popover-row:first-child {
+    border-top: none;
+    padding-top: 2px;
+}
+
+.milestone-popover-row:last-child {
+    padding-bottom: 2px;
+}
+
+.milestone-popover-glyph {
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background-color: var(--milestone-color);
+    color: #fff;
+    font-size: 9px;
+    font-weight: bold;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    margin-top: 1px;
+}
+
+.milestone-popover-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.milestone-popover-date {
+    font-weight: bold;
+    color: var(--milestone-color);
+    font-size: 11px;
+}
+
+.milestone-popover-subtitle {
+    font-size: 10px;
+    color: var(--milestone-color);
+    margin-top: 1px;
+}
+
+.milestone-popover-notes {
+    margin-top: 2px;
+    color: var(--rm-text);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}

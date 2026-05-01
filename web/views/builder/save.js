@@ -25,6 +25,23 @@ let statusEl = null;
 let saving = false;
 let lastErrorMessage = '';
 
+// Dirty tracker: true while the in-memory form has edits not yet written to
+// disk. The router and beforeunload handler use this to prompt before
+// discarding unsaved work. Cleared on successful save or fresh file load.
+let dirty = false;
+
+export function isDirty() {
+    return dirty;
+}
+
+export function markDirty() {
+    dirty = true;
+}
+
+export function markClean() {
+    dirty = false;
+}
+
 export function init({ statusElement }) {
     statusEl = statusElement;
     // Always start in 'idle'. 'saved' is reserved for actual save success
@@ -71,6 +88,9 @@ export function canSaveInBrowser() {
 
 export function setFileHandle(handle) {
     fileHandle = handle;
+    // Loading a file resets the dirty state - the form now matches the
+    // bytes on disk.
+    markClean();
     // 'idle', not 'saved': loading a file shouldn't fire roadmap:saved
     // (which would trigger the post-save confetti animation).
     setStatus('idle');
@@ -180,6 +200,9 @@ export function download({ suggestedName }) {
 }
 
 function setStatus(kind) {
+    if (kind === 'saved') {
+        markClean();
+    }
     if (statusEl) {
         // 'saved' is communicated by the button animation + confetti, not text.
         const messages = {

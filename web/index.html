@@ -19,6 +19,12 @@
             } catch (e) {
                 document.documentElement.setAttribute('data-theme', 'light');
             }
+            try {
+                var s = localStorage.getItem('roadmap-status-style');
+                document.documentElement.setAttribute('data-status-style', s === 'hover' ? 'hover' : 'side');
+            } catch (e) {
+                document.documentElement.setAttribute('data-status-style', 'side');
+            }
         })();
     </script>
 
@@ -216,6 +222,30 @@
             transition: background 120ms ease, border-color 120ms ease !important;
         }
         .app-nav__theme:hover { background: rgba(255, 255, 255, 0.12) !important; }
+
+        /* Experimental-features toggle: dim when off, glow when on so the
+           current state is obvious without reading the tooltip. The pill is
+           wider than the theme toggle to fit the "Beta on/off" label. */
+        .app-nav__beta {
+            width: auto !important;
+            padding: 0 10px !important;
+            gap: 6px !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.2px !important;
+        }
+        .app-nav__beta-icon { font-size: 13px !important; line-height: 1 !important; }
+        .app-nav__beta-label { line-height: 1 !important; }
+        #appNavStatusStyle[aria-pressed="false"] {
+            opacity: 0.55 !important;
+            border-color: rgba(255, 255, 255, 0.25) !important;
+        }
+        #appNavStatusStyle[aria-pressed="true"] {
+            background: rgba(255, 224, 102, 0.22) !important;
+            border-color: #ffd84d !important;
+            color: #ffd84d !important;
+            box-shadow: 0 0 0 1px rgba(255, 216, 77, 0.35), 0 0 8px rgba(255, 216, 77, 0.55) !important;
+        }
     </style>
 </head>
 <body>

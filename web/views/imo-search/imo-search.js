@@ -1302,6 +1302,15 @@ export function init(_root) {
             }
         });
 
+        // The nav status-style toggle changes between hover bar and side text
+        // box layouts; rebuild the current results so they pick up the new mode.
+        document.addEventListener('roadmap-status-style-changed', () => {
+            if (!currentResults) return;
+            const teamInfoMap = buildTeamInfoMap(lastRoadmapFiles);
+            displaySearchResults(currentResults, lastSearchQuery, null, teamInfoMap);
+        });
+
+
         function handleSearchForceTextBelowToggle() {
             const toggle = document.getElementById('search-force-text-below-toggle');
             if (toggle) {
