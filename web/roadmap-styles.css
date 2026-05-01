@@ -415,11 +415,22 @@ body {
     transition: opacity 0.2s ease;
 }
 
-/* Keep the side status text box in focus when its companion story bar is
-   hovered (and vice versa). Both share the same .story-track parent. */
+/* Keep the story bar in focus when its companion side status text box is
+   hovered. Both share the same .story-track parent. */
 .roadmap-container:has(.story-item:hover, .story-hover, .roadmap-text:hover)
     .story-track:has(.story-item:hover, .story-item.story-hover, .roadmap-text:hover)
-    :is(.story-item, .roadmap-text) {
+    .story-item {
+    opacity: 1;
+}
+
+/* In side (legacy) mode the side status text box also stays bright next
+   to its hovered companion story. In beta (hover) mode the milestone
+   track below the bar already shows the same info, so the side box dims
+   like every other non-focused element. */
+html[data-status-style="side"]
+    .roadmap-container:has(.story-item:hover, .story-hover, .roadmap-text:hover)
+    .story-track:has(.story-item:hover, .story-item.story-hover, .roadmap-text:hover)
+    .roadmap-text {
     opacity: 1;
 }
 
@@ -1116,7 +1127,8 @@ body .roadmap-container input[data-date-picker-initialized] {
    below the bar. Spans the union of story bar bounds and event date
    positions; widths are computed relative to the story-item's grid
    columns, so the track can extend beyond the bar's visual edges when
-   events fall before/after the story span. Hidden until bar hover. */
+   events fall before/after the story span. Hidden until story bar hover
+   so pins and their labels reveal together. */
 .story-milestones-track {
     position: absolute;
     top: calc(100% + 16px);
@@ -1155,10 +1167,26 @@ body .roadmap-container input[data-date-picker-initialized] {
     border-radius: 1px;
 }
 
-.milestone-pin {
+/* Slot wraps a pin and its per-pin popover so the pin's hover scale doesn't
+   distort the popover. Positioned at the event's date along the track. */
+.milestone-pin-slot {
     --milestone-color: var(--rm-text-subtle);
     position: absolute;
     top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 16px;
+    z-index: 60;
+}
+
+.milestone-pin-slot:hover {
+    z-index: 500;
+}
+
+.milestone-pin {
+    position: absolute;
+    top: 50%;
+    left: 0;
     transform: translate(-50%, -50%);
     width: 16px;
     height: 16px;
@@ -1170,14 +1198,66 @@ body .roadmap-container input[data-date-picker-initialized] {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 60;
     cursor: pointer;
     transition: transform 0.15s ease;
 }
 
-.milestone-pin:hover {
+.milestone-pin-slot:hover .milestone-pin {
     transform: translate(-50%, -50%) scale(1.25);
-    z-index: 70;
+}
+
+/* Per-pin popover - sits below its specific milestone icon as a small
+   labelled text card. Always visible (when the track is) so each event's
+   date/notes appear right next to its own marker rather than in one
+   combined list above the bar. Each event is staggered into one of three
+   vertical rows (--milestone-row) so close-together pins don't overlap;
+   --milestone-row-step controls the spacing between rows. A thin
+   connector line links the label back to its pin when offset. Hovering
+   the pin pops the slot forward via z-index. */
+.milestone-pin-popover {
+    --milestone-row-step: 50px;
+    position: absolute;
+    left: 0;
+    top: calc(50% + 14px + var(--milestone-row, 0) * var(--milestone-row-step));
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 200px;
+    background-color: var(--rm-surface);
+    color: var(--rm-text);
+    border: 1px solid var(--rm-border);
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    padding: 4px 6px;
+    text-align: left;
+    white-space: normal;
+    font-size: 10px;
+    line-height: 1.25;
+    pointer-events: none;
+    transition: box-shadow 0.15s ease;
+}
+
+.milestone-pin-slot:hover .milestone-pin-popover {
+    box-shadow: var(--rm-hover-shadow);
+}
+
+/* Connector lines from staggered labels back to their pins live in their
+   own per-track layer drawn behind every slot, so the line never paints
+   over a neighbouring label. The layout pass populates this layer. */
+.milestone-connectors {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: visible;
+}
+
+.milestone-pin-connector {
+    position: absolute;
+    top: 50%;
+    width: 1px;
+    background-color: var(--milestone-color, currentColor);
+    opacity: 0.5;
+    transform: translate(-50%, 8px);
 }
 
 .milestone-pin-glyph {
@@ -1193,103 +1273,6 @@ body .roadmap-container input[data-date-picker-initialized] {
 .milestone-transferred-in .milestone-pin-glyph,
 .milestone-transferred-out .milestone-pin-glyph {
     color: #fff;
-}
-
-/* Popover - hidden by default, appears on story-item hover */
-.milestone-popover {
-    position: absolute;
-    left: 50%;
-    bottom: calc(100% + 10px);
-    transform: translateX(-50%);
-    min-width: 180px;
-    max-width: 320px;
-    background-color: var(--rm-surface);
-    color: var(--rm-text);
-    border: 1px solid var(--rm-border);
-    border-radius: 8px;
-    box-shadow: var(--rm-hover-shadow);
-    padding: 8px 10px;
-    z-index: 400;
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity 0.15s ease, visibility 0.15s ease;
-    text-align: left;
-    white-space: normal;
-    font-size: 11px;
-    line-height: 1.3;
-}
-
-.story-item:hover .milestone-popover {
-    opacity: 1;
-    visibility: visible;
-}
-
-.milestone-popover::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-top-color: var(--rm-surface);
-    filter: drop-shadow(0 1px 0 var(--rm-border));
-}
-
-/* Below variant: applied when "Force all text boxes below stories" is on.
-   Sits beneath the story bar (under the milestones track) instead of above.
-   Offset must clear the milestones track: track top 16px + track height 16px
-   + breathing room. */
-.milestone-popover--below {
-    bottom: auto;
-    top: calc(100% + 44px);
-}
-
-.milestone-popover--below::after {
-    top: auto;
-    bottom: 100%;
-    border-top-color: transparent;
-    border-bottom-color: var(--rm-surface);
-    filter: drop-shadow(0 -1px 0 var(--rm-border));
-}
-
-.milestone-popover-row {
-    --milestone-color: var(--rm-text-subtle);
-    display: flex;
-    gap: 6px;
-    align-items: flex-start;
-    padding: 4px 0;
-    border-top: 1px solid var(--rm-surface-muted);
-}
-
-.milestone-popover-row:first-child {
-    border-top: none;
-    padding-top: 2px;
-}
-
-.milestone-popover-row:last-child {
-    padding-bottom: 2px;
-}
-
-.milestone-popover-glyph {
-    flex: 0 0 14px;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background-color: var(--milestone-color);
-    color: #fff;
-    font-size: 9px;
-    font-weight: bold;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-    margin-top: 1px;
-}
-
-.milestone-popover-body {
-    flex: 1;
-    min-width: 0;
 }
 
 .milestone-popover-date {
