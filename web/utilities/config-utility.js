@@ -379,10 +379,10 @@ export class ConfigUtility {
         try {
             if (typeof localStorage !== 'undefined') {
                 const stored = localStorage.getItem('roadmap-status-style');
-                if (stored === 'side') return 'side';
+                if (stored === 'hover') return 'hover';
             }
         } catch (e) {}
-        return 'hover';
+        return 'side';
     }
 
     static setStatusStyle(style) {
