@@ -128,7 +128,16 @@ export function init(_root) {
     {
         const mount = document.getElementById('roadmap-mount');
         const statusEl = document.getElementById('saveStatus');
-        if (statusEl) save.init({ statusElement: statusEl });
+        // The auto-save scheduler needs to flush form inputs into roadmapState
+        // before serializing. prepareRoadmapForSave is defined later in the
+        // legacy body and exposed on window; the lambda reads it lazily so
+        // ordering doesn't matter.
+        if (statusEl) save.init({
+            statusElement: statusEl,
+            onAutoSavePrepare: () => (typeof window.prepareRoadmapForSave === 'function'
+                ? window.prepareRoadmapForSave()
+                : null),
+        });
 
         // Dirty tracking: any user input/change inside the SPA mount marks
         // the form as having unsaved changes. We rely on Event.isTrusted to
@@ -171,17 +180,21 @@ export function init(_root) {
         // On save success: pulse the Save dropdown trigger green and burst
         // confetti out of it. The save module fires this event after each
         // successful in-place write or download.
-        document.addEventListener('roadmap:saved', () => {
+        document.addEventListener('roadmap:saved', (e) => {
+            // Auto-saves fire on a debounce while the user is editing -
+            // suppress the celebration animation so it doesn't go off every
+            // ~1.5s of typing. Manual saves still pulse + confetti as before.
+            const isAuto = !!(e && e.detail && e.detail.auto);
             const buttons = document.querySelectorAll('#saveDropdownBtn, #saveDropdownBtnBottom');
             let originRect = null;
             buttons.forEach((btn) => {
                 btn.classList.remove('is-just-saved');
                 // Force reflow so the animation restarts on rapid saves.
                 void btn.offsetWidth;
-                btn.classList.add('is-just-saved');
+                if (!isAuto) btn.classList.add('is-just-saved');
                 if (!originRect && btn.offsetParent) originRect = btn.getBoundingClientRect();
             });
-            if (originRect) {
+            if (!isAuto && originRect) {
                 confettiBurst({
                     x: originRect.left + originRect.width / 2,
                     y: originRect.top + originRect.height / 2,
@@ -5676,6 +5689,7 @@ if (typeof newRoadmap === 'function') window.newRoadmap = newRoadmap;
 if (typeof closeNewRoadmapModal === 'function') window.closeNewRoadmapModal = closeNewRoadmapModal;
 if (typeof confirmNewRoadmap === 'function') window.confirmNewRoadmap = confirmNewRoadmap;
 if (typeof saveRoadmapInPlace === 'function') window.saveRoadmapInPlace = saveRoadmapInPlace;
+if (typeof prepareRoadmapForSave === 'function') window.prepareRoadmapForSave = prepareRoadmapForSave;
 if (typeof downloadRoadmap === 'function') window.downloadRoadmap = downloadRoadmap;
 if (typeof loadRoadmap === 'function') window.loadRoadmap = loadRoadmap;
 if (typeof handleRoadmapLoad === 'function') window.handleRoadmapLoad = handleRoadmapLoad;
