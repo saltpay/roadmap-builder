@@ -1,6 +1,11 @@
 // Manual save: writes the current state back to the JSON file in place
 // (Chromium only) or downloads it as a file (any browser). Triggered
-// explicitly from the Save dropdown - no auto-save.
+// explicitly from the Save dropdown.
+//
+// Optional auto-save: when enabled by the user via the nav toggle and a
+// writable handle is available, edits are persisted to disk after a short
+// debounce window. The toggle is Chromium-only - on Safari/Firefox the
+// File System Access API is unavailable, so the nav doesn't render it.
 //
 // In-place save requires a writable file/folder handle from the File
 // System Access API. Without one, save() refuses. Download builds a
@@ -18,6 +23,9 @@
 
 import { getState } from './state.js';
 
+const AUTO_SAVE_KEY = 'roadmap-autosave';
+const AUTO_SAVE_DEBOUNCE_MS = 1500;
+
 let fileHandle = null;
 let dirHandle = null;
 let dirKind = null; // 'native' | 'fallback' | null
@@ -30,25 +38,101 @@ let lastErrorMessage = '';
 // discarding unsaved work. Cleared on successful save or fresh file load.
 let dirty = false;
 
+let autoSaveEnabled = false;
+let autoSaveTimer = null;
+let autoSavePrepare = null; // () => suggestedName, supplied by builder
+
 export function isDirty() {
     return dirty;
 }
 
 export function markDirty() {
     dirty = true;
+    scheduleAutoSave();
 }
 
 export function markClean() {
     dirty = false;
 }
 
-export function init({ statusElement }) {
+export function isAutoSaveEnabled() {
+    return autoSaveEnabled;
+}
+
+export function init({ statusElement, onAutoSavePrepare }) {
     statusEl = statusElement;
+    autoSavePrepare = onAutoSavePrepare || null;
     // Always start in 'idle'. 'saved' is reserved for actual save success
     // because the status setter dispatches roadmap:saved, which the builder
     // reads to fire the confetti animation.
     setStatus('idle');
     subscribeToAppDir();
+    initAutoSave();
+}
+
+// Attach the auto-save listeners exactly once. init() can run on every
+// builder re-mount; the toggle/visibility listeners are window-scoped so
+// re-attaching would silently duplicate work on each navigation.
+let autoSaveListenersAttached = false;
+function initAutoSave() {
+    try { autoSaveEnabled = localStorage.getItem(AUTO_SAVE_KEY) === 'on'; }
+    catch { autoSaveEnabled = false; }
+    if (autoSaveListenersAttached) return;
+    autoSaveListenersAttached = true;
+
+    // The nav toggle lives outside the module graph (plain script), so we
+    // exchange state via a custom event + localStorage rather than a direct
+    // import.
+    window.addEventListener('roadmap-autosave-changed', (e) => {
+        autoSaveEnabled = !!(e && e.detail && e.detail.enabled);
+        if (autoSaveEnabled && dirty) scheduleAutoSave();
+        else if (!autoSaveEnabled && autoSaveTimer) {
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = null;
+        }
+    });
+
+    // Flush a pending debounce when the tab is hidden so a user who switches
+    // tabs mid-edit doesn't lose work to a crash. beforeunload already prompts
+    // via the dirty check in builder.js, so we don't double-handle it.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'hidden') return;
+        if (autoSaveTimer) {
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = null;
+            performAutoSave();
+        }
+    });
+}
+
+function scheduleAutoSave() {
+    if (!autoSaveEnabled) return;
+    if (!canSave()) return; // no destination yet - silent no-op
+    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(performAutoSave, AUTO_SAVE_DEBOUNCE_MS);
+}
+
+async function performAutoSave() {
+    autoSaveTimer = null;
+    if (saving) {
+        // A manual save is in flight; retry after the debounce window so we
+        // don't drop the auto-save.
+        autoSaveTimer = setTimeout(performAutoSave, AUTO_SAVE_DEBOUNCE_MS);
+        return;
+    }
+    if (!autoSaveEnabled || !dirty || !canSave()) return;
+
+    let suggestedName = 'roadmap.json';
+    try {
+        if (typeof autoSavePrepare === 'function') {
+            const name = autoSavePrepare();
+            if (name) suggestedName = name;
+        }
+    } catch (err) {
+        console.error('auto-save prepare failed:', err);
+        return;
+    }
+    await save({ suggestedName, auto: true });
 }
 
 // Subscribe to the AppDir store once, so dirHandle/dirKind track the
@@ -63,6 +147,10 @@ function subscribeToAppDir() {
         const isUsable = snap && snap.handle && snap.permission !== 'denied';
         dirHandle = isUsable ? snap.handle : null;
         dirKind = isUsable ? snap.kind : null;
+        // If the user picks a destination after typing edits with auto-save
+        // on, the previous markDirty bailed out of scheduleAutoSave. Re-arm
+        // it now that canSave() can return true.
+        if (dirty && autoSaveEnabled) scheduleAutoSave();
     });
 }
 
@@ -107,11 +195,14 @@ export function getLastError() {
 /**
  * Save the current state.
  *
- * @param {{ suggestedName: string }} options
+ * @param {{ suggestedName: string, auto?: boolean }} options
  *   suggestedName: filename (no path) used for path 2 (creating a file
  *                  inside the AppDir folder).
+ *   auto: true when triggered by the auto-save scheduler. Suppresses the
+ *         post-save confetti so an idle-debounce write doesn't spam the
+ *         celebration animation on every keystroke pause.
  */
-export async function save({ suggestedName }) {
+export async function save({ suggestedName, auto = false }) {
     if (saving) return;
     const state = getState();
     if (!state) return;
@@ -139,7 +230,7 @@ export async function save({ suggestedName }) {
             const writable = await fileHandle.createWritable();
             await writable.write(json);
             await writable.close();
-            setStatus('saved');
+            setStatus('saved', { auto });
             return;
         }
         // Stale handle: drop it.
@@ -154,7 +245,7 @@ export async function save({ suggestedName }) {
             await writable.close();
             // Keep the handle around so subsequent saves take path 1 directly.
             fileHandle = fh;
-            setStatus('saved');
+            setStatus('saved', { auto });
             return;
         }
 
@@ -199,7 +290,7 @@ export function download({ suggestedName }) {
     setStatus('saved');
 }
 
-function setStatus(kind) {
+function setStatus(kind, { auto = false } = {}) {
     if (kind === 'saved') {
         markClean();
     }
@@ -218,6 +309,7 @@ function setStatus(kind) {
     if (kind === 'saved') {
         // Fire after the current call so listeners can read DOM positions
         // (button rect for confetti origin) without timing fragility.
-        document.dispatchEvent(new CustomEvent('roadmap:saved'));
+        // detail.auto lets the builder skip confetti for debounced auto-saves.
+        document.dispatchEvent(new CustomEvent('roadmap:saved', { detail: { auto } }));
     }
 }

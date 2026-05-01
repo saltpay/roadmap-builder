@@ -246,6 +246,20 @@
             color: #ffd84d !important;
             box-shadow: 0 0 0 1px rgba(255, 216, 77, 0.35), 0 0 8px rgba(255, 216, 77, 0.55) !important;
         }
+
+        /* Auto-save toggle: same pill geometry as the beta toggle but with a
+           green "on" state to read as a save/persistence affordance rather
+           than "experimental." */
+        #appNavAutoSave[aria-pressed="false"] {
+            opacity: 0.55 !important;
+            border-color: rgba(255, 255, 255, 0.25) !important;
+        }
+        #appNavAutoSave[aria-pressed="true"] {
+            background: rgba(110, 231, 183, 0.18) !important;
+            border-color: #6ee7b7 !important;
+            color: #6ee7b7 !important;
+            box-shadow: 0 0 0 1px rgba(110, 231, 183, 0.35), 0 0 8px rgba(110, 231, 183, 0.45) !important;
+        }
     </style>
 </head>
 <body>

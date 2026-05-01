@@ -7,6 +7,19 @@
     const nav = document.getElementById('appNav');
     if (!nav) return;
 
+    // Auto-save relies on the File System Access API; only render the toggle
+    // when the browser actually supports in-place writes (Chrome/Edge/Brave/
+    // Arc). Safari and Firefox would silently no-op, which is worse than not
+    // showing the control at all.
+    const autoSaveSupported = !!(window.AppDir && window.AppDir.canSaveInBrowser);
+
+    const autoSaveBtn = autoSaveSupported
+        ? `<button type="button" id="appNavAutoSave" class="app-nav__theme app-nav__beta app-nav__autosave" title="Toggle auto-save" aria-pressed="false">
+                <span class="app-nav__beta-icon">💾</span>
+                <span class="app-nav__beta-label" id="appNavAutoSaveLabel">Auto-save off</span>
+            </button>`
+        : '';
+
     nav.innerHTML = `
         <div class="app-nav__top">
             <a href="/builder" class="app-nav__brand" data-spa-link>🗺️ Roadmap</a>
@@ -16,6 +29,7 @@
                 ${LINKS.map(l => `<a href="${l.path}" class="app-nav__link" data-spa-link>${l.label}</a>`).join('')}
             </div>
             <button type="button" id="appNavTheme" class="app-nav__theme" title="Toggle dark mode" aria-pressed="false"></button>
+            ${autoSaveBtn}
             <button type="button" id="appNavStatusStyle" class="app-nav__theme app-nav__beta" title="Toggle experimental features" aria-pressed="false">
                 <span class="app-nav__beta-icon">🧪</span>
                 <span class="app-nav__beta-label" id="appNavStatusStyleLabel">Beta off</span>
@@ -71,6 +85,33 @@
     });
 
     renderStatusStyle();
+
+    // Auto-save toggle - only present in Chromium-based browsers (see
+    // autoSaveSupported above). Persists to localStorage and notifies the
+    // builder's save module via a custom event.
+    const autoSaveBtnEl = nav.querySelector('#appNavAutoSave');
+    const autoSaveLabel = nav.querySelector('#appNavAutoSaveLabel');
+    if (autoSaveBtnEl) {
+        const readAutoSave = () => {
+            try { return localStorage.getItem('roadmap-autosave') === 'on'; }
+            catch { return false; }
+        };
+        const renderAutoSave = () => {
+            const on = readAutoSave();
+            if (autoSaveLabel) autoSaveLabel.textContent = on ? 'Auto-save on' : 'Auto-save off';
+            autoSaveBtnEl.title = on
+                ? 'Auto-save enabled (saves shortly after each change)'
+                : 'Auto-save disabled (use Save button to write changes)';
+            autoSaveBtnEl.setAttribute('aria-pressed', on ? 'true' : 'false');
+        };
+        autoSaveBtnEl.addEventListener('click', () => {
+            const next = !readAutoSave();
+            try { localStorage.setItem('roadmap-autosave', next ? 'on' : 'off'); } catch (_e) { /* ignore */ }
+            renderAutoSave();
+            window.dispatchEvent(new CustomEvent('roadmap-autosave-changed', { detail: { enabled: next } }));
+        });
+        renderAutoSave();
+    }
 
     function updateActive(path) {
         nav.querySelectorAll('.app-nav__link').forEach(a => {
