@@ -801,9 +801,9 @@ export class RoadmapGenerator {
         const editIconHTML = getUIUtility().generateEditIconHTML(embedded, epicName, story.title, storyIndex, (text) => this.formatText(text));
 
         // The side status text box is always rendered by generateEpic. The
-        // beta toggle adds the in-bar hover popover and milestone track on top.
+        // beta toggle adds the milestone track below the bar; each pin carries
+        // its own popover that appears next to that specific icon on hover.
         const showHoverExtras = !this.isStatusStyleSide();
-        const popoverHTML = showHoverExtras ? this.generateStoryMilestonePopover(story) : '';
         const milestonesTrackHTML = showHoverExtras ? this.generateStoryMilestonesTrack(story, startGrid, endGrid) : '';
         
         // Add continuation year indicator for stories that continue past roadmap year or start before search range
@@ -872,7 +872,6 @@ export class RoadmapGenerator {
                 ${proposedIconHTML}
             ${editIconHTML}
             ${continuationYearHTML}
-            ${popoverHTML}
             ${story.imo ? `<div class="story-tags">
                 ${story.priority ? `<div class="priority-tag priority-${story.priority.toLowerCase()}">${story.priority}</div>` : ''}
                 <div class="imo-tag" style="text-shadow: -2px -2px 0 ${backgroundColor}, 2px -2px 0 ${backgroundColor}, -2px 2px 0 ${backgroundColor}, 2px 2px 0 ${backgroundColor}, 0 -2px 0 ${backgroundColor}, 0 2px 0 ${backgroundColor}, -2px 0 0 ${backgroundColor}, 2px 0 0 ${backgroundColor}, -1px -1px 0 ${backgroundColor}, 1px -1px 0 ${backgroundColor}, -1px 1px 0 ${backgroundColor}, 1px 1px 0 ${backgroundColor}, 0 -1px 0 ${backgroundColor}, 0 1px 0 ${backgroundColor}, -1px 0 0 ${backgroundColor}, 1px 0 0 ${backgroundColor};">(${story.imo})</div>
@@ -1054,34 +1053,11 @@ export class RoadmapGenerator {
         }
     }
 
-    // Generate a hover popover that lists all milestone events chronologically with notes.
-    // Triggered by hovering the story bar itself - no on-bar markers.
-    generateStoryMilestonePopover(story) {
-        const events = this.collectStoryMilestones(story);
-        if (events.length === 0) return '';
-
-        const placementClass = this.isForceTextBelow() ? ' milestone-popover--below' : '';
-
-        const rowsHTML = events.map(ev => {
-            const subtitle = ev.subtitle ? `<div class="milestone-popover-subtitle">${ev.subtitle}</div>` : '';
-            const notes = ev.notes ? `<div class="milestone-popover-notes">${this.formatText(ev.notes)}</div>` : '';
-            return `<div class="milestone-popover-row" style="--milestone-color: ${ev.color};">
-                        <span class="milestone-popover-glyph">${ev.glyph}</span>
-                        <div class="milestone-popover-body">
-                            <div class="milestone-popover-date">${ev.label || ''}</div>
-                            ${subtitle}
-                            ${notes}
-                        </div>
-                    </div>`;
-        }).join('');
-
-        return `<div class="milestone-popover${placementClass}" role="tooltip">${rowsHTML}</div>`;
-    }
-
     // Generate a hover-revealed horizontal track placed below the story bar in the
     // story-track grid. The track spans the union of story bounds and event dates,
     // with each event rendered as a pin at its actual calendar position. The story's
-    // own start/end positions are marked with ticks for context.
+    // own start/end positions are marked with ticks for context. Each pin carries
+    // its own popover with that event's date/subtitle/notes, shown on pin hover.
     generateStoryMilestonesTrack(story, storyStartGrid, storyEndGrid) {
         const events = this.collectStoryMilestones(story);
         if (events.length === 0) return '';
@@ -1104,9 +1080,22 @@ export class RoadmapGenerator {
         const storyStartPct = pctOf(storyStartGrid);
         const storyEndPct = pctOf(storyEndGrid);
 
+        // Pins emit at row 0 by default; the post-render layout pass
+        // (RoadmapGenerator.layoutMilestoneLabels) measures each label's
+        // horizontal extent and bumps overlappers to higher rows so close
+        // chronological events don't visually collide.
         const pinsHTML = positioned.map(({ ev, grid }, idx) => {
             const percent = grid === null ? storyStartPct : pctOf(grid);
-            return `<span class="milestone-pin milestone-${ev.type}" style="left: ${percent}%; --milestone-color: ${ev.color};" data-milestone-index="${idx}"><span class="milestone-pin-glyph">${ev.glyph}</span></span>`;
+            const subtitle = ev.subtitle ? `<div class="milestone-popover-subtitle">${ev.subtitle}</div>` : '';
+            const notes = ev.notes ? `<div class="milestone-popover-notes">${this.formatText(ev.notes)}</div>` : '';
+            return `<span class="milestone-pin-slot milestone-${ev.type}" style="left: ${percent}%; --milestone-color: ${ev.color};" data-milestone-index="${idx}">
+                        <span class="milestone-pin"><span class="milestone-pin-glyph">${ev.glyph}</span></span>
+                        <div class="milestone-pin-popover">
+                            <div class="milestone-popover-date">${ev.label || ''}</div>
+                            ${subtitle}
+                            ${notes}
+                        </div>
+                    </span>`;
         }).join('');
 
         return `<div class="story-milestones-track" style="--track-start: ${trackStart}; --track-end: ${trackEnd};">
@@ -1804,7 +1793,7 @@ export class RoadmapGenerator {
                 
                 function editStory() {
                     if (!selectedStory) return;
-                    
+
                     // Open roadmap builder with story details
                     const builderUrl = '/builder';
                     const params = new URLSearchParams({
@@ -1813,10 +1802,76 @@ export class RoadmapGenerator {
                         story: selectedStory.storyTitle,
                         index: selectedStory.storyIndex
                     });
-                    
+
                     window.open(builderUrl + '?' + params.toString(), '_blank');
                 }
-                
+
+                // Milestone label collision pass: greedy row assignment so
+                // close-together pins in the milestones track don't overlap.
+                // Mirrors RoadmapGenerator.layoutMilestoneLabels for standalone
+                // exports / iframes that don't load the module class.
+                function layoutMilestoneLabels() {
+                    const tracks = document.querySelectorAll('.story-milestones-track');
+                    const BUFFER_PX = 4;
+                    const ROW_STEP_PX = 50;
+                    tracks.forEach(function (track) {
+                        const slots = Array.from(track.querySelectorAll('.milestone-pin-slot'));
+                        if (slots.length === 0) return;
+                        slots.forEach(function (s) { s.style.setProperty('--milestone-row', '0'); });
+                        const measured = slots.map(function (slot) {
+                            const popover = slot.querySelector('.milestone-pin-popover');
+                            if (!popover) return null;
+                            const rect = popover.getBoundingClientRect();
+                            return { slot: slot, left: rect.left, right: rect.right };
+                        }).filter(Boolean).sort(function (a, b) { return a.left - b.left; });
+                        const rows = [];
+                        for (const item of measured) {
+                            let row = 0;
+                            while (row < 50) {
+                                if (!rows[row]) rows[row] = [];
+                                const conflicts = rows[row].some(function (r) {
+                                    return item.left < r.right + BUFFER_PX && item.right + BUFFER_PX > r.left;
+                                });
+                                if (!conflicts) {
+                                    rows[row].push({ left: item.left, right: item.right });
+                                    item.slot.style.setProperty('--milestone-row', String(row));
+                                    break;
+                                }
+                                row++;
+                            }
+                        }
+
+                        let layer = track.querySelector(':scope > .milestone-connectors');
+                        if (!layer) {
+                            layer = document.createElement('div');
+                            layer.className = 'milestone-connectors';
+                            track.insertBefore(layer, track.firstChild);
+                        }
+                        layer.replaceChildren();
+                        slots.forEach(function (slot) {
+                            const row = parseInt(slot.style.getPropertyValue('--milestone-row') || '0', 10);
+                            if (!row) return;
+                            const conn = document.createElement('span');
+                            conn.className = 'milestone-pin-connector';
+                            conn.style.left = slot.style.left || '0%';
+                            conn.style.height = (row * ROW_STEP_PX + 6) + 'px';
+                            conn.style.setProperty('--milestone-color', slot.style.getPropertyValue('--milestone-color') || 'currentColor');
+                            layer.appendChild(conn);
+                        });
+                    });
+                }
+                document.addEventListener('DOMContentLoaded', function () {
+                    requestAnimationFrame(layoutMilestoneLabels);
+                });
+                let __milestoneResizeScheduled = false;
+                window.addEventListener('resize', function () {
+                    if (__milestoneResizeScheduled) return;
+                    __milestoneResizeScheduled = true;
+                    requestAnimationFrame(function () {
+                        __milestoneResizeScheduled = false;
+                        layoutMilestoneLabels();
+                    });
+                });
 
             </script>
         </body>
@@ -1827,10 +1882,99 @@ export class RoadmapGenerator {
     generateEmbeddedRoadmap(teamData, enableEditing = true, fixedWidth = false) {
         return this.generateRoadmap(teamData, true, enableEditing, fixedWidth);
     }
+
+    // Greedy collision pass for milestone labels. Each pin starts at row 0;
+    // any label whose horizontal extent overlaps an already-placed label in
+    // the same row is bumped to the next free row. Sets --milestone-row on
+    // the slot, which CSS uses to vertical-offset the label. Connector
+    // lines from pin to staggered label are drawn into a per-track
+    // .milestone-connectors layer that sits behind every slot, so the line
+    // never paints over a neighbouring label. Idempotent.
+    static layoutMilestoneLabels(root) {
+        if (!root || typeof root.querySelectorAll !== 'function') return;
+        const tracks = root.querySelectorAll('.story-milestones-track');
+        const BUFFER_PX = 4;
+        const ROW_STEP_PX = 50;
+        tracks.forEach(track => {
+            const slots = Array.from(track.querySelectorAll('.milestone-pin-slot'));
+            if (slots.length === 0) return;
+            slots.forEach(slot => slot.style.setProperty('--milestone-row', '0'));
+            const measured = slots.map(slot => {
+                const popover = slot.querySelector('.milestone-pin-popover');
+                if (!popover) return null;
+                const rect = popover.getBoundingClientRect();
+                return { slot, left: rect.left, right: rect.right };
+            }).filter(Boolean).sort((a, b) => a.left - b.left);
+            const rows = [];
+            for (const item of measured) {
+                let row = 0;
+                while (row < 50) {
+                    if (!rows[row]) rows[row] = [];
+                    const conflicts = rows[row].some(r =>
+                        item.left < r.right + BUFFER_PX && item.right + BUFFER_PX > r.left
+                    );
+                    if (!conflicts) {
+                        rows[row].push({ left: item.left, right: item.right });
+                        item.slot.style.setProperty('--milestone-row', String(row));
+                        break;
+                    }
+                    row++;
+                }
+            }
+
+            let layer = track.querySelector(':scope > .milestone-connectors');
+            if (!layer) {
+                layer = track.ownerDocument.createElement('div');
+                layer.className = 'milestone-connectors';
+                track.insertBefore(layer, track.firstChild);
+            }
+            layer.replaceChildren();
+            slots.forEach(slot => {
+                const row = parseInt(slot.style.getPropertyValue('--milestone-row') || '0', 10);
+                if (!row) return;
+                const conn = track.ownerDocument.createElement('span');
+                conn.className = 'milestone-pin-connector';
+                conn.style.left = slot.style.left || '0%';
+                conn.style.height = `${row * ROW_STEP_PX + 6}px`;
+                conn.style.setProperty('--milestone-color', slot.style.getPropertyValue('--milestone-color') || 'currentColor');
+                layer.appendChild(conn);
+            });
+        });
+    }
 }
 
 // Phase 2 will remove this. Inline scripts in views still resolve `RoadmapGenerator`
 // against window; we keep that working until those scripts move to imports.
 if (typeof window !== 'undefined') {
     window.RoadmapGenerator = RoadmapGenerator;
+}
+
+// Auto-run the milestone layout pass whenever roadmap content appears or the
+// viewport resizes. Operates on the document so it works for the main app
+// and inside roadmap iframes (each iframe loads its own copy of this file).
+if (typeof document !== 'undefined' && typeof MutationObserver !== 'undefined') {
+    let scheduled = false;
+    const schedule = () => {
+        if (scheduled) return;
+        scheduled = true;
+        requestAnimationFrame(() => {
+            scheduled = false;
+            RoadmapGenerator.layoutMilestoneLabels(document);
+        });
+    };
+    const containsTrack = (node) => node.nodeType === 1 && (
+        node.matches?.('.story-milestones-track') ||
+        node.querySelector?.('.story-milestones-track')
+    );
+    const observer = new MutationObserver(mutations => {
+        for (const m of mutations) {
+            for (const node of m.addedNodes) {
+                if (containsTrack(node)) { schedule(); return; }
+            }
+        }
+    });
+    const start = () => observer.observe(document.body, { childList: true, subtree: true });
+    if (document.body) start();
+    else document.addEventListener('DOMContentLoaded', start, { once: true });
+    window.addEventListener('resize', schedule);
 }
