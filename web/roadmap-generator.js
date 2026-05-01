@@ -800,12 +800,11 @@ export class RoadmapGenerator {
         // Add edit icon only in embedded mode (builder view)
         const editIconHTML = getUIUtility().generateEditIconHTML(embedded, epicName, story.title, storyIndex, (text) => this.formatText(text));
 
-        // Hover popover and milestone track are only used by the hover layout.
-        // When the user has switched to the legacy side placement, status
-        // events are rendered as a roadmap-text box by generateEpic instead.
-        const useSideStatusStyle = this.isStatusStyleSide();
-        const popoverHTML = useSideStatusStyle ? '' : this.generateStoryMilestonePopover(story);
-        const milestonesTrackHTML = useSideStatusStyle ? '' : this.generateStoryMilestonesTrack(story, startGrid, endGrid);
+        // The side status text box is always rendered by generateEpic. The
+        // beta toggle adds the in-bar hover popover and milestone track on top.
+        const showHoverExtras = !this.isStatusStyleSide();
+        const popoverHTML = showHoverExtras ? this.generateStoryMilestonePopover(story) : '';
+        const milestonesTrackHTML = showHoverExtras ? this.generateStoryMilestonesTrack(story, startGrid, endGrid) : '';
         
         // Add continuation year indicator for stories that continue past roadmap year or start before search range
         let continuationYearHTML = '';
@@ -1671,15 +1670,11 @@ export class RoadmapGenerator {
                 return getDateUtility().compareDateOrMonth(aEnd, bEnd, this.roadmapYear);
             }) : epic.stories;
         
-        const useSideStatusStyle = this.isStatusStyleSide();
         storiesToProcess.forEach((story, storyIndex) => {
             const storyHTML = this.generateStory(story, epic.name, storyIndex, embedded, backgroundColor, epic.epicId || '');
-            // In hover mode, status events live inside the story bar (popover + track).
-            // In side mode, render the legacy roadmap-text box positioned beside or below
-            // the story bar.
-            const sideStatusHTML = useSideStatusStyle
-                ? this.generateSideStatusTextBox(story, epic.name, storyIndex, backgroundColor)
-                : '';
+            // Side status text box is always rendered. The beta toggle adds the
+            // hover popover + milestone track inside the story bar on top of it.
+            const sideStatusHTML = this.generateSideStatusTextBox(story, epic.name, storyIndex, backgroundColor);
             tracksHTML += `<div class="story-track">${storyHTML}${sideStatusHTML}</div>`;
         });
 

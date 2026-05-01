@@ -136,11 +136,11 @@ export class IMOUtility {
             const storyIMO = story.imo.toString().trim().toLowerCase();
             
             if (isNumericOnly) {
-                // Exact match for numeric searches (e.g., "001" won't match "0011")
-                return storyIMO === searchTerm;
-            } else {
-                // Partial match for text/mixed searches
+                // Substring match so "0043" matches "IMP 0043", "IMO-0043", etc.
                 return storyIMO.includes(searchTerm);
+            } else {
+                // Prefix match for text/mixed searches
+                return storyIMO.startsWith(searchTerm);
             }
         });
     }
@@ -331,16 +331,25 @@ export class IMOUtility {
         }
         
         const cleanQuery = query.trim();
-        
+
+        // Month names that belong to timeline search — not treated as IMO prefixes
+        const MONTH_NAMES = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)$/i;
+
+        // "!XYZ" — stories whose IMO field does NOT start with XYZ
+        const negatedPrefixMatch = cleanQuery.match(/^!([a-zA-Z]{2,8})$/);
+        if (negatedPrefixMatch && !MONTH_NAMES.test(negatedPrefixMatch[1])) {
+            return { type: 'imo', value: negatedPrefixMatch[1].toLowerCase(), negated: true };
+        }
+
         // IMO/Project ID pattern: "IMO 0043" or "IMO SomeProject" (with IMO prefix and any value)
         const imoWithPrefixMatch = cleanQuery.match(/^imo\s+(.+)$/i);
         if (imoWithPrefixMatch) {
             return { type: 'imo', value: imoWithPrefixMatch[1].trim() };
         }
-        
-        // Just "IMO" - search for all stories with any IMO tag
-        if (/^imo$/i.test(cleanQuery)) {
-            return { type: 'imo', value: 'all' };
+
+        // Bare alphabetic code (e.g. "IMO", "IMP", "RR") — stories whose IMO field starts with it
+        if (/^[a-zA-Z]{2,8}$/.test(cleanQuery) && !MONTH_NAMES.test(cleanQuery) && !/^q[1-4]$/i.test(cleanQuery)) {
+            return { type: 'imo', value: cleanQuery.toLowerCase() };
         }
         
         // Standalone numeric value - treat as IMO search (e.g., "0043")
@@ -348,6 +357,12 @@ export class IMOUtility {
             return { type: 'imo', value: cleanQuery };
         }
         
+        // EndDate filter: "EndDate=15/Mar/25" or "EndDate=15/03"
+        const endDateMatch = cleanQuery.match(/^enddate=(.+)$/i);
+        if (endDateMatch) {
+            return { type: 'enddate', value: endDateMatch[1].trim() };
+        }
+
         // Quarter pattern: "Q1", "Q2", etc.
         if (/^q[1-4]$/i.test(cleanQuery)) {
             return { type: 'timeline', value: cleanQuery.toLowerCase() };
@@ -364,18 +379,77 @@ export class IMOUtility {
      * @returns {Array} - Filtered stories matching the search
      */
     static searchStories(allStories, searchQuery) {
-        const { type, value } = this.parseSearchQuery(searchQuery);
-        
+        // Support "||" to combine filters: positive terms union, negated terms intersect
+        if (searchQuery && searchQuery.includes('||')) {
+            const parts = searchQuery.split('||').map(p => p.trim()).filter(Boolean);
+            const negatedParts = parts.filter(p => p.startsWith('!'));
+            const positiveParts = parts.filter(p => !p.startsWith('!'));
+
+            let result = [];
+
+            if (positiveParts.length > 0) {
+                // Union: stories matching any positive term
+                const seen = new Set();
+                for (const part of positiveParts) {
+                    for (const story of this.searchStories(allStories, part)) {
+                        const key = `${story.teamName}-${story.title}`;
+                        if (!seen.has(key)) { seen.add(key); result.push(story); }
+                    }
+                }
+            }
+
+            if (negatedParts.length > 0) {
+                // Intersection: stories excluded by ALL negated terms (i.e. match none of the positive bases)
+                let pool = positiveParts.length > 0 ? result : allStories;
+                for (const part of negatedParts) {
+                    const excluded = new Set(
+                        this.searchStories(allStories, part.slice(1)).map(s => `${s.teamName}-${s.title}`)
+                    );
+                    pool = pool.filter(s => !excluded.has(`${s.teamName}-${s.title}`));
+                }
+                result = pool;
+            }
+
+            return result;
+        }
+
+        const { type, value, negated } = this.parseSearchQuery(searchQuery);
+
         if (!type) return [];
-        
+
         if (type === 'imo') {
-            return this.filterStoriesByIMO(allStories, value);
+            const matches = this.filterStoriesByIMO(allStories, value);
+            if (negated) {
+                const matchedKeys = new Set(matches.map(s => `${s.teamName}-${s.title}`));
+                return allStories.filter(s => !matchedKeys.has(`${s.teamName}-${s.title}`));
+            }
+            return matches;
+        } else if (type === 'enddate') {
+            if (!value) return [];
+            return this.filterStoriesByEndDate(allStories, value);
         } else if (type === 'timeline') {
             if (!value) return [];
             return this.filterStoriesByTimeline(allStories, value);
         }
-        
+
         return [];
+    }
+
+    /**
+     * Filter stories whose end date matches the given date string exactly.
+     * Accepts day/month/year or day/month (e.g. "15/Mar/25", "15/03/25", "15/Mar").
+     */
+    static filterStoriesByEndDate(stories, dateStr) {
+        if (!dateStr || !Array.isArray(stories)) return [];
+        const defaultYear = (typeof builderRoadmapYear !== 'undefined' && builderRoadmapYear)
+            ? builderRoadmapYear
+            : new Date().getFullYear();
+        const targetISO = this.convertStoryDateToISO(dateStr, defaultYear);
+        if (!targetISO) return [];
+        return stories.filter(story => {
+            const storyISO = this.convertStoryDateToISO(story.endDate || story.endMonth || '', story.roadmapYear || defaultYear);
+            return storyISO === targetISO;
+        });
     }
     
     /**

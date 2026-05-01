@@ -415,6 +415,14 @@ body {
     transition: opacity 0.2s ease;
 }
 
+/* Keep the side status text box in focus when its companion story bar is
+   hovered (and vice versa). Both share the same .story-track parent. */
+.roadmap-container:has(.story-item:hover, .story-hover, .roadmap-text:hover)
+    .story-track:has(.story-item:hover, .story-item.story-hover, .roadmap-text:hover)
+    :is(.story-item, .roadmap-text) {
+    opacity: 1;
+}
+
 /* Cancelled Stories */
 .story-cancelled {
     background-color: var(--rm-surface-disabled);

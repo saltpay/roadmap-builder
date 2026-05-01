@@ -1310,6 +1310,7 @@ export function init(_root) {
             displaySearchResults(currentResults, lastSearchQuery, null, teamInfoMap);
         });
 
+
         function handleSearchForceTextBelowToggle() {
             const toggle = document.getElementById('search-force-text-below-toggle');
             if (toggle) {
