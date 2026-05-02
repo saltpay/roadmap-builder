@@ -335,8 +335,8 @@ export class IMOUtility {
         // Month names that belong to timeline search — not treated as IMO prefixes
         const MONTH_NAMES = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)$/i;
 
-        // "!XYZ" — stories whose IMO field does NOT start with XYZ
-        const negatedPrefixMatch = cleanQuery.match(/^!([a-zA-Z]{2,8})$/);
+        // "!XYZ" / "!IMO1" — stories whose IMO field does NOT start with XYZ
+        const negatedPrefixMatch = cleanQuery.match(/^!([a-zA-Z][a-zA-Z0-9]{1,7})$/);
         if (negatedPrefixMatch && !MONTH_NAMES.test(negatedPrefixMatch[1])) {
             return { type: 'imo', value: negatedPrefixMatch[1].toLowerCase(), negated: true };
         }
@@ -347,8 +347,8 @@ export class IMOUtility {
             return { type: 'imo', value: imoWithPrefixMatch[1].trim() };
         }
 
-        // Bare alphabetic code (e.g. "IMO", "IMP", "RR") — stories whose IMO field starts with it
-        if (/^[a-zA-Z]{2,8}$/.test(cleanQuery) && !MONTH_NAMES.test(cleanQuery) && !/^q[1-4]$/i.test(cleanQuery)) {
+        // Bare alphanumeric code starting with a letter (e.g. "IMO", "IMP", "IMO1", "RR") — stories whose IMO field starts with it
+        if (/^[a-zA-Z][a-zA-Z0-9]{1,7}$/.test(cleanQuery) && !MONTH_NAMES.test(cleanQuery) && !/^q[1-4]$/i.test(cleanQuery)) {
             return { type: 'imo', value: cleanQuery.toLowerCase() };
         }
         
@@ -379,6 +379,17 @@ export class IMOUtility {
      * @returns {Array} - Filtered stories matching the search
      */
     static searchStories(allStories, searchQuery) {
+        // Support "&&" to combine filters: stories must match ALL terms
+        if (searchQuery && searchQuery.includes('&&')) {
+            const parts = searchQuery.split('&&').map(p => p.trim()).filter(Boolean);
+            let result = allStories;
+            for (const part of parts) {
+                const matched = new Set(this.searchStories(allStories, part).map(s => `${s.teamName}-${s.title}`));
+                result = result.filter(s => matched.has(`${s.teamName}-${s.title}`));
+            }
+            return result;
+        }
+
         // Support "||" to combine filters: positive terms union, negated terms intersect
         if (searchQuery && searchQuery.includes('||')) {
             const parts = searchQuery.split('||').map(p => p.trim()).filter(Boolean);
