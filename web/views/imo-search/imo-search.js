@@ -2078,7 +2078,8 @@ export function init(_root) {
                 
                 // Handle status names
                 const storyPriority = (story.priority || '').toLowerCase();
-                const hasIMO = Boolean((story.imo || '').toString().trim());
+                const storyImo = (story.imo || '').toString().trim().toLowerCase();
+                const hasIMO = storyImo.startsWith('imo');
                 const hasPriority = storyPriority.length > 0;
                 const statusMap = {
                     'Done': story.isDone,
