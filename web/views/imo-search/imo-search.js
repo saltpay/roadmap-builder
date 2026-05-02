@@ -1874,42 +1874,25 @@ export function init(_root) {
                     result = IMOUtility.searchStoriesByDateRange(result, startDate, endDate, searchMode);
                 }
 
-                // Status filter - apply if any status filters are active
+                // Status checkbox filter
                 if (!opts.skipStatus) {
-                    // Check if advanced expression is provided
-                    const advancedExpression = document.getElementById('advancedFilterExpression')?.value.trim();
-                    
-                    if (advancedExpression) {
-                        // Use expression-based filtering
+                    const filters = {
+                        filterNew: statusFilterStates.filterNew,
+                        filterDone: statusFilterStates.filterDone,
+                        filterCancelled: statusFilterStates.filterCancelled,
+                        filterAtRisk: statusFilterStates.filterAtRisk,
+                        filterTimeline: statusFilterStates.filterTimeline,
+                        filterProposed: statusFilterStates.filterProposed,
+                        filterInfo: statusFilterStates.filterInfo,
+                        filterTransferredIn: statusFilterStates.filterTransferredIn,
+                        filterTransferredOut: statusFilterStates.filterTransferredOut
+                    };
+
+                    const hasIncludeFilters = Object.values(filters).some(state => state === 'include');
+                    const hasExcludeFilters = Object.values(filters).some(state => state === 'exclude');
+
+                    if (hasIncludeFilters || hasExcludeFilters) {
                         result = result.filter(story => {
-                            const matches = evaluateFilterExpression(advancedExpression, story);
-                            // If expression is invalid (null), don't filter
-                            return matches === null ? true : matches;
-                        });
-                    } else {
-                        // Use checkbox-based filtering
-                        // Get all filter states
-                        const filters = {
-                            filterNew: statusFilterStates.filterNew,
-                            filterDone: statusFilterStates.filterDone,
-                            filterCancelled: statusFilterStates.filterCancelled,
-                            filterAtRisk: statusFilterStates.filterAtRisk,
-                            filterTimeline: statusFilterStates.filterTimeline,
-                            filterProposed: statusFilterStates.filterProposed,
-                            filterInfo: statusFilterStates.filterInfo,
-                            filterTransferredIn: statusFilterStates.filterTransferredIn,
-                            filterTransferredOut: statusFilterStates.filterTransferredOut
-                        };
-                        
-                        // Check if any filters are active (include or exclude)
-                        const hasIncludeFilters = Object.values(filters).some(state => state === 'include');
-                        const hasExcludeFilters = Object.values(filters).some(state => state === 'exclude');
-                        const anyFilterActive = hasIncludeFilters || hasExcludeFilters;
-                    
-                    if (anyFilterActive) {
-                        // Use OR logic for checkboxes (simpler without the button)
-                        result = result.filter(story => {
-                            // Helper function to check story status
                             const hasStatus = (filterKey) => {
                                 switch(filterKey) {
                                     case 'filterNew': return story.isNewStory;
@@ -1924,38 +1907,37 @@ export function init(_root) {
                                     default: return false;
                                 }
                             };
-                            
-                            // First, check all EXCLUDE conditions - these must ALL pass regardless of mode
+
                             for (const [filterKey, state] of Object.entries(filters)) {
-                                if (state === 'exclude' && hasStatus(filterKey)) {
-                                    return false; // Story has a status that should be excluded
-                                }
+                                if (state === 'exclude' && hasStatus(filterKey)) return false;
                             }
-                            
-                            // If there are no INCLUDE filters, and we passed all EXCLUDE checks, include the story
-                            if (!hasIncludeFilters) {
-                                return true;
-                            }
-                            
-                            // OR logic: Story must have at least ONE included status
+                            if (!hasIncludeFilters) return true;
                             for (const [filterKey, state] of Object.entries(filters)) {
-                                if (state === 'include' && hasStatus(filterKey)) {
-                                    return true;
-                                }
+                                if (state === 'include' && hasStatus(filterKey)) return true;
                             }
                             return false;
                         });
                     }
-                    }
                 }
             } catch (e) {
-                
+
             }
 
-            // Product Roadmap filter - filter to only items included in product roadmap
+            // Product Roadmap filter
             const productRoadmapOnly = document.getElementById('filterProductRoadmapOnly')?.checked;
             if (!opts.skipProductRoadmap && productRoadmapOnly) {
                 result = result.filter(story => story.includeInProductRoadmap === true);
+            }
+
+            // Advanced expression filter — runs last so it applies on top of all other filters
+            if (!opts.skipStatus) {
+                const advancedExpression = document.getElementById('advancedFilterExpression')?.value.trim();
+                if (advancedExpression) {
+                    result = result.filter(story => {
+                        const matches = evaluateFilterExpression(advancedExpression, story);
+                        return matches === null ? true : matches;
+                    });
+                }
             }
 
             return result;
@@ -2122,12 +2104,34 @@ export function init(_root) {
                 
                 // Case-insensitive lookup
                 const statusKey = Object.keys(statusMap).find(key => key.toLowerCase() === token.toLowerCase());
-                
+
                 if (statusKey !== undefined) {
                     pos++; // consume status name
                     return statusMap[statusKey] || false;
                 }
-                
+
+                // Quarter tokens: Q1, Q2, Q3, Q4
+                if (/^q[1-4]$/i.test(token)) {
+                    pos++;
+                    const endVal = (story.endDate || story.endMonth || '').toString();
+                    const roadmapYear = story.roadmapYear || new Date().getFullYear();
+                    const isoDate = IMOUtility.convertStoryDateToISO(endVal, roadmapYear);
+                    if (isoDate) {
+                        const month = parseInt(isoDate.split('-')[1]);
+                        const quarter = month <= 3 ? 'q1' : month <= 6 ? 'q2' : month <= 9 ? 'q3' : 'q4';
+                        return quarter === token.toLowerCase();
+                    }
+                    return IMOUtility.getQuarterFromDate(endVal.toLowerCase()) === token.toLowerCase();
+                }
+
+                // Month tokens: Jan, February, Mar, etc.
+                const MONTH_RE = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)$/i;
+                if (MONTH_RE.test(token)) {
+                    pos++;
+                    const endVal = (story.endDate || story.endMonth || '').toString().toLowerCase();
+                    return endVal.includes(token.toLowerCase());
+                }
+
                 throw new Error(`Unknown status: ${token}`);
             };
             

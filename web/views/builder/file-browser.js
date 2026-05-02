@@ -261,11 +261,8 @@ export function createFileBrowser({
             selectedDirectoryHandle = snap.handle;
             await loadDirectoryFiles();
 
-            // Auto-expand the panel the first time a folder gets selected.
             if (snap.handle !== lastHandle) {
                 lastHandle = snap.handle;
-                const panel = document.getElementById('fileBrowserPanel');
-                if (panel && panel.classList.contains('collapsed')) toggleFileBrowser();
             }
         });
     }

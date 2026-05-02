@@ -402,15 +402,15 @@ body {
     transform: translateX(1px) scale(1.05);
 }
 
-/* Focus dim effect: when any story bar is hovered (or synchronized via JS),
-   fade non-focused stories and KTLO monthly boxes so attention follows the
-   active item. Uses :has() so a single rule covers regular hover and the
+/* Focus dim effect: when any story bar or textbox is hovered (or synchronized
+   via JS), fade non-focused stories and KTLO monthly boxes so attention follows
+   the active item. Uses :has() so a single rule covers regular hover and the
    external .story-hover/.textbox-hover triggers. The hovered element itself
    is excluded so it stays at full opacity. */
-.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover) .story-item:not(:hover):not(.story-hover),
-.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover) .ktlo-story:not(:hover):not(.story-hover),
-.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover) .monthly-box-content,
-.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover) .roadmap-text:not(.textbox-hover) {
+.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover, .roadmap-text:hover) .story-item:not(:hover):not(.story-hover),
+.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover, .roadmap-text:hover) .ktlo-story:not(:hover):not(.story-hover),
+.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover, .roadmap-text:hover) .monthly-box-content,
+.roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover, .roadmap-text:hover) .roadmap-text:not(.textbox-hover):not(:hover) {
     opacity: 0.35;
     transition: opacity 0.2s ease;
 }
