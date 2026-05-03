@@ -1974,7 +1974,7 @@ export function init(_root) {
             // suffix regex requires at least one non-operator character.
             processedExpr = processedExpr.replace(/\bIMO([^\s!&|()"]+)/gi, (match, value) => {
                 const imo = (story.imo || '').toLowerCase();
-                return imo.includes(value.toLowerCase()) ? 'TRUE' : 'FALSE';
+                return imo.startsWith(('imo' + value).toLowerCase()) ? 'TRUE' : 'FALSE';
             });
 
             // PRIORITY="value" - matches priority value (exact, case-insensitive)
