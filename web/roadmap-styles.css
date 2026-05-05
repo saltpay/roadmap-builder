@@ -342,32 +342,38 @@ body {
 .ktlo-story.story-zoom-large:hover {
     transform: translateX(-4px) scale(1.20);
     z-index: 200;
+    transition: transform 0.2s ease 0.4s;
 }
 
 .ktlo-story.story-zoom-medium:hover {
     transform: translateX(-4px) scale(1.15);
     z-index: 200;
+    transition: transform 0.2s ease 0.4s;
 }
 
 .ktlo-story.story-zoom-small:hover {
     transform: translateX(-4px) scale(1.05);
     z-index: 200;
+    transition: transform 0.2s ease 0.4s;
 }
 
 /* Story States - Graduated Zoom Levels */
 .story-zoom-large:hover {
     transform: scale(1.20);
     z-index: 200;
+    transition: transform 0.2s ease 0.4s;
 }
 
 .story-zoom-medium:hover {
     transform: scale(1.15);
     z-index: 200;
+    transition: transform 0.2s ease 0.4s;
 }
 
 .story-zoom-small:hover {
     transform: scale(1.05);
     z-index: 200;
+    transition: transform 0.2s ease 0.4s;
 }
 
 .story-positioned-january {
@@ -380,26 +386,32 @@ body {
 
 .story-positioned-january.story-zoom-large:hover {
     transform: translateX(-4px) scale(1.20);
+    transition: transform 0.2s ease 0.4s;
 }
 
 .story-positioned-october.story-zoom-large:hover {
     transform: translateX(1px) scale(1.20);
+    transition: transform 0.2s ease 0.4s;
 }
 
 .story-positioned-january.story-zoom-medium:hover {
     transform: translateX(-4px) scale(1.15);
+    transition: transform 0.2s ease 0.4s;
 }
 
 .story-positioned-october.story-zoom-medium:hover {
     transform: translateX(1px) scale(1.15);
+    transition: transform 0.2s ease 0.4s;
 }
 
 .story-positioned-january.story-zoom-small:hover {
     transform: translateX(-4px) scale(1.05);
+    transition: transform 0.2s ease 0.4s;
 }
 
 .story-positioned-october.story-zoom-small:hover {
     transform: translateX(1px) scale(1.05);
+    transition: transform 0.2s ease 0.4s;
 }
 
 /* Focus dim effect: when any story bar or textbox is hovered (or synchronized
@@ -412,7 +424,7 @@ body {
 .roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover, .roadmap-text:hover) .monthly-box-content,
 .roadmap-container:has(.story-item:hover, .ktlo-story:hover, .story-hover, .textbox-hover, .roadmap-text:hover) .roadmap-text:not(.textbox-hover):not(:hover) {
     opacity: 0.35;
-    transition: opacity 0.2s ease;
+    transition: opacity 0.2s ease 0.4s;
 }
 
 /* Keep the story bar in focus when its companion side status text box is
@@ -804,6 +816,7 @@ html[data-status-style="side"]
     transform: scale(1.3);
     z-index: 300;
     box-shadow: var(--rm-hover-shadow);
+    transition: transform 0.2s ease 0.4s, box-shadow 0.2s ease 0.4s;
 }
 
 .roadmap-text:hover * {
