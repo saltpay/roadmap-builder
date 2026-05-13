@@ -5,7 +5,7 @@
 //     section (used when a roadmap is loaded with KTLO disabled).
 //   - repositionKTLOSection: moves the KTLO header+content above EPICs (top)
 //     or between EPICs and BTL (bottom) based on the position checkbox.
-//   - handleKTLOToggleShortcut: Ctrl+K keyboard shortcut binding.
+//   - handleKTLOToggleShortcut: Shift+K keyboard shortcut binding.
 //   - toggleKTLOPosition: the action - flips the toggle, repositions, refreshes
 //     the preview, and surfaces a toast.
 
@@ -60,7 +60,7 @@ export function repositionKTLOSection() {
 }
 
 function showKTLOPositionNotification(isTop) {
-    showToast(`KTLO moved to ${isTop ? 'TOP' : 'BOTTOM'} (Ctrl+K to toggle)`);
+    showToast(`KTLO moved to ${isTop ? 'TOP' : 'BOTTOM'} (Shift+K to toggle)`);
 }
 
 /**
@@ -117,7 +117,7 @@ export function createKTLOSectionHandlers({ initializeDatePickersForSection, gen
         );
         if (isEditable) return;
 
-        if (!((event.metaKey || event.ctrlKey) && event.key === 'k')) return;
+        if (!(event.shiftKey && event.key === 'K')) return;
 
         // If KTLO is hidden via JSON (originalPosition === 'hidden'), the
         // shortcut is a no-op until the user explicitly enables KTLO.
